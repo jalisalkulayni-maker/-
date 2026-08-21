@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#030705">
+    <title>خزانة علوم العترة</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+<body>
+
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div class="noise-overlay"></div>
+
+    <!-- ================= الشاشة الرئيسية (الرواق) ================= -->
+    <main id="homeView" class="stage-view active">
+        <header class="royal-header">
+            <div>
+                <div class="tag-gold">✦ جليس الكليني</div>
+                <h1 class="main-title">خزانة علوم العترة</h1>
+            </div>
+            <button class="tactile-btn icon-btn" onclick="openSearch()">
+                <i class="fas fa-search text-gold"></i>
+            </button>
+        </header>
+
+        <!-- سلايدر الإشراقات -->
+        <section class="slider-container">
+            <div class="glass-slider" id="mainSlider">
+                <div class="slide tactile-btn">
+                    <div class="slide-content glass-box">
+                        <div class="slide-text">
+                            <span class="tag-gold-bg">✦ قناة جليس الكليني</span>
+                            <h2 class="text-white">مكتبة سيد الساجدين</h2>
+                            <p class="text-muted">مجموعة منتقاة من أمهات الكتب ومسندات الحديث...</p>
+                        </div>
+                        <a href="https://t.me/Jali4s" target="_blank" class="play-btn"><i class="fab fa-telegram-plane"></i></a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- شبكة رفوف الكتب -->
+        <section class="books-section">
+            <h3 class="text-white" style="margin: 0 20px 10px; font-size: 15px;">خزانة المتون والمؤلفات</h3>
+            <div class="books-grid-container" id="dynamicBooksContainer">
+                <div style="color:var(--text-muted); padding: 0 20px; grid-column: span 2; text-align: center;">جاري جلب الكتب من السحابة...</div>
+            </div>
+        </section>
+        <div style="height: 100px;"></div>
+    </main>
+
+    <!-- ================= شاشة القارئ الفاخرة ================= -->
+    <main id="readerView" class="stage-view">
+        <header class="reader-top-bar">
+            <button class="tactile-btn icon-btn-flat" onclick="closeReader()">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            <div class="reader-title-container">
+                <h1 id="readerTitle" class="reader-header-title">جاري التحميل...</h1>
+            </div>
+            <div class="reader-top-actions">
+                <button class="tactile-btn icon-btn-flat" onclick="openTocModal()" title="الفهرس"><i class="fas fa-list-ul"></i></button>
+                <button class="tactile-btn icon-btn-flat" onclick="openSettings()" title="الخط"><i class="fas fa-font"></i></button>
+                <button class="tactile-btn icon-btn-flat" onclick="openSearch()" title="بحث"><i class="fas fa-search"></i></button>
+            </div>
+        </header>
+
+        <!-- ورقة القراءة بهوامش دقيقة -->
+        <section class="reader-paper-section">
+            <div class="reader-paper-box">
+                <div id="pageContent" style="color: #18241D; font-size: 21px; font-family: 'Amiri', serif; text-align: justify;">
+                    <!-- محتوى الصفحة -->
+                </div>
+            </div>
+        </section>
+
+        <!-- شريط التمرير والتقليب السفلي -->
+        <footer class="reader-bottom-bar">
+            <div class="slider-progress-wrapper">
+                <button class="tactile-btn footer-arrow-btn" onclick="nextPage()"><i class="fas fa-chevron-right"></i></button>
+                
+                <span id="currentPaginationLabel" class="pagination-text">1</span>
+                <input type="range" id="pageRangeSlider" min="1" max="100" value="1" class="custom-range-slider" oninput="slidePageChanged(this.value)">
+                <span id="totalPaginationLabel" class="pagination-text">1</span>
+                
+                <button class="tactile-btn footer-arrow-btn" onclick="prevPage()"><i class="fas fa-chevron-left"></i></button>
+            </div>
+        </footer>
+    </main>
+
+    <!-- ================= نافذة الفهرست (Modal TOC) ================= -->
+    <div id="tocModal" class="glass-modal">
+        <div class="modal-content glass-box" style="max-height: 80vh; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(212,175,55,0.3); padding-bottom: 8px;">
+                <h3 class="text-gold" style="font-size: 16px;"><i class="fas fa-list-ul"></i> فهرس الأبواب والعناوين</h3>
+                <i class="fas fa-times text-muted tactile-btn" onclick="closeTocModal()" style="font-size: 18px; cursor: pointer;"></i>
+            </div>
+            <div id="tocListContainer" class="toc-scroll-list">
+                <!-- قائمة الأبواب ستولد هنا -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= شاشة البحث الشامل ================= -->
+    <main id="searchView" class="stage-view">
+        <header class="royal-header">
+            <button class="tactile-btn icon-btn" onclick="closeSearch()">
+                <i class="fas fa-arrow-right text-gold"></i>
+            </button>
+            <h1 class="main-title" style="flex:1; text-align:right; margin-right:12px;">البحث الشامل</h1>
+        </header>
+        <section style="padding: 0 20px;">
+            <div class="glass-box" style="display: flex; padding: 4px 14px; align-items: center; border-radius: 99px;">
+                <input type="text" id="searchInput" placeholder="ابحث في جميع المتون..." class="search-input" onkeydown="if(event.key==='Enter') executeGlobalSearch()">
+                <button class="tactile-btn icon-btn" style="width:32px; height:32px;" onclick="executeGlobalSearch()">
+                    <i class="fas fa-search text-gold" style="font-size: 12px;"></i>
+                </button>
+            </div>
+            <div id="searchResultsContainer" style="margin-top: 16px; padding-bottom: 100px;">
+                <!-- نتائج البحث -->
+            </div>
+        </section>
+    </main>
+
+    <!-- ================= نافذة الإعدادات ================= -->
+    <div id="settingsModal" class="glass-modal">
+        <div class="modal-content glass-box">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 16px;">
+                <h3 class="text-gold" style="font-size: 16px;">إعدادات القراءة</h3>
+                <i class="fas fa-times text-muted tactile-btn" onclick="closeSettings()" style="font-size: 18px;"></i>
+            </div>
+            
+            <div style="margin-bottom: 14px;">
+                <p class="text-white" style="margin-bottom: 6px; font-size: 13px;">حجم الخط (<span id="fontSizeDisplay">21</span>)</p>
+                <div style="display: flex; gap: 10px;">
+                    <button class="tactile-btn glass-btn flex-1" onclick="adjustFontSize(-2)">تصغير <i class="fas fa-minus"></i></button>
+                    <button class="tactile-btn glass-btn flex-1" onclick="adjustFontSize(2)">تكبير <i class="fas fa-plus"></i></button>
+                </div>
+            </div>
+
+            <div>
+                <p class="text-white" style="margin-bottom: 6px; font-size: 13px;">نوع الخط</p>
+                <div style="display: flex; gap: 10px;">
+                    <button class="tactile-btn glass-btn flex-1" onclick="changeFontFamily('Amiri')">أميري (تقليدي)</button>
+                    <button class="tactile-btn glass-btn flex-1" onclick="changeFontFamily('Cairo')">قاهرة (عصري)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- شريط الملاحة السفلي -->
+    <nav class="glass-bottom-nav">
+        <div class="nav-inner glass-box">
+            <button class="nav-item active tactile-btn" onclick="switchTab(this)">
+                <i class="fas fa-mosque"></i>
+                <span>الرواق</span>
+            </button>
+            <button class="nav-item tactile-btn" onclick="switchTab(this)">
+                <i class="fas fa-book-quran"></i>
+                <span>الخزانة</span>
+            </button>
+            <button class="nav-item tactile-btn" onclick="openSearch()">
+                <i class="fas fa-search"></i>
+                <span>البحث</span>
+            </button>
+        </div>
+    </nav>
+
+    <script src="main.js"></script>
+</body>
+</html>
