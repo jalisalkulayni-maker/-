@@ -23,6 +23,32 @@ let currentSearchFilter = 'all';
 let searchDebounceTimer = null;
 let savedSelectionRange = null;
 
+let dailyHadithCollection = [];
+let currentDailyHadith = null;
+
+const fallbackHadithCollection = [
+    {
+        text: "قال أمير المؤمنين (عليه السلام): «العِلْمُ وِرَاثَةٌ كَرِيمَةٌ، وَالأَدَبُ حُلَلٌ مُجَدَّدَةٌ، وَالفِكْرُ مِرْآةٌ صَافِيَةٌ».",
+        source: "نهج البلاغة - حكمة 5"
+    },
+    {
+        text: "عن أبي عبد الله الصادق (عليه السلام) قال: «حَدِيثِي حَدِيثُ أَبِي، وَحَدِيثُ أَبِي حَدِيثُ جَدِّي، وَحَدِيثُ جَدِّي حَدِيثُ الحُسَيْنِ، وَحَدِيثُ الحُسَيْنِ حَدِيثُ الحَسَنِ، وَحَدِيثُ الحَسَنِ حَدِيثُ أَمِيرِ المُؤْمِنِينَ، وَحَدِيثُ أَمِيرِ المُؤْمِنِينَ حَدِيثُ رَسُولِ اللهِ (صلى الله عليه وآله)».",
+        source: "الكافي الشريف - ج1 ص53"
+    },
+    {
+        text: "قال الإمام علي بن الحسين السجاد (عليه السلام): «لَوْ يَعْلَمُ النَّاسُ مَا فِي طَلَبِ العِلْمِ لَطَلَبُوهُ وَلَوْ بِسَفْكِ المُهَجِ وَخَوْضِ اللُّجَجِ».",
+        source: "الكافي الشريف - ج1 ص35"
+    },
+    {
+        text: "قال الإمام الباقر (عليه السلام): «تَفَقَّهُوا فِي دِينِ اللهِ، فَإِنَّهُ مَنْ لَمْ يَتَفَقَّهْ مِنْكُمْ فِي الدِّينِ فَهُوَ أَعْرَابِيٌّ».",
+        source: "المحاسن - ج1 ص219"
+    },
+    {
+        text: "قال رسول الله (صلى الله عليه وآله): «إِنِّي تَارِكٌ فِيكُمُ الثَّقَلَيْنِ: كِتَابَ اللهِ وَعِتْرَتِي أَهْلَ بَيْتِي، مَا إِنْ تَمَسَّكْتُمْ بِهِمَا لَنْ تَضِلُّوا بَعْدِي أَبَدًا».",
+        source: "كمال الدين - ص237"
+    }
+];
+
 function attachTactilePhysics(btn) {
     if (!btn) return;
     btn.addEventListener('touchstart', () => btn.classList.add('pressed'), { passive: true });
@@ -47,7 +73,6 @@ function switchTab(clickedBtn) {
     if (clickedBtn.innerText.includes('الرواق')) showView('homeView');
 }
 
-// دالة تجميع الكتب
 function getGroupName(book, bookId) {
     if (book.series && book.series.trim() !== "") return book.series.trim();
 
@@ -68,74 +93,127 @@ function getGroupName(book, bookId) {
         .trim() || title;
 }
 
-// 2. تحميل الكتب من Firebase
+// 2. تحميل ومعالجة الكتب سحابياً ومحلياً مع حماية الذاكرة ومنع التجميد
 function loadBooksFromCloud() {
     const container = document.getElementById('dynamicBooksContainer');
     if (!container) return;
 
-    db.ref("books").once("value", snapshot => {
-        if (!snapshot.exists()) {
-            container.innerHTML = '<div style="color:var(--text-muted); grid-column: span 2; text-align: center;">لا توجد كتب حالياً.</div>';
-            return;
+    // استرجاع الكاش الخفيف فوراً إن وجد
+    const cachedData = localStorage.getItem('library_cache_metadata');
+    if (cachedData) {
+        try {
+            allBooksData = JSON.parse(cachedData);
+            processAndRenderBooks(allBooksData);
+        } catch (e) {
+            console.warn("خطأ في قراءة الكاش:", e);
+        }
+    }
+
+    db.ref("books").once("value")
+        .then(snapshot => {
+            if (!snapshot.exists()) {
+                container.innerHTML = '<div style="color:var(--text-muted); grid-column: span 2; text-align: center; padding: 20px;">لا توجد كتب متاحة في قاعدة البيانات.</div>';
+                return;
+            }
+
+            allBooksData = snapshot.val();
+
+            // حفظ نسخة البيانات الوصفية الخفيفة فقط لتجنب امتلاء localStorage
+            try {
+                const lightMetadata = {};
+                Object.keys(allBooksData).forEach(id => {
+                    const b = allBooksData[id];
+                    lightMetadata[id] = {
+                        id: id,
+                        title: b.title || "",
+                        series: b.series || "",
+                        cover: b.cover || b.cover_url || "",
+                        total_pages: b.total_pages || (b.pages ? Object.keys(b.pages).length : 0),
+                        toc: b.toc || []
+                    };
+                });
+                localStorage.setItem('library_cache_metadata', JSON.stringify(lightMetadata));
+            } catch (quotaErr) {
+                console.warn("تعذر التخزين المحلي لكبر الحجم:", quotaErr);
+            }
+
+            processAndRenderBooks(allBooksData);
+        })
+        .catch(error => {
+            console.error("خطأ الاتصال بـ Firebase:", error);
+            if (!cachedData) {
+                container.innerHTML = `
+                    <div style="color:#ff6b6b; grid-column: span 2; text-align: center; font-size: 13px; padding: 20px;">
+                        تعذر تحميل الكتب (${error.message || 'تحقق من اتصال الشبكة وقواعد Firebase'}).
+                    </div>
+                `;
+            }
+        });
+}
+
+function processAndRenderBooks(data) {
+    const container = document.getElementById('dynamicBooksContainer');
+    if (!container) return;
+    container.innerHTML = "";
+
+    const bookKeys = Object.keys(data);
+    if (bookKeys.length === 0) {
+        container.innerHTML = '<div style="color:var(--text-muted); grid-column: span 2; text-align: center;">قائمة الكتب فارغة.</div>';
+        return;
+    }
+
+    const groups = {};
+
+    bookKeys.forEach(bookId => {
+        let book = data[bookId];
+        book.id = bookId;
+        let groupName = getGroupName(book, bookId);
+        if (!groups[groupName]) groups[groupName] = [];
+        groups[groupName].push(book);
+    });
+
+    Object.keys(groups).forEach(groupTitle => {
+        const booksInGroup = groups[groupTitle];
+        booksInGroup.sort((a, b) => (a.id || "").localeCompare(b.id || "", undefined, { numeric: true }));
+
+        const mainBook = booksInGroup[0];
+        const isSeries = booksInGroup.length > 1;
+
+        let coverSrc = "";
+        for (let b of booksInGroup) {
+            let candidate = (b.cover || b.cover_url || "").trim();
+            if (candidate !== "") { coverSrc = candidate; break; }
         }
 
-        container.innerHTML = ""; 
-        allBooksData = snapshot.val(); 
+        let coverHtml = coverSrc !== "" 
+            ? `<div class="book-cover-wrapper"><img src="${coverSrc}" alt="${groupTitle}"></div>`
+            : `<div class="book-cover-wrapper"><i class="fas fa-book-open text-dark"></i></div>`;
 
-        const bookKeys = Object.keys(allBooksData);
-        const groups = {};
+        let pagesArray = mainBook.pages ? (Array.isArray(mainBook.pages) ? mainBook.pages : Object.values(mainBook.pages)) : [];
+        let totalPages = mainBook.total_pages || pagesArray.length;
+        let subtitle = isSeries ? `${booksInGroup.length} أجزاء / مجلدات` : `${totalPages} صفحة`;
 
-        bookKeys.forEach(bookId => {
-            let book = allBooksData[bookId];
-            book.id = bookId;
-            let groupName = getGroupName(book, bookId);
-            if (!groups[groupName]) groups[groupName] = [];
-            groups[groupName].push(book);
-        });
+        const card = document.createElement("div");
+        card.className = "book-card tactile-btn";
+        card.innerHTML = `
+            ${coverHtml}
+            <div class="book-info">
+                <h4 class="text-white">${groupTitle}</h4>
+                <p class="text-muted">${subtitle}</p>
+                <div class="progress-bar" style="width: 100%;"><div class="progress-fill" style="width: 100%;"></div></div>
+            </div>
+        `;
 
-        Object.keys(groups).forEach(groupTitle => {
-            const booksInGroup = groups[groupTitle];
-            booksInGroup.sort((a, b) => (a.id || "").localeCompare(b.id || "", undefined, { numeric: true }));
-
-            const mainBook = booksInGroup[0];
-            const isSeries = booksInGroup.length > 1;
-
-            let coverSrc = "";
-            for (let b of booksInGroup) {
-                let candidate = (b.cover || b.cover_url || "").trim();
-                if (candidate !== "") { coverSrc = candidate; break; }
-            }
-
-            let coverHtml = coverSrc !== "" 
-                ? `<div class="book-cover-wrapper"><img src="${coverSrc}" alt="${groupTitle}"></div>`
-                : `<div class="book-cover-wrapper"><i class="fas fa-book-open text-dark"></i></div>`;
-
-            let pagesArray = mainBook.pages ? (Array.isArray(mainBook.pages) ? mainBook.pages : Object.values(mainBook.pages)) : [];
-            let totalPages = mainBook.total_pages || pagesArray.length;
-            let subtitle = isSeries ? `${booksInGroup.length} أجزاء / مجلدات` : `${totalPages} صفحة`;
-
-            const card = document.createElement("div");
-            card.className = "book-card tactile-btn";
-            card.innerHTML = `
-                ${coverHtml}
-                <div class="book-info">
-                    <h4 class="text-white">${groupTitle}</h4>
-                    <p class="text-muted">${subtitle}</p>
-                    <div class="progress-bar" style="width: 100%;"><div class="progress-fill" style="width: 100%;"></div></div>
-                </div>
-            `;
-
-            attachTactilePhysics(card);
-            if (isSeries) {
-                card.onclick = () => openVolumesModal(groupTitle, booksInGroup);
-            } else {
-                card.onclick = () => openReaderEngine(mainBook.id, mainBook.title, pagesArray, mainBook.toc, mainBook.total_pages);
-            }
-            container.appendChild(card);
-        });
-
-        renderSearchFilterPills(groups);
+        attachTactilePhysics(card);
+        if (isSeries) {
+            card.onclick = () => openVolumesModal(groupTitle, booksInGroup);
+        } else {
+            card.onclick = () => openReaderEngine(mainBook.id, mainBook.title, pagesArray, mainBook.toc, mainBook.total_pages);
+        }
+        container.appendChild(card);
     });
+
+    renderSearchFilterPills(groups);
 }
 
 // 3. نافذة المجلدات
@@ -183,9 +261,35 @@ function openReaderEngine(bookId, bookTitle, pagesArray, tocArray, totalPages) {
     currentBookTitle = bookTitle;
     document.getElementById('readerTitle').innerText = bookTitle;
     
-    currentBookPages = pagesArray || [];
+    // إذا لم تكن الصفحات محملة (مثلاً تم فتح الكتاب من كاش الـ metadata)، نجلبها من السحابة أو الكاش المحلي
+    if (pagesArray && pagesArray.length > 0) {
+        try {
+            localStorage.setItem(`book_content_${bookId}`, JSON.stringify(pagesArray));
+        } catch (e) {}
+        currentBookPages = pagesArray;
+    } else {
+        const savedPages = localStorage.getItem(`book_content_${bookId}`);
+        if (savedPages) {
+            currentBookPages = JSON.parse(savedPages);
+        } else if (allBooksData[bookId] && allBooksData[bookId].pages) {
+            const raw = allBooksData[bookId].pages;
+            currentBookPages = Array.isArray(raw) ? raw : Object.values(raw);
+        } else {
+            currentBookPages = [];
+        }
+    }
+
+    if (tocArray && tocArray.length > 0) {
+        try {
+            localStorage.setItem(`book_toc_${bookId}`, JSON.stringify(tocArray));
+        } catch (e) {}
+        currentBookToc = tocArray;
+    } else {
+        const savedToc = localStorage.getItem(`book_toc_${bookId}`);
+        currentBookToc = savedToc ? JSON.parse(savedToc) : (allBooksData[bookId]?.toc || []);
+    }
+
     currentBookPages.sort((a, b) => Number(a.page_number) - Number(b.page_number));
-    currentBookToc = tocArray || [];
 
     let maxNum = 0;
     currentBookPages.forEach(p => {
@@ -233,7 +337,6 @@ function renderCurrentPage() {
         if (match) displayPage = match[0];
     }
 
-    // تصغير الحواشي
     contentDiv.querySelectorAll('.fnote, .footnote, .hawamish, .margin, .note').forEach(el => {
         el.style.setProperty('font-size', '10px', 'important');
         el.style.setProperty('line-height', '1.3', 'important');
@@ -249,13 +352,14 @@ function renderCurrentPage() {
     if (totalLbl) totalLbl.innerText = currentBookTotalPages;
 
     if (currentBookId) {
-        localStorage.setItem(`last_page_${currentBookId}`, currentPageIndex);
+        try {
+            localStorage.setItem(`last_page_${currentBookId}`, currentPageIndex);
+        } catch (e) {}
     }
 
     updateBookmarkIconState();
 }
 
-// التقليب بالنقر على أطراف الشاشة
 function handleScreenTap(e) {
     if (window.getSelection && window.getSelection().toString().length > 0) return;
     if (e.target.closest('a, button, input, .glass-modal, .selection-toolbar')) return;
@@ -266,8 +370,6 @@ function handleScreenTap(e) {
     if (tapX < screenWidth * 0.35) nextPage();
     else if (tapX > screenWidth * 0.65) prevPage();
 }
-
-// ==================== الانتقال المباشر بدون نافذة ====================
 
 function executeInlineJump() {
     const input = document.getElementById('inlineJumpInput');
@@ -293,8 +395,6 @@ function executeInlineJump() {
     input.value = '';
     renderCurrentPage();
 }
-
-// ==================== تلوين واقتباس النصوص المحددة ====================
 
 document.addEventListener('selectionchange', () => {
     const selection = window.getSelection();
@@ -355,8 +455,6 @@ function shareSelectedQuote() {
     window.getSelection().removeAllRanges();
 }
 
-// ==================== الإشارات المرجعية والمفضلة ====================
-
 function getStoredBookmarks() {
     const data = localStorage.getItem(`bookmarks_${currentBookId}`);
     return data ? JSON.parse(data) : [];
@@ -386,7 +484,9 @@ function toggleBookmark() {
         });
     }
 
-    localStorage.setItem(`bookmarks_${currentBookId}`, JSON.stringify(bookmarks));
+    try {
+        localStorage.setItem(`bookmarks_${currentBookId}`, JSON.stringify(bookmarks));
+    } catch (e) {}
     updateBookmarkIconState();
     renderBookmarksList();
 }
@@ -439,7 +539,9 @@ function deleteBookmark(idx, event) {
     event.stopPropagation();
     let bookmarks = getStoredBookmarks();
     bookmarks.splice(idx, 1);
-    localStorage.setItem(`bookmarks_${currentBookId}`, JSON.stringify(bookmarks));
+    try {
+        localStorage.setItem(`bookmarks_${currentBookId}`, JSON.stringify(bookmarks));
+    } catch (e) {}
     updateBookmarkIconState();
     renderBookmarksList();
 }
@@ -463,20 +565,18 @@ function switchModalTab(tab) {
     }
 }
 
-// ==================== وضعيات ألوان القراءة ====================
-
 function setReadingTheme(themeName) {
     const appBody = document.getElementById('appBody');
     if (!appBody) return;
     appBody.classList.remove('theme-royal', 'theme-sepia', 'theme-dark', 'theme-light');
     appBody.classList.add(themeName);
-    localStorage.setItem('reading_theme', themeName);
+    try {
+        localStorage.setItem('reading_theme', themeName);
+    } catch (e) {}
 }
 
 const savedTheme = localStorage.getItem('reading_theme');
 if (savedTheme) setReadingTheme(savedTheme);
-
-// ==================== البحث داخل الكتاب المفتوح ====================
 
 function openInBookSearch() {
     const modal = document.getElementById('inBookSearchModal');
@@ -539,7 +639,6 @@ function executeInBookSearch(val) {
     }
 }
 
-// 5. الفهرست والتحكم بالصفحات
 function renderTocList() {
     const tocContainer = document.getElementById('tocListContainer');
     if (!tocContainer) return;
@@ -595,7 +694,6 @@ function slidePageChanged(val) {
 
 function closeReader() { showView('homeView'); }
 
-// 6. الإعدادات والخطوط
 function openSettings() { const m = document.getElementById('settingsModal'); if (m) m.style.display = 'flex'; }
 function closeSettings() { const m = document.getElementById('settingsModal'); if (m) m.style.display = 'none'; }
 
@@ -615,7 +713,6 @@ function changeFontFamily(font) {
     if (content) content.style.fontFamily = font === 'Amiri' ? "'Amiri', serif" : "'Cairo', sans-serif";
 }
 
-// 7. البحث الشامل
 function openSearch() { 
     showView('searchView');
     setTimeout(() => {
@@ -722,7 +819,6 @@ function executeGlobalSearch() {
     let foundCount = 0;
     const cleanQuery = query.replace(/[\u064B-\u065F\u0670ـ]/g, "").toLowerCase();
 
-    // البحث في أسماء الكتب
     const matchedGroups = {};
     targetBookIds.forEach(bookId => {
         let book = allBooksData[bookId];
@@ -761,7 +857,6 @@ function executeGlobalSearch() {
         container.appendChild(bookResult);
     });
 
-    // البحث في المتون
     targetBookIds.forEach(bookId => {
         let book = allBooksData[bookId];
         let pages = book.pages ? (Array.isArray(book.pages) ? book.pages : Object.values(book.pages)) : [];
@@ -812,45 +907,50 @@ function executeGlobalSearch() {
     }
 }
 
-// ==================== محرك الإشراقات والاقتباسات المتجددة ====================
-
-const dailyHadithCollection = [
-    {
-        text: "قال أمير المؤمنين (عليه السلام): «العِلْمُ وِرَاثَةٌ كَرِيمَةٌ، وَالأَدَبُ حُلَلٌ مُجَدَّدَةٌ، وَالفِكْرُ مِرْآةٌ صَافِيَةٌ».",
-        source: "نهج البلاغة - حكمة 5"
-    },
-    {
-        text: "عن أبي عبد الله الصادق (عليه السلام) قال: «حَدِيثِي حَدِيثُ أَبِي، وَحَدِيثُ أَبِي حَدِيثُ جَدِّي، وَحَدِيثُ جَدِّي حَدِيثُ الحُسَيْنِ، وَحَدِيثُ الحُسَيْنِ حَدِيثُ الحَسَنِ، وَحَدِيثُ الحَسَنِ حَدِيثُ أَمِيرِ المُؤْمِنِينَ، وَحَدِيثُ أَمِيرِ المُؤْمِنِينَ حَدِيثُ رَسُولِ اللهِ (صلى الله عليه وآله)».",
-        source: "الكافي الشريف - ج1 ص53"
-    },
-    {
-        text: "قال الإمام علي بن الحسين السجاد (عليه السلام): «لَوْ يَعْلَمُ النَّاسُ مَا فِي طَلَبِ العِلْمِ لَطَلَبُوهُ وَلَوْ بِسَفْكِ المُهَجِ وَخَوْضِ اللُّجَجِ».",
-        source: "الكافي الشريف - ج1 ص35"
-    },
-    {
-        text: "قال الإمام الباقر (عليه السلام): «تَفَقَّهُوا فِي دِينِ اللهِ، فَإِنَّهُ مَنْ لَمْ يَتَفَقَّهْ مِنْكُمْ فِي الدِّينِ فَهُوَ أَعْرَابِيٌّ».",
-        source: "المحاسن - ج1 ص219"
-    },
-    {
-        text: "قال رسول الله (صلى الله عليه وآله): «إِنِّي تَارِكٌ فِيكُمُ الثَّقَلَيْنِ: كِتَابَ اللهِ وَعِتْرَتِي أَهْلَ بَيْتِي، مَا إِنْ تَمَسَّكْتُمْ بِهِمَا لَنْ تَضِلُّوا بَعْدِي أَبَدًا».",
-        source: "كمال الدين - ص237"
+// 5. محرك الإشراقات السحابية المتجددة
+function initDailyHadithSystem() {
+    const cachedQuotes = localStorage.getItem('daily_quotes_cache');
+    if (cachedQuotes) {
+        try {
+            dailyHadithCollection = JSON.parse(cachedQuotes);
+            loadRandomDailyHadith();
+        } catch (e) {
+            dailyHadithCollection = fallbackHadithCollection;
+            loadRandomDailyHadith();
+        }
+    } else {
+        dailyHadithCollection = fallbackHadithCollection;
+        loadRandomDailyHadith();
     }
-];
 
-let currentDailyHadith = null;
+    db.ref("daily_quotes").once("value", snapshot => {
+        if (snapshot.exists()) {
+            const cloudQuotes = snapshot.val();
+            if (Array.isArray(cloudQuotes) && cloudQuotes.length > 0) {
+                dailyHadithCollection = cloudQuotes;
+            } else if (typeof cloudQuotes === 'object' && cloudQuotes !== null) {
+                dailyHadithCollection = Object.values(cloudQuotes);
+            }
+            try {
+                localStorage.setItem('daily_quotes_cache', JSON.stringify(dailyHadithCollection));
+            } catch (e) {}
+            loadRandomDailyHadith();
+        }
+    });
+}
 
 function loadRandomDailyHadith() {
     const textEl = document.getElementById('dailyHadithText');
     const sourceEl = document.getElementById('dailyHadithSource');
-    if (!textEl || !sourceEl) return;
+    if (!textEl || !sourceEl || dailyHadithCollection.length === 0) return;
 
     const randomIndex = Math.floor(Math.random() * dailyHadithCollection.length);
     currentDailyHadith = dailyHadithCollection[randomIndex];
 
     textEl.style.opacity = 0;
     setTimeout(() => {
-        textEl.innerText = currentDailyHadith.text;
-        sourceEl.innerHTML = `<i class="fas fa-feather-pointed text-gold"></i> المصدر: ${currentDailyHadith.source}`;
+        textEl.innerText = currentDailyHadith.text || "";
+        sourceEl.innerHTML = `<i class="fas fa-feather-pointed text-gold"></i> المصدر: ${currentDailyHadith.source || "غير محدد"}`;
         textEl.style.transition = 'opacity 0.3s ease';
         textEl.style.opacity = 1;
     }, 150);
@@ -874,4 +974,4 @@ function shareDailyHadith() {
 
 document.querySelectorAll('.tactile-btn').forEach(btn => attachTactilePhysics(btn));
 loadBooksFromCloud();
-loadRandomDailyHadith();
+initDailyHadithSystem();

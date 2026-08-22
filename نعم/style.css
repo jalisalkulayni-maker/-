@@ -456,7 +456,7 @@ body.theme-light .bg-orb { opacity: 0.08; }
     line-height: 1.3 !important;
 }
 
-/* ================= شريط التحكمات السفلي (المتوسط 100%) ================= */
+/* ================= شريط التحكمات السفلي ================= */
 .reader-bottom-bar {
     position: fixed;
     bottom: 0;
