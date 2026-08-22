@@ -176,7 +176,7 @@ function closeVolumesModal() {
     if (modal) modal.style.display = 'none';
 }
 
-// 4. محرك القراءة وعرض الصفحات مع الحفظ التلقائي
+// 4. محرك القراءة وعرض الصفحات
 function openReaderEngine(bookId, bookTitle, pagesArray, tocArray, totalPages) {
     showView('readerView');
     currentBookId = bookId;
@@ -199,7 +199,6 @@ function openReaderEngine(bookId, bookTitle, pagesArray, tocArray, totalPages) {
 
     currentBookTotalPages = totalPages || (maxNum > 0 ? maxNum : currentBookPages.length);
 
-    // استعادة آخر صفحة تم التوقف عندها تلقائياً
     const savedLastPage = localStorage.getItem(`last_page_${bookId}`);
     if (savedLastPage && parseInt(savedLastPage) > 1) {
         currentPageIndex = parseInt(savedLastPage);
@@ -217,7 +216,6 @@ function renderCurrentPage() {
     const rangeSlider = document.getElementById('pageRangeSlider');
     const currentLbl = document.getElementById('currentPaginationLabel');
     const totalLbl = document.getElementById('totalPaginationLabel');
-    const topIndicator = document.getElementById('topPageIndicator');
 
     if (currentBookPages.length === 0) {
         contentDiv.innerHTML = '<div style="text-align:center; color:#888;">لا توجد صفحات متاحة.</div>';
@@ -249,9 +247,7 @@ function renderCurrentPage() {
 
     if (currentLbl) currentLbl.innerText = displayPage;
     if (totalLbl) totalLbl.innerText = currentBookTotalPages;
-    if (topIndicator) topIndicator.innerText = `صفحة ${displayPage} من ${currentBookTotalPages}`;
 
-    // حفظ الصفحة الحالية في الذاكرة
     if (currentBookId) {
         localStorage.setItem(`last_page_${currentBookId}`, currentPageIndex);
     }
@@ -259,32 +255,43 @@ function renderCurrentPage() {
     updateBookmarkIconState();
 }
 
-// التقليب بالنقر على أطراف الشاشة والنقر المزدوج للوضع الكامل
-let lastTapTime = 0;
+// التقليب بالنقر على أطراف الشاشة
 function handleScreenTap(e) {
     if (window.getSelection && window.getSelection().toString().length > 0) return;
     if (e.target.closest('a, button, input, .glass-modal, .selection-toolbar')) return;
 
-    const currentTime = new Date().getTime();
-    const tapLength = currentTime - lastTapTime;
-
     const screenWidth = window.innerWidth;
     const tapX = e.clientX;
 
-    if (tapX > screenWidth * 0.35 && tapX < screenWidth * 0.65) {
-        // النقر في المنتصف: تبديل الوضع الكامل (إخفاء/إظهار الأشرطة)
-        toggleZenMode();
-        return;
-    }
-
     if (tapX < screenWidth * 0.35) nextPage();
     else if (tapX > screenWidth * 0.65) prevPage();
-
-    lastTapTime = currentTime;
 }
 
-function toggleZenMode() {
-    document.body.classList.toggle('zen-mode');
+// ==================== الانتقال المباشر بدون نافذة منبثقة ====================
+
+function executeInlineJump() {
+    const input = document.getElementById('inlineJumpInput');
+    if (!input || !input.value.trim()) return;
+
+    let targetPage = parseInt(input.value.trim());
+    if (isNaN(targetPage)) return;
+
+    let foundIndex = currentBookPages.findIndex(p => Number(p.page_number) === targetPage);
+    if (foundIndex !== -1) {
+        currentPageIndex = foundIndex + 1;
+    } else {
+        let closestIndex = 0;
+        let minDiff = Infinity;
+        currentBookPages.forEach((p, idx) => {
+            let pNum = Number(p.page_number) || (idx + 1);
+            let diff = Math.abs(pNum - targetPage);
+            if (diff < minDiff) { minDiff = diff; closestIndex = idx; }
+        });
+        currentPageIndex = closestIndex + 1;
+    }
+
+    input.value = '';
+    renderCurrentPage();
 }
 
 // ==================== تلوين واقتباس النصوص المحددة ====================
@@ -326,7 +333,6 @@ function removeHighlight() {
     window.getSelection().removeAllRanges();
 }
 
-// مشاركة واقتباس النص المحدد مع التوثيق
 function shareSelectedQuote() {
     const selectedText = window.getSelection().toString().trim();
     if (!selectedText) return;
@@ -349,22 +355,7 @@ function shareSelectedQuote() {
     window.getSelection().removeAllRanges();
 }
 
-// التوثيق التلقائي عند النسخ العادي
-document.addEventListener('copy', (e) => {
-    if (!document.getElementById('readerView').classList.contains('active')) return;
-
-    const selection = window.getSelection().toString();
-    if (selection.length > 20) {
-        let pageData = currentBookPages[currentPageIndex - 1];
-        let pageNum = pageData ? (pageData.page_number || currentPageIndex) : currentPageIndex;
-        let attribution = `\n\n[المصدر: ${currentBookTitle} - صفحة ${pageNum} | قناة جليس الكليني https://t.me/Jali4s]`;
-        
-        e.clipboardData.setData('text/plain', selection + attribution);
-        e.preventDefault();
-    }
-});
-
-// ==================== الإشارات المرجعية والمفضلة (Bookmarks) ====================
+// ==================== الإشارات المرجعية والمفضلة ====================
 
 function getStoredBookmarks() {
     const data = localStorage.getItem(`bookmarks_${currentBookId}`);
@@ -406,7 +397,6 @@ function updateBookmarkIconState() {
 
     let bookmarks = getStoredBookmarks();
     const isBookmarked = bookmarks.some(b => b.pageIndex === currentPageIndex);
-
     btn.innerHTML = isBookmarked ? '<i class="fas fa-bookmark" style="color:#D4AF37;"></i>' : '<i class="far fa-bookmark"></i>';
 }
 
@@ -547,78 +537,6 @@ function executeInBookSearch(val) {
     if (found === 0) {
         container.innerHTML = `<p style="text-align:center; color:var(--text-muted); padding:20px;">لا توجد نتائج مطابقة لـ "${query}" في هذا الكتاب.</p>`;
     }
-}
-
-// ==================== الانتقال المطور للصفحات ====================
-
-function openPageJumpModal() {
-    const modal = document.getElementById('pageJumpModal');
-    const input = document.getElementById('jumpPageInput');
-    const minDisplay = document.getElementById('jumpMinPageDisplay');
-    const maxDisplay = document.getElementById('jumpMaxPageDisplay');
-    if (!modal) return;
-
-    let firstPageNum = currentBookPages.length > 0 ? (currentBookPages[0].page_number || 1) : 1;
-    let lastPageNum = currentBookTotalPages || currentBookPages.length;
-
-    if (minDisplay) minDisplay.innerText = firstPageNum;
-    if (maxDisplay) maxDisplay.innerText = lastPageNum;
-
-    let curPageData = currentBookPages[currentPageIndex - 1];
-    let curPageNum = curPageData ? (curPageData.page_number || currentPageIndex) : currentPageIndex;
-
-    if (input) {
-        input.value = curPageNum;
-        input.min = firstPageNum;
-        input.max = lastPageNum;
-    }
-
-    modal.style.display = 'flex';
-    setTimeout(() => { if (input) { input.focus(); input.select(); } }, 150);
-}
-
-function closePageJumpModal() {
-    const modal = document.getElementById('pageJumpModal');
-    if (modal) modal.style.display = 'none';
-}
-
-function executeCustomJump() {
-    const input = document.getElementById('jumpPageInput');
-    if (!input) return;
-
-    let targetPage = parseInt(input.value.trim());
-    if (isNaN(targetPage)) return;
-
-    let foundIndex = currentBookPages.findIndex(p => Number(p.page_number) === targetPage);
-    if (foundIndex !== -1) {
-        currentPageIndex = foundIndex + 1;
-    } else {
-        let closestIndex = 0;
-        let minDiff = Infinity;
-        currentBookPages.forEach((p, idx) => {
-            let pNum = Number(p.page_number) || (idx + 1);
-            let diff = Math.abs(pNum - targetPage);
-            if (diff < minDiff) { minDiff = diff; closestIndex = idx; }
-        });
-        currentPageIndex = closestIndex + 1;
-    }
-
-    renderCurrentPage();
-    closePageJumpModal();
-}
-
-function quickStepPage(step) {
-    const input = document.getElementById('jumpPageInput');
-    if (input) {
-        let cur = parseInt(input.value) || currentPageIndex;
-        input.value = Math.max(1, cur + step);
-    }
-}
-
-function jumpToBoundary(type) {
-    currentPageIndex = (type === 'first') ? 1 : currentBookPages.length;
-    renderCurrentPage();
-    closePageJumpModal();
 }
 
 // 5. الفهرست والتحكم بالصفحات

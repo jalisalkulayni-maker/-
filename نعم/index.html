@@ -69,24 +69,12 @@
             <div class="reader-top-actions">
                 <button id="bookmarkBtn" class="tactile-btn icon-btn-flat" onclick="toggleBookmark()" title="حفظ إشارة مرجعية"><i class="far fa-bookmark"></i></button>
                 <button class="tactile-btn icon-btn-flat" onclick="openInBookSearch()" title="بحث داخل الكتاب"><i class="fas fa-magnifying-glass text-gold"></i></button>
-                <button class="tactile-btn icon-btn-flat" onclick="openPageJumpModal()" title="انتقال لصفحة"><i class="fas fa-location-crosshairs"></i></button>
                 <button class="tactile-btn icon-btn-flat" onclick="openTocModal()" title="الفهرس والمفضلة"><i class="fas fa-list-ul"></i></button>
                 <button class="tactile-btn icon-btn-flat" onclick="openSettings()" title="المظهر والخط"><i class="fas fa-palette"></i></button>
             </div>
         </header>
 
-        <!-- أزرار التقليب العلوية المصغرة النصية -->
-        <div class="reader-sub-nav">
-            <button class="mini-nav-btn tactile-btn" onclick="nextPage()">
-                الصفحة التالية <i class="fas fa-chevron-left" style="font-size: 9px;"></i>
-            </button>
-            <span style="font-size: 11px; color: var(--text-muted);" id="topPageIndicator">صفحة -</span>
-            <button class="mini-nav-btn tactile-btn" onclick="prevPage()">
-                <i class="fas fa-chevron-right" style="font-size: 9px;"></i> الصفحة السابقة
-            </button>
-        </div>
-
-        <!-- ورقة القراءة بدون إطار مربع -->
+        <!-- ورقة القراءة الشفافة بدون إطار -->
         <section class="reader-paper-section" id="readerTapArea" onclick="handleScreenTap(event)">
             <div class="reader-paper-box">
                 <div id="pageContent" style="font-size: 15px; font-family: 'Amiri', serif; text-align: justify; line-height: 1.8;">
@@ -95,14 +83,33 @@
             </div>
         </section>
 
-        <!-- شريط التقليب السفلي -->
+        <!-- شريط التحكمات السفلي المتكامل -->
         <footer class="reader-bottom-bar">
+            <!-- الصف الأول: أزرار متلاصقة في الوسط + انتقال مباشر بالرقم -->
+            <div class="reader-controls-row">
+                <!-- مجموعة أزرار التقليب المتلاصقة في الوسط -->
+                <div class="nav-btn-group">
+                    <button class="bottom-text-nav-btn tactile-btn" onclick="nextPage()">
+                        الصفحة التالية <i class="fas fa-chevron-left" style="font-size: 9px;"></i>
+                    </button>
+                    <div class="nav-btn-divider"></div>
+                    <button class="bottom-text-nav-btn tactile-btn" onclick="prevPage()">
+                        <i class="fas fa-chevron-right" style="font-size: 9px;"></i> الصفحة السابقة
+                    </button>
+                </div>
+
+                <!-- حقل الانتقال المباشر بدون نافذة منبثقة -->
+                <div class="direct-jump-wrap">
+                    <input type="number" id="inlineJumpInput" class="direct-jump-input" placeholder="صـ" min="1" onkeydown="if(event.key==='Enter') executeInlineJump()">
+                    <button class="direct-jump-btn tactile-btn" onclick="executeInlineJump()">انتقال</button>
+                </div>
+            </div>
+
+            <!-- الصف الثاني: السلايدر والأرقام الإجمالية -->
             <div class="slider-progress-wrapper">
-                <button class="tactile-btn footer-arrow-btn" onclick="nextPage()"><i class="fas fa-chevron-right"></i></button>
-                <span id="currentPaginationLabel" class="pagination-text tactile-btn" onclick="openPageJumpModal()" title="انقر للانتقال المباشر">1</span>
+                <span id="currentPaginationLabel" class="pagination-text">1</span>
                 <input type="range" id="pageRangeSlider" min="1" max="100" value="1" class="custom-range-slider" oninput="slidePageChanged(this.value)">
                 <span id="totalPaginationLabel" class="pagination-text">1</span>
-                <button class="tactile-btn footer-arrow-btn" onclick="prevPage()"><i class="fas fa-chevron-left"></i></button>
             </div>
         </footer>
     </main>
@@ -134,37 +141,6 @@
         </div>
     </div>
 
-    <!-- ================= نافذة الانتقال المطور للصفحات ================= -->
-    <div id="pageJumpModal" class="glass-modal">
-        <div class="modal-content glass-box" style="max-width: 360px; width: 90%; text-align: center;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid rgba(212,175,55,0.25); padding-bottom: 8px;">
-                <h3 class="text-gold" style="font-size: 15px; margin: 0;"><i class="fas fa-compass"></i> الانتقال المباشر لصفحة</h3>
-                <i class="fas fa-times text-muted tactile-btn" onclick="closePageJumpModal()" style="font-size: 18px; cursor: pointer;"></i>
-            </div>
-
-            <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 10px;">
-                أدخل رقم الصفحة المطبوعة (من <b class="text-gold" id="jumpMinPageDisplay">1</b> إلى <b class="text-gold" id="jumpMaxPageDisplay">100</b>)
-            </p>
-
-            <div style="display: flex; gap: 8px; justify-content: center; align-items: center; margin-bottom: 12px;">
-                <input type="number" id="jumpPageInput" class="search-input" style="text-align: center; font-size: 20px; font-weight: bold; width: 140px; color: #D4AF37; padding: 6px 12px;" placeholder="رقم الصفحة" min="1" onkeydown="if(event.key==='Enter') executeCustomJump()">
-                <button class="tactile-btn glass-btn" onclick="executeCustomJump()" style="padding: 10px 18px; font-weight: bold; background: rgba(212,175,55,0.2); border-color: #D4AF37; color: #fff;">انتقال <i class="fas fa-arrow-left"></i></button>
-            </div>
-
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px;">
-                <button class="tactile-btn glass-btn" style="font-size: 11px; padding: 6px;" onclick="quickStepPage(-50)">- 50</button>
-                <button class="tactile-btn glass-btn" style="font-size: 11px; padding: 6px;" onclick="quickStepPage(-10)">- 10</button>
-                <button class="tactile-btn glass-btn" style="font-size: 11px; padding: 6px;" onclick="quickStepPage(10)">+ 10</button>
-                <button class="tactile-btn glass-btn" style="font-size: 11px; padding: 6px;" onclick="quickStepPage(50)">+ 50</button>
-            </div>
-
-            <div style="display: flex; gap: 8px; margin-top: 8px;">
-                <button class="tactile-btn glass-btn flex-1" style="font-size: 11px; padding: 6px;" onclick="jumpToBoundary('first')"><i class="fas fa-angles-right"></i> البداية</button>
-                <button class="tactile-btn glass-btn flex-1" style="font-size: 11px; padding: 6px;" onclick="jumpToBoundary('last')">النهاية <i class="fas fa-angles-left"></i></button>
-            </div>
-        </div>
-    </div>
-
     <!-- ================= نافذة اختيار المجلدات ================= -->
     <div id="volumesModal" class="glass-modal">
         <div class="modal-content glass-box" style="max-height: 80vh; display: flex; flex-direction: column;">
@@ -184,7 +160,6 @@
                 <i class="fas fa-times text-muted tactile-btn" onclick="closeTocModal()" style="font-size: 18px; cursor: pointer;"></i>
             </div>
 
-            <!-- تبويبات التبديل بين الفهرس والإشارات المرجعية -->
             <div class="modal-tabs">
                 <button id="tabTocBtn" class="modal-tab-btn active" onclick="switchModalTab('toc')"><i class="fas fa-bars"></i> الفهرس</button>
                 <button id="tabBookmarksBtn" class="modal-tab-btn" onclick="switchModalTab('bookmarks')"><i class="fas fa-bookmark"></i> الإشارات المحفوظة</button>
@@ -243,22 +218,14 @@
                 <i class="fas fa-times text-muted tactile-btn" onclick="closeSettings()" style="font-size: 18px;"></i>
             </div>
             
-            <!-- وضعيات الألوان -->
             <div style="margin-bottom: 14px;">
-                <p class="text-white" style="margin-bottom: 6px; font-size: 13px;">نمط لون القراءة</p>
+                <p class="text-white" style="margin-bottom: 6px; font-size: 13px;">نمط لون خلفية القراءة</p>
                 <div style="display: flex; gap: 6px;">
                     <button class="theme-pill-btn" style="background: #030705; color: #D4AF37;" onclick="setReadingTheme('theme-royal')">ملكي</button>
                     <button class="theme-pill-btn" style="background: #F4ECD8; color: #2B2118;" onclick="setReadingTheme('theme-sepia')">ورقي</button>
                     <button class="theme-pill-btn" style="background: #000000; color: #ffffff;" onclick="setReadingTheme('theme-dark')">داكن</button>
                     <button class="theme-pill-btn" style="background: #FAF9F6; color: #111111;" onclick="setReadingTheme('theme-light')">فاتح</button>
                 </div>
-            </div>
-
-            <!-- خيار تفعيل وضع الشاشة الكاملة الهادئ -->
-            <div style="margin-bottom: 14px;">
-                <button class="tactile-btn glass-btn" style="width: 100%; font-size: 12px;" onclick="toggleZenMode()">
-                    <i class="fas fa-expand"></i> تفعيل الوضع الكامل (إخفاء الأشرطة)
-                </button>
             </div>
 
             <div style="margin-bottom: 14px;">
@@ -297,6 +264,6 @@
         </div>
     </nav>
 
-    <script src="main.js?v=50"></script>
+    <script src="main.js?v=60"></script>
 </body>
 </html>
