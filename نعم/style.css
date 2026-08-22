@@ -8,7 +8,7 @@
     --text-muted: rgba(255, 255, 255, 0.6);
     --text-dark: #030705;
     
-    /* متغيرات القارئ */
+    /* متغيرات القارئ التفاعلية */
     --reader-bg: #030705;
     --reader-text: #EDEDED;
     --reader-fnote: #9E9E9E;
@@ -252,7 +252,35 @@ body.theme-light .bg-orb { opacity: 0.08; }
     text-decoration: none; 
 }
 
-/* شبكة رفوف الكتب الافتراضية على الموبايل */
+/* أزرار الإشراقة السريعة */
+.mini-action-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(212, 175, 55, 0.12);
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    color: var(--gold-main);
+    display: grid;
+    place-items: center;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.mini-action-btn:active {
+    background: rgba(212, 175, 55, 0.3);
+    transform: scale(0.92);
+}
+
+.daily-hadith-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.daily-hadith-card:hover {
+    box-shadow: 0 8px 25px rgba(212, 175, 55, 0.15);
+}
+
+/* شبكة رفوف الكتب (الموبايل الافتراضي) */
 .books-grid-container {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -428,7 +456,7 @@ body.theme-light .bg-orb { opacity: 0.08; }
     line-height: 1.3 !important;
 }
 
-/* ================= شريط التحكمات السفلي (مضبوط التوسيط 100%) ================= */
+/* ================= شريط التحكمات السفلي (المتوسط 100%) ================= */
 .reader-bottom-bar {
     position: fixed;
     bottom: 0;
@@ -953,7 +981,7 @@ body.theme-light .bg-orb { opacity: 0.08; }
 }
 
 /* ==========================================================================
-   تنسيقات الحواسيب والشاشات الكبيرة فقط (عرض محكم ومركزي)
+   تنسيقات الحواسيب والشاشات الكبيرة فقط
    ========================================================================== */
 @media screen and (min-width: 769px) {
     .stage-view {
@@ -977,7 +1005,6 @@ body.theme-light .bg-orb { opacity: 0.08; }
         line-height: 2 !important;
     }
 
-    /* تثبيت وتوسيط الشريط السفلي للحاسوب */
     .reader-bottom-bar {
         left: 0 !important;
         right: 0 !important;

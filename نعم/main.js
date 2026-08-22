@@ -267,7 +267,7 @@ function handleScreenTap(e) {
     else if (tapX > screenWidth * 0.65) prevPage();
 }
 
-// ==================== الانتقال المباشر بدون نافذة منبثقة ====================
+// ==================== الانتقال المباشر بدون نافذة ====================
 
 function executeInlineJump() {
     const input = document.getElementById('inlineJumpInput');
@@ -812,5 +812,66 @@ function executeGlobalSearch() {
     }
 }
 
+// ==================== محرك الإشراقات والاقتباسات المتجددة ====================
+
+const dailyHadithCollection = [
+    {
+        text: "قال أمير المؤمنين (عليه السلام): «العِلْمُ وِرَاثَةٌ كَرِيمَةٌ، وَالأَدَبُ حُلَلٌ مُجَدَّدَةٌ، وَالفِكْرُ مِرْآةٌ صَافِيَةٌ».",
+        source: "نهج البلاغة - حكمة 5"
+    },
+    {
+        text: "عن أبي عبد الله الصادق (عليه السلام) قال: «حَدِيثِي حَدِيثُ أَبِي، وَحَدِيثُ أَبِي حَدِيثُ جَدِّي، وَحَدِيثُ جَدِّي حَدِيثُ الحُسَيْنِ، وَحَدِيثُ الحُسَيْنِ حَدِيثُ الحَسَنِ، وَحَدِيثُ الحَسَنِ حَدِيثُ أَمِيرِ المُؤْمِنِينَ، وَحَدِيثُ أَمِيرِ المُؤْمِنِينَ حَدِيثُ رَسُولِ اللهِ (صلى الله عليه وآله)».",
+        source: "الكافي الشريف - ج1 ص53"
+    },
+    {
+        text: "قال الإمام علي بن الحسين السجاد (عليه السلام): «لَوْ يَعْلَمُ النَّاسُ مَا فِي طَلَبِ العِلْمِ لَطَلَبُوهُ وَلَوْ بِسَفْكِ المُهَجِ وَخَوْضِ اللُّجَجِ».",
+        source: "الكافي الشريف - ج1 ص35"
+    },
+    {
+        text: "قال الإمام الباقر (عليه السلام): «تَفَقَّهُوا فِي دِينِ اللهِ، فَإِنَّهُ مَنْ لَمْ يَتَفَقَّهْ مِنْكُمْ فِي الدِّينِ فَهُوَ أَعْرَابِيٌّ».",
+        source: "المحاسن - ج1 ص219"
+    },
+    {
+        text: "قال رسول الله (صلى الله عليه وآله): «إِنِّي تَارِكٌ فِيكُمُ الثَّقَلَيْنِ: كِتَابَ اللهِ وَعِتْرَتِي أَهْلَ بَيْتِي، مَا إِنْ تَمَسَّكْتُمْ بِهِمَا لَنْ تَضِلُّوا بَعْدِي أَبَدًا».",
+        source: "كمال الدين - ص237"
+    }
+];
+
+let currentDailyHadith = null;
+
+function loadRandomDailyHadith() {
+    const textEl = document.getElementById('dailyHadithText');
+    const sourceEl = document.getElementById('dailyHadithSource');
+    if (!textEl || !sourceEl) return;
+
+    const randomIndex = Math.floor(Math.random() * dailyHadithCollection.length);
+    currentDailyHadith = dailyHadithCollection[randomIndex];
+
+    textEl.style.opacity = 0;
+    setTimeout(() => {
+        textEl.innerText = currentDailyHadith.text;
+        sourceEl.innerHTML = `<i class="fas fa-feather-pointed text-gold"></i> المصدر: ${currentDailyHadith.source}`;
+        textEl.style.transition = 'opacity 0.3s ease';
+        textEl.style.opacity = 1;
+    }, 150);
+}
+
+function shareDailyHadith() {
+    if (!currentDailyHadith) return;
+
+    const shareContent = `✦ إشراقة النور من علوم آل محمد:\n\n${currentDailyHadith.text}\n\n📖 ${currentDailyHadith.source}\n✦ مكتبة سيد الساجدين: https://t.me/Jali4s`;
+
+    if (navigator.share) {
+        navigator.share({
+            title: "إشراقة علوم العترة",
+            text: shareContent
+        }).catch(() => {});
+    } else {
+        navigator.clipboard.writeText(shareContent);
+        alert("تم نسخ الإشراقة مع التوثيق والمصدر بنجاح!");
+    }
+}
+
 document.querySelectorAll('.tactile-btn').forEach(btn => attachTactilePhysics(btn));
 loadBooksFromCloud();
+loadRandomDailyHadith();

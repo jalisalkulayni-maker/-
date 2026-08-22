@@ -7,7 +7,7 @@
     <title>خزانة علوم العترة</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Amiri:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=100">
+    <link rel="stylesheet" href="style.css?v=110">
 
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -31,18 +31,32 @@
             </button>
         </header>
 
-        <!-- سلايدر الإشراقات -->
-        <section class="slider-container">
-            <div class="glass-slider" id="mainSlider">
-                <div class="slide tactile-btn">
-                    <div class="slide-content glass-box">
-                        <div class="slide-text">
-                            <span class="tag-gold-bg">✦ قناة جليس الكليني</span>
-                            <h2 class="text-white">مكتبة سيد الساجدين</h2>
-                            <p class="text-muted">مجموعة منتقاة من أمهات الكتب ومسندات الحديث...</p>
-                        </div>
-                        <a href="https://t.me/Jali4s" target="_blank" class="play-btn"><i class="fab fa-telegram-plane"></i></a>
+        <!-- بطاقة الإشراقة والحديث المتجدد اليومي -->
+        <section class="slider-container" style="padding: 0 20px 10px;">
+            <div class="glass-box daily-hadith-card" style="padding: 16px; border: 1px solid rgba(212,175,55,0.35); position: relative; overflow: hidden;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span class="tag-gold-bg" style="margin-bottom: 0;"><i class="fas fa-sun"></i> إشراقة النور</span>
+                    <div style="display: flex; gap: 6px;">
+                        <button class="tactile-btn mini-action-btn" onclick="loadRandomDailyHadith()" title="تجديد الإشراقة">
+                            <i class="fas fa-rotate"></i>
+                        </button>
+                        <button class="tactile-btn mini-action-btn" onclick="shareDailyHadith()" title="مشاركة الحديث">
+                            <i class="fas fa-share-nodes"></i>
+                        </button>
                     </div>
+                </div>
+                
+                <p id="dailyHadithText" style="font-family: 'Amiri', serif; font-size: 16px; line-height: 1.8; color: #FDF0B2; margin-bottom: 8px; text-align: justify;">
+                    جاري استحضار الإشراقة المباركة...
+                </p>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed rgba(212,175,55,0.25); padding-top: 6px;">
+                    <span id="dailyHadithSource" style="font-size: 11px; color: var(--text-muted); font-weight: bold;">
+                        <i class="fas fa-feather-pointed text-gold"></i> المصدر: الكافي الشريف
+                    </span>
+                    <a href="https://t.me/Jali4s" target="_blank" style="font-size: 10px; color: var(--gold-main); text-decoration: none; font-weight: bold;">
+                        قناة جليس الكليني <i class="fab fa-telegram-plane"></i>
+                    </a>
                 </div>
             </div>
         </section>
@@ -85,9 +99,7 @@
 
         <!-- شريط التحكمات السفلي المتكامل -->
         <footer class="reader-bottom-bar">
-            <!-- الصف الأول: أزرار متلاصقة في الوسط + انتقال مباشر بالرقم -->
             <div class="reader-controls-row">
-                <!-- مجموعة أزرار التقليب المتلاصقة في الوسط -->
                 <div class="nav-btn-group">
                     <button class="bottom-text-nav-btn tactile-btn" onclick="nextPage()">
                         الصفحة التالية <i class="fas fa-chevron-left" style="font-size: 9px;"></i>
@@ -98,14 +110,12 @@
                     </button>
                 </div>
 
-                <!-- حقل الانتقال المباشر بدون نافذة منبثقة -->
                 <div class="direct-jump-wrap">
                     <input type="number" id="inlineJumpInput" class="direct-jump-input" placeholder="صـ" min="1" onkeydown="if(event.key==='Enter') executeInlineJump()">
                     <button class="direct-jump-btn tactile-btn" onclick="executeInlineJump()">انتقال</button>
                 </div>
             </div>
 
-            <!-- الصف الثاني: السلايدر والأرقام الإجمالية -->
             <div class="slider-progress-wrapper">
                 <span id="currentPaginationLabel" class="pagination-text">1</span>
                 <input type="range" id="pageRangeSlider" min="1" max="100" value="1" class="custom-range-slider" oninput="slidePageChanged(this.value)">
@@ -152,7 +162,7 @@
         </div>
     </div>
 
-    <!-- ================= نافذة الفهرست والمفضلة (Bookmarks) ================= -->
+    <!-- ================= نافذة الفهرست والمفضلة ================= -->
     <div id="tocModal" class="glass-modal">
         <div class="modal-content glass-box" style="max-height: 80vh; display: flex; flex-direction: column;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -264,6 +274,6 @@
         </div>
     </nav>
 
-    <script src="main.js?v=100"></script>
+    <script src="main.js?v=110"></script>
 </body>
 </html>
