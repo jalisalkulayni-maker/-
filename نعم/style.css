@@ -7,6 +7,15 @@
     --text-white: #ffffff;
     --text-muted: rgba(255, 255, 255, 0.6);
     --text-dark: #030705;
+    
+    /* متغيرات القارئ التفاعلية مع الثيمات */
+    --reader-bg: #030705;
+    --reader-text: #EAEAEA;
+    --reader-fnote: #9E9E9E;
+    --reader-bars-bg: rgba(3, 7, 5, 0.96);
+    --reader-border: rgba(212, 175, 55, 0.25);
+    --reader-title-color: #FDF0B2;
+    --reader-icon-color: #D4AF37;
 }
 
 * { 
@@ -21,7 +30,7 @@ body {
     background-color: var(--bg-base); 
     color: var(--text-white); 
     overflow-x: hidden; 
-    transition: background-color 0.3s ease;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* الإضاءات والخلفية */
@@ -31,6 +40,7 @@ body {
     filter: blur(80px); 
     z-index: -2; 
     opacity: 0.6; 
+    transition: opacity 0.3s ease;
 }
 
 .orb-1 { 
@@ -57,6 +67,58 @@ body {
     pointer-events: none; 
     z-index: -1; 
 }
+
+/* ================= وضعيات ألوان القراءة الدقيقة والواضحة ================= */
+
+/* 1. الوضع الملكي (الافتراضي الداكن) */
+body.theme-royal { 
+    --reader-bg: #030705;
+    --reader-text: #EDEDED;
+    --reader-fnote: #9E9E9E;
+    --reader-bars-bg: rgba(3, 7, 5, 0.96);
+    --reader-border: rgba(212, 175, 55, 0.25);
+    --reader-title-color: #FDF0B2;
+    --reader-icon-color: #D4AF37;
+    background-color: #030705 !important;
+}
+
+/* 2. الوضع الورقي / البيج (مريح للعين بنص بني داكن) */
+body.theme-sepia { 
+    --reader-bg: #F4ECD8;
+    --reader-text: #261B11;
+    --reader-fnote: #5E4632;
+    --reader-bars-bg: rgba(236, 225, 201, 0.97);
+    --reader-border: rgba(138, 106, 52, 0.3);
+    --reader-title-color: #5A3D1A;
+    --reader-icon-color: #7A5223;
+    background-color: #F4ECD8 !important;
+}
+body.theme-sepia .bg-orb { opacity: 0.15; }
+
+/* 3. الوضع الليلي الأسود الصافي */
+body.theme-dark { 
+    --reader-bg: #000000;
+    --reader-text: #D5D5D5;
+    --reader-fnote: #858585;
+    --reader-bars-bg: rgba(12, 12, 12, 0.98);
+    --reader-border: rgba(212, 175, 55, 0.2);
+    --reader-title-color: #E2C46C;
+    --reader-icon-color: #D4AF37;
+    background-color: #000000 !important;
+}
+
+/* 4. الوضع الفاتح (نص أسود فحمي حاد على خلفية بيضاء عاجية) */
+body.theme-light { 
+    --reader-bg: #FAFAF7;
+    --reader-text: #111412;
+    --reader-fnote: #4A524D;
+    --reader-bars-bg: rgba(245, 245, 240, 0.98);
+    --reader-border: rgba(160, 130, 60, 0.35);
+    --reader-title-color: #2D2413;
+    --reader-icon-color: #8C6A1D;
+    background-color: #FAFAF7 !important;
+}
+body.theme-light .bg-orb { opacity: 0.08; }
 
 /* التذهيب والزجاج */
 .text-gold { 
@@ -111,7 +173,7 @@ body {
     to { opacity: 1; transform: translateY(0); } 
 }
 
-/* الهيدر */
+/* الهيدر الرئيسي */
 .royal-header { 
     display: flex; 
     justify-content: space-between; 
@@ -257,25 +319,25 @@ body {
     border-radius: 3px; 
 }
 
-/* شريط القارئ العلوي */
+/* ================= شريط القارئ العلوي ================= */
 .reader-top-bar {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 12px 16px;
-    background: rgba(3, 7, 5, 0.92);
-    backdrop-filter: blur(10px);
-    border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+    background: var(--reader-bars-bg);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--reader-border);
     position: sticky;
     top: 0;
     z-index: 100;
-    transition: transform 0.3s ease, opacity 0.3s ease;
+    transition: all 0.3s ease;
 }
 
 .icon-btn-flat {
     background: none;
     border: none;
-    color: var(--gold-main);
+    color: var(--reader-icon-color);
     font-size: 16px;
     width: 36px;
     height: 36px;
@@ -294,7 +356,7 @@ body {
 .reader-header-title {
     font-size: 14px;
     font-weight: 700;
-    color: var(--gold-bright);
+    color: var(--reader-title-color);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -305,7 +367,7 @@ body {
     gap: 4px;
 }
 
-/* ورقة القراءة الشفافة */
+/* ================= ورقة القراءة الشفافة والمتن ================= */
 .reader-paper-section { 
     padding: 14px 20px 140px !important; 
     background: transparent !important;
@@ -321,13 +383,25 @@ body {
     min-height: 70vh;
 }
 
+/* فرض تلوين المتن بدقة ليتوافق 100% مع الثيم */
 #pageContent {
+    color: var(--reader-text) !important;
     user-select: text;
+    transition: color 0.3s ease;
+}
+
+#pageContent * {
+    color: inherit;
 }
 
 #pageContent p, #pageContent div { 
+    color: var(--reader-text) !important;
     margin-bottom: 6px !important; 
     line-height: 1.8 !important; 
+}
+
+#pageContent h1, #pageContent h2, #pageContent h3, #pageContent h4 {
+    color: #A92626 !important;
 }
 
 #pageContent .fnote, 
@@ -336,31 +410,31 @@ body {
 #pageContent .margin,
 #pageContent .note {
     font-size: 10px !important;
-    color: #888 !important;
+    color: var(--reader-fnote) !important;
     margin-top: 8px !important;
-    border-top: 1px dashed rgba(212,175,55,0.3) !important;
+    border-top: 1px dashed var(--reader-border) !important;
     padding-top: 4px !important;
     line-height: 1.3 !important;
 }
 
-/* شريط التحكمات السفلي المتكامل */
+/* ================= شريط التحكمات السفلي المتكامل ================= */
 .reader-bottom-bar {
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    background: rgba(3, 7, 5, 0.96);
+    background: var(--reader-bars-bg);
     backdrop-filter: blur(14px);
-    border-top: 1px solid rgba(212, 175, 55, 0.25);
+    border-top: 1px solid var(--reader-border);
     padding: 8px 14px 12px;
     z-index: 100;
     display: flex;
     flex-direction: column;
     gap: 6px;
-    transition: transform 0.3s ease, opacity 0.3s ease;
+    transition: all 0.3s ease;
 }
 
-/* الصف العلوي من الشريط: أزرار متلاصقة في الوسط + الانتقال السريع المباشر */
+/* الصف الأول: أزرار متلاصقة في الوسط + انتقال مباشر بالرقم */
 .reader-controls-row {
     display: flex;
     justify-content: space-between;
@@ -371,7 +445,7 @@ body {
 .nav-btn-group {
     display: inline-flex;
     border-radius: 20px;
-    border: 1px solid rgba(212, 175, 55, 0.35);
+    border: 1px solid var(--reader-border);
     background: rgba(212, 175, 55, 0.08);
     overflow: hidden;
 }
@@ -379,7 +453,7 @@ body {
 .bottom-text-nav-btn {
     background: transparent;
     border: none;
-    color: var(--gold-main);
+    color: var(--reader-icon-color);
     font-size: 11px;
     font-weight: bold;
     padding: 4px 12px;
@@ -397,16 +471,16 @@ body {
 
 .nav-btn-divider {
     width: 1px;
-    background: rgba(212, 175, 55, 0.3);
+    background: var(--reader-border);
 }
 
-/* حقل الانتقال المباشر بدون نافذة */
+/* حقل الانتقال المباشر */
 .direct-jump-wrap {
     display: flex;
     align-items: center;
     gap: 4px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(212, 175, 55, 0.25);
+    background: rgba(127, 127, 127, 0.1);
+    border: 1px solid var(--reader-border);
     border-radius: 14px;
     padding: 2px 6px;
 }
@@ -415,7 +489,7 @@ body {
     width: 44px;
     background: transparent;
     border: none;
-    color: var(--gold-bright);
+    color: var(--reader-title-color);
     font-size: 11px;
     font-weight: bold;
     text-align: center;
@@ -425,7 +499,7 @@ body {
 .direct-jump-btn {
     background: rgba(212, 175, 55, 0.2);
     border: none;
-    color: var(--gold-main);
+    color: var(--reader-icon-color);
     font-size: 10px;
     font-weight: bold;
     padding: 2px 8px;
@@ -434,7 +508,7 @@ body {
     font-family: 'Cairo', sans-serif;
 }
 
-/* الصف السفلي من الشريط: السلايدر وعداد الصفحات */
+/* الصف الثاني: السلايدر وعداد الصفحات */
 .slider-progress-wrapper { 
     display: flex; 
     align-items: center; 
@@ -444,7 +518,7 @@ body {
 .pagination-text {
     font-size: 12px;
     font-weight: 900;
-    color: var(--gold-main);
+    color: var(--reader-icon-color);
     min-width: 35px;
     text-align: center;
 }
@@ -452,7 +526,7 @@ body {
 .custom-range-slider {
     flex: 1;
     -webkit-appearance: none;
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(127, 127, 127, 0.25);
     height: 5px;
     border-radius: 4px;
     outline: none;
@@ -463,18 +537,12 @@ body {
     width: 15px;
     height: 15px;
     border-radius: 50%;
-    background: var(--gold-main);
+    background: var(--reader-icon-color);
     cursor: pointer;
-    box-shadow: 0 0 8px rgba(212, 175, 55, 0.8);
+    box-shadow: 0 0 6px rgba(212, 175, 55, 0.6);
 }
 
-/* وضعيات ألوان القراءة (لا تغير ألوان المتن الداخلية) */
-body.theme-royal { background-color: #030705 !important; }
-body.theme-sepia { background-color: #F4ECD8 !important; }
-body.theme-dark { background-color: #000000 !important; }
-body.theme-light { background-color: #FAF9F6 !important; }
-
-/* شريط أدوات تلوين النص */
+/* شريط أدوات تلوين النص المحدد */
 .selection-toolbar {
     position: fixed;
     bottom: 85px;
@@ -503,7 +571,7 @@ body.theme-light { background-color: #FAF9F6 !important; }
 .toolbar-action-btn {
     background: transparent;
     border: none;
-    color: var(--gold-bright);
+    color: #FDF0B2;
     font-size: 13px;
     cursor: pointer;
     display: flex;
@@ -524,9 +592,9 @@ body.theme-light { background-color: #FAF9F6 !important; }
 }
 
 /* ألوان التظليل */
-.hl-yellow { background-color: rgba(255, 235, 59, 0.45); border-radius: 2px; }
-.hl-green { background-color: rgba(76, 175, 80, 0.45); border-radius: 2px; }
-.hl-pink { background-color: rgba(233, 30, 99, 0.45); border-radius: 2px; }
+.hl-yellow { background-color: rgba(255, 235, 59, 0.45) !important; color: inherit !important; border-radius: 2px; }
+.hl-green { background-color: rgba(76, 175, 80, 0.45) !important; color: inherit !important; border-radius: 2px; }
+.hl-pink { background-color: rgba(233, 30, 99, 0.45) !important; color: inherit !important; border-radius: 2px; }
 
 /* تبويبات الفهرس والمفضلة */
 .modal-tabs {
@@ -597,7 +665,7 @@ body.theme-light { background-color: #FAF9F6 !important; }
 
 .toc-item-title {
     font-size: 13px;
-    color: inherit;
+    color: #fff;
     flex: 1;
     white-space: nowrap;
     overflow: hidden;
