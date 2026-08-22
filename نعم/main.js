@@ -134,24 +134,52 @@ function switchTab(tabKey) {
     }
 }
 
+// دالة التجميع الذكية لدمج المجلدات المتفرقة والسلاسل بدقة
 function getGroupName(book, bookId) {
-    if (book.series && book.series.trim() !== "") return book.series.trim();
-
-    let title = book.title || "";
     let lowerId = (bookId || "").toLowerCase();
+    let title = (book.title || "").trim();
 
-    if (lowerId.startsWith("kafi") || title.includes("الكافي")) return "الكافي الشريف";
-    if (lowerId.startsWith("sahifa") || title.includes("الصحيفة السجادية")) return "الصحيفة السجادية";
-    if (lowerId.startsWith("bihar") || lowerId.startsWith("behar") || title.includes("بحار الأنوار") || title.includes("بحار الانوار")) return "بحار الأنوار";
+    // 1. التجميع المباشر بحسب بادئة المعرف أو الكلمات المفتاحية
+    if (lowerId.startsWith("bhr") || lowerId.startsWith("bihar") || title.includes("بحار الأنوار") || title.includes("بحار الانوار")) {
+        return "بحار الأنوار";
+    }
+    if (lowerId.startsWith("kafi") || title.includes("الكافي") || title.includes("الاصول") || title.includes("الأصول") || title.includes("الفروع") || title.includes("الروضة")) {
+        return "الكافي الشريف";
+    }
+    if (lowerId.startsWith("shf") || lowerId.startsWith("sahifa") || title.includes("الصحيفة السجادية")) {
+        return "الصحيفة السجادية";
+    }
+    if (lowerId.startsWith("wsl") || lowerId.startsWith("wasail") || title.includes("وسائل الشيعة")) {
+        return "وسائل الشيعة";
+    }
+    if (lowerId.startsWith("mzn") || lowerId.startsWith("mizan") || title.includes("الميزان")) {
+        return "تفسير الميزان";
+    }
+    if (lowerId.startsWith("nahj") || title.includes("نهج البلاغة")) {
+        return "نهج البلاغة";
+    }
+    if (lowerId.startsWith("stb") || lowerId.startsWith("istibsar") || title.includes("الاستبصار")) {
+        return "الاستبصار";
+    }
+    if (lowerId.startsWith("thb") || lowerId.startsWith("tahdhib") || title.includes("تهذيب الأحكام") || title.includes("تهذيب الاحكام")) {
+        return "تهذيب الأحكام";
+    }
 
-    return title
+    // 2. إذا وجد حقل سلسلة مخصص
+    if (book.series && book.series.trim() !== "") {
+        return book.series.trim();
+    }
+
+    // 3. تنظيف ذكي للعناوين وإزالة أرقام وتسميات الأجزاء المركبة
+    let clean = title
         .replace(/[\u064B-\u065F\u0670ـ]/g, "")
-        .replace(/[أإآ]/g, "ا")
-        .replace(/[-–—_]/g, ' ')
-        .replace(/الجزء\s*(الأول|الاول|الثاني|الثالث|الرابع|الخامس|السادس|السابع|الثامن|التاسع|العاشر|\d+)/gi, '')
-        .replace(/المجلد\s*(الأول|الاول|الثاني|الثالث|الرابع|الخامس|\d+)/gi, '')
+        .replace(/[-–—_:\/]/g, ' ')
+        .replace(/(?:الجزء|المجلد|ج|م|vol|v)?\s*(?:الأول|الاول|الثاني|الثالث|الرابع|الخامس|السادس|السابع|الثامن|التاسع|العاشر|الحادي\s*عشر|الثاني\s*عشر|الثالث\s*عشر|الرابع\s*عشر|الخامس\s*عشر|السادس\s*عشر|السابع\s*عشر|الثامن\s*عشر|التاسع\s*عشر|العشرون|[ا-ي\s]+العشرون|[ا-ي\s]+الثلاثون|[ا-ي\s]+الأربعون|[ا-ي\s]+الخمسون|\d+)/gi, '')
         .replace(/\s+/g, ' ')
-        .trim() || title;
+        .trim();
+
+    clean = clean.replace(/^[-–—_:\s]+|[-–—_:\s]+$/g, '');
+    return clean || title;
 }
 
 function getBookCategory(book) {
@@ -159,10 +187,11 @@ function getBookCategory(book) {
     
     let title = (book.title || "").toLowerCase();
     if (title.includes("تفسير") || title.includes("القرآن") || title.includes("بيان")) return "التفسير وعلوم القرآن";
-    if (title.includes("حديث") || title.includes("الكافي") || title.includes("بحار") || title.includes("استبصار") || title.includes("تهذیب")) return "الحديث الشريف ومصادره";
-    if (title.includes("دعاء") || title.includes("صحيفة") || title.includes("زيارة") || title.includes("مناجات")) return "الأدعية والزيارات";
-    if (title.includes("عقائد") || title.includes("توحيد") || title.includes("امامة") || title.includes("عدل")) return "العقائد الكلامية";
-    if (title.includes("فقه") || title.includes("احكام") || title.includes("شرايع")) return "الفقه والأحكام";
+    if (title.includes("حديث") || title.includes("الكافي") || title.includes("بحار") || title.includes("استبصار") || title.includes("تهذیب") || title.includes("وافي") || title.includes("من لا يحضره")) return "الحديث الشريف ومصادره";
+    if (title.includes("دعاء") || title.includes("صحيفة") || title.includes("زيارة") || title.includes("مناجات") || title.includes("مفاتيح")) return "الأدعية والزيارات";
+    if (title.includes("عقائد") || title.includes("توحيد") || title.includes("امامة") || title.includes("عدل") || title.includes("اعتقادات")) return "العقائد الكلامية";
+    if (title.includes("فقه") || title.includes("احكام") || title.includes("شرايع") || title.includes("رسالة")) return "الفقه والأحكام";
+    if (title.includes("تاريخ") || title.includes("سيرة") || title.includes("مقتل") || title.includes("إرشاد")) return "السيرة والتاريخ";
 
     return "المتون العامة";
 }
@@ -245,9 +274,16 @@ function processAndRenderBooks(data) {
         groups[groupName].push(book);
     });
 
-    Object.keys(groups).forEach(groupTitle => {
+    const sortedGroupTitles = Object.keys(groups).sort((a, b) => 
+        a.localeCompare(b, 'ar', { numeric: true, sensitivity: 'base' })
+    );
+
+    sortedGroupTitles.forEach(groupTitle => {
         const booksInGroup = groups[groupTitle];
-        booksInGroup.sort((a, b) => (a.id || "").localeCompare(b.id || "", undefined, { numeric: true }));
+        
+        booksInGroup.sort((a, b) => 
+            (a.id || a.title).localeCompare((b.id || b.title), undefined, { numeric: true, sensitivity: 'base' })
+        );
 
         const mainBook = booksInGroup[0];
         const isSeries = booksInGroup.length > 1;
@@ -314,7 +350,9 @@ function renderCatalogAccordion() {
 
     Object.keys(groups).forEach(groupTitle => {
         const booksInGroup = groups[groupTitle];
-        booksInGroup.sort((a, b) => (a.id || "").localeCompare(b.id || "", undefined, { numeric: true }));
+        booksInGroup.sort((a, b) => 
+            (a.id || a.title).localeCompare((b.id || b.title), undefined, { numeric: true, sensitivity: 'base' })
+        );
         const mainBook = booksInGroup[0];
         const cat = getBookCategory(mainBook);
 
@@ -324,9 +362,15 @@ function renderCatalogAccordion() {
 
     catalogContainer.innerHTML = '';
 
-    Object.keys(categoriesMap).forEach((catName, index) => {
+    const sortedCategories = Object.keys(categoriesMap).sort((a, b) => 
+        a.localeCompare(b, 'ar', { numeric: true })
+    );
+
+    sortedCategories.forEach((catName, index) => {
         const items = categoriesMap[catName];
         if (!items || items.length === 0) return;
+
+        items.sort((a, b) => a.groupTitle.localeCompare(b.groupTitle, 'ar', { numeric: true }));
 
         const accordionId = `acc_item_${index}`;
         const itemDiv = document.createElement('div');
