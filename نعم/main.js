@@ -17,6 +17,7 @@ let currentBookToc = [];
 let currentPageIndex = 1;
 let currentBookTotalPages = 0;
 let currentBookId = "";
+let currentBookTitle = "";
 
 let currentSearchFilter = 'all';
 let searchDebounceTimer = null;
@@ -67,7 +68,7 @@ function getGroupName(book, bookId) {
         .trim() || title;
 }
 
-// 2. تحميل الكتب
+// 2. تحميل الكتب من Firebase
 function loadBooksFromCloud() {
     const container = document.getElementById('dynamicBooksContainer');
     if (!container) return;
@@ -175,10 +176,11 @@ function closeVolumesModal() {
     if (modal) modal.style.display = 'none';
 }
 
-// 4. محرك القراءة وعرض الصفحات
+// 4. محرك القراءة وعرض الصفحات مع الحفظ التلقائي
 function openReaderEngine(bookId, bookTitle, pagesArray, tocArray, totalPages) {
     showView('readerView');
     currentBookId = bookId;
+    currentBookTitle = bookTitle;
     document.getElementById('readerTitle').innerText = bookTitle;
     
     currentBookPages = pagesArray || [];
@@ -197,9 +199,17 @@ function openReaderEngine(bookId, bookTitle, pagesArray, tocArray, totalPages) {
 
     currentBookTotalPages = totalPages || (maxNum > 0 ? maxNum : currentBookPages.length);
 
-    currentPageIndex = 1;
+    // استعادة آخر صفحة تم التوقف عندها تلقائياً
+    const savedLastPage = localStorage.getItem(`last_page_${bookId}`);
+    if (savedLastPage && parseInt(savedLastPage) > 1) {
+        currentPageIndex = parseInt(savedLastPage);
+    } else {
+        currentPageIndex = 1;
+    }
+
     renderCurrentPage();
     renderTocList();
+    renderBookmarksList();
 }
 
 function renderCurrentPage() {
@@ -240,21 +250,44 @@ function renderCurrentPage() {
     if (currentLbl) currentLbl.innerText = displayPage;
     if (totalLbl) totalLbl.innerText = currentBookTotalPages;
     if (topIndicator) topIndicator.innerText = `صفحة ${displayPage} من ${currentBookTotalPages}`;
+
+    // حفظ الصفحة الحالية في الذاكرة
+    if (currentBookId) {
+        localStorage.setItem(`last_page_${currentBookId}`, currentPageIndex);
+    }
+
+    updateBookmarkIconState();
 }
 
-// التقليب بالنقر على أطراف الشاشة
+// التقليب بالنقر على أطراف الشاشة والنقر المزدوج للوضع الكامل
+let lastTapTime = 0;
 function handleScreenTap(e) {
     if (window.getSelection && window.getSelection().toString().length > 0) return;
     if (e.target.closest('a, button, input, .glass-modal, .selection-toolbar')) return;
 
+    const currentTime = new Date().getTime();
+    const tapLength = currentTime - lastTapTime;
+
     const screenWidth = window.innerWidth;
     const tapX = e.clientX;
 
-    if (tapX < screenWidth * 0.3) nextPage();
-    else if (tapX > screenWidth * 0.7) prevPage();
+    if (tapX > screenWidth * 0.35 && tapX < screenWidth * 0.65) {
+        // النقر في المنتصف: تبديل الوضع الكامل (إخفاء/إظهار الأشرطة)
+        toggleZenMode();
+        return;
+    }
+
+    if (tapX < screenWidth * 0.35) nextPage();
+    else if (tapX > screenWidth * 0.65) prevPage();
+
+    lastTapTime = currentTime;
 }
 
-// ==================== تلوين وتظليل النصوص المحددة ====================
+function toggleZenMode() {
+    document.body.classList.toggle('zen-mode');
+}
+
+// ==================== تلوين واقتباس النصوص المحددة ====================
 
 document.addEventListener('selectionchange', () => {
     const selection = window.getSelection();
@@ -293,6 +326,153 @@ function removeHighlight() {
     window.getSelection().removeAllRanges();
 }
 
+// مشاركة واقتباس النص المحدد مع التوثيق
+function shareSelectedQuote() {
+    const selectedText = window.getSelection().toString().trim();
+    if (!selectedText) return;
+
+    let pageData = currentBookPages[currentPageIndex - 1];
+    let pageNum = pageData ? (pageData.page_number || currentPageIndex) : currentPageIndex;
+    let quoteFormatted = `"${selectedText}"\n\n📖 المصدر: ${currentBookTitle} (صـ ${pageNum})\n✦ مكتبة سيد الساجدين: https://t.me/Jali4s`;
+
+    if (navigator.share) {
+        navigator.share({
+            title: currentBookTitle,
+            text: quoteFormatted
+        }).catch(() => {});
+    } else {
+        navigator.clipboard.writeText(quoteFormatted);
+        alert("تم نسخ الاقتباس مع التوثيق والمصدر بنجاح!");
+    }
+
+    document.getElementById('selectionToolbar').style.display = 'none';
+    window.getSelection().removeAllRanges();
+}
+
+// التوثيق التلقائي عند النسخ العادي
+document.addEventListener('copy', (e) => {
+    if (!document.getElementById('readerView').classList.contains('active')) return;
+
+    const selection = window.getSelection().toString();
+    if (selection.length > 20) {
+        let pageData = currentBookPages[currentPageIndex - 1];
+        let pageNum = pageData ? (pageData.page_number || currentPageIndex) : currentPageIndex;
+        let attribution = `\n\n[المصدر: ${currentBookTitle} - صفحة ${pageNum} | قناة جليس الكليني https://t.me/Jali4s]`;
+        
+        e.clipboardData.setData('text/plain', selection + attribution);
+        e.preventDefault();
+    }
+});
+
+// ==================== الإشارات المرجعية والمفضلة (Bookmarks) ====================
+
+function getStoredBookmarks() {
+    const data = localStorage.getItem(`bookmarks_${currentBookId}`);
+    return data ? JSON.parse(data) : [];
+}
+
+function toggleBookmark() {
+    if (!currentBookId) return;
+
+    let bookmarks = getStoredBookmarks();
+    let curPageData = currentBookPages[currentPageIndex - 1];
+    let curPageNum = curPageData ? (curPageData.page_number || currentPageIndex) : currentPageIndex;
+
+    const existingIndex = bookmarks.findIndex(b => b.pageIndex === currentPageIndex);
+
+    if (existingIndex !== -1) {
+        bookmarks.splice(existingIndex, 1);
+    } else {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = curPageData ? curPageData.content : '';
+        const preview = (tempDiv.textContent || '').trim().substring(0, 50) + '...';
+
+        bookmarks.push({
+            pageIndex: currentPageIndex,
+            pageNum: curPageNum,
+            preview: preview,
+            date: new Date().toLocaleDateString('ar-IQ')
+        });
+    }
+
+    localStorage.setItem(`bookmarks_${currentBookId}`, JSON.stringify(bookmarks));
+    updateBookmarkIconState();
+    renderBookmarksList();
+}
+
+function updateBookmarkIconState() {
+    const btn = document.getElementById('bookmarkBtn');
+    if (!btn || !currentBookId) return;
+
+    let bookmarks = getStoredBookmarks();
+    const isBookmarked = bookmarks.some(b => b.pageIndex === currentPageIndex);
+
+    btn.innerHTML = isBookmarked ? '<i class="fas fa-bookmark" style="color:#D4AF37;"></i>' : '<i class="far fa-bookmark"></i>';
+}
+
+function renderBookmarksList() {
+    const container = document.getElementById('bookmarksListContainer');
+    if (!container || !currentBookId) return;
+
+    const bookmarks = getStoredBookmarks();
+    container.innerHTML = '';
+
+    if (bookmarks.length === 0) {
+        container.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding: 25px; font-size:12px;">لا توجد إشارات مرجعية محفوظة في هذا الكتاب.</div>';
+        return;
+    }
+
+    bookmarks.forEach((b, bIdx) => {
+        const div = document.createElement('div');
+        div.className = 'toc-item tactile-btn';
+        div.innerHTML = `
+            <div style="flex:1; overflow:hidden;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+                    <span class="toc-item-page">صفحة ${b.pageNum}</span>
+                    <span style="font-size:10px; color:#888;">${b.date || ''}</span>
+                </div>
+                <p style="font-size:11px; color:#aaa; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${b.preview}</p>
+            </div>
+            <button style="background:none; border:none; color:#ff5252; margin-right:8px; cursor:pointer;" onclick="deleteBookmark(${bIdx}, event)"><i class="fas fa-trash-can"></i></button>
+        `;
+        attachTactilePhysics(div);
+        div.onclick = () => {
+            currentPageIndex = b.pageIndex;
+            renderCurrentPage();
+            closeTocModal();
+        };
+        container.appendChild(div);
+    });
+}
+
+function deleteBookmark(idx, event) {
+    event.stopPropagation();
+    let bookmarks = getStoredBookmarks();
+    bookmarks.splice(idx, 1);
+    localStorage.setItem(`bookmarks_${currentBookId}`, JSON.stringify(bookmarks));
+    updateBookmarkIconState();
+    renderBookmarksList();
+}
+
+function switchModalTab(tab) {
+    const tocTab = document.getElementById('tabTocBtn');
+    const bmarksTab = document.getElementById('tabBookmarksBtn');
+    const tocList = document.getElementById('tocListContainer');
+    const bmarksList = document.getElementById('bookmarksListContainer');
+
+    if (tab === 'toc') {
+        tocTab.classList.add('active');
+        bmarksTab.classList.remove('active');
+        tocList.style.display = 'block';
+        bmarksList.style.display = 'none';
+    } else {
+        bmarksTab.classList.add('active');
+        tocTab.classList.remove('active');
+        tocList.style.display = 'none';
+        bmarksList.style.display = 'block';
+    }
+}
+
 // ==================== وضعيات ألوان القراءة ====================
 
 function setReadingTheme(themeName) {
@@ -303,7 +483,6 @@ function setReadingTheme(themeName) {
     localStorage.setItem('reading_theme', themeName);
 }
 
-// استعادة الثيم المحفوظ
 const savedTheme = localStorage.getItem('reading_theme');
 if (savedTheme) setReadingTheme(savedTheme);
 
