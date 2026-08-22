@@ -8,7 +8,7 @@
     
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Amiri:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=230">
+    <link rel="stylesheet" href="style.css?v=250">
 
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -38,13 +38,13 @@
             </button>
         </header>
 
-        <!-- بطاقة الإشراقة السحابية المتجددة -->
+        <!-- بطاقة الإشراقة السحابية المتجددة تلقائياً -->
         <section class="slider-container" style="padding: 0 20px 10px;">
             <div class="glass-box daily-hadith-card" style="padding: 16px; border: 1px solid rgba(212,175,55,0.35); position: relative; overflow: hidden;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <span class="tag-gold-bg" style="margin-bottom: 0;"><i class="fas fa-sun"></i> إشراقة النور</span>
+                    <span class="tag-gold-bg" style="margin-bottom: 0;"><i class="fas fa-sun"></i>  (كلامكم نور)</span>
                     <div style="display: flex; gap: 6px;">
-                        <button class="tactile-btn mini-action-btn" onclick="loadRandomDailyHadith()" title="تجديد الإشراقة">
+                        <button class="tactile-btn mini-action-btn" onclick="loadRandomDailyHadith()" title="تجديد يدوي">
                             <i class="fas fa-rotate"></i>
                         </button>
                         <button class="tactile-btn mini-action-btn" onclick="shareDailyHadith()" title="مشاركة الحديث">
@@ -54,7 +54,7 @@
                 </div>
                 
                 <p id="dailyHadithText" style="font-family: 'Amiri', serif; font-size: 16px; line-height: 1.8; color: #FDF0B2; margin-bottom: 8px; text-align: justify;">
-                    جاري استحضار الإشراقة المباركة...
+                    جاري استحضار الإشراقة المباركة من السحابة...
                 </p>
                 
                 <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed rgba(212,175,55,0.25); padding-top: 6px;">
@@ -78,7 +78,28 @@
         <div style="height: 100px;"></div>
     </main>
 
-    <!-- ================= شاشة مستودع الوسوم والتصنيفات ================= -->
+    <!-- ================= شاشة قائمة الكتب (عناوين قابلة للطي والنقر) ================= -->
+    <main id="catalogView" class="stage-view">
+        <header class="royal-header">
+            <div>
+                <div class="tag-gold">✦ الفهرس الموضوعي</div>
+                <h1 class="main-title">قائمة الكتب والتصنيفات</h1>
+            </div>
+            <button class="tactile-btn icon-btn" onclick="openSearch()">
+                <i class="fas fa-search text-gold"></i>
+            </button>
+        </header>
+
+        <section style="padding: 0 20px;">
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">انقر على اسم القسم لعرض أو إخفاء الكتب المندرجة تحته:</p>
+            <div id="catalogAccordionContainer" style="display: flex; flex-direction: column; gap: 10px;">
+                <!-- يتم ملؤها برمجياً بنظام Accordion -->
+            </div>
+        </section>
+        <div style="height: 100px;"></div>
+    </main>
+
+    <!-- ================= شاشة مستودع الوسوم والتصنيفات الشخصية ================= -->
     <main id="tagsView" class="stage-view">
         <header class="royal-header">
             <div>
@@ -161,7 +182,7 @@
         </footer>
     </main>
 
-    <!-- ================= شريط أدوات تلوين وتوسيم النص المحدد ================= -->
+    <!-- ================= شريط الأدوات والوسوم ================= -->
     <div id="selectionToolbar" class="selection-toolbar">
         <span style="font-size: 11px; color: #D4AF37; margin-left: 2px;">تلوين:</span>
         <div class="color-dot" style="background: #ffeb3b;" onclick="applyHighlight('hl-yellow')" title="أصفر"></div>
@@ -174,7 +195,7 @@
         <button class="toolbar-action-btn" onclick="shareSelectedQuote()" title="مشاركة واقتباس"><i class="fas fa-share-nodes"></i> اقتباس</button>
     </div>
 
-    <!-- ================= نافذة تعيين الوسم للنص المحدد ================= -->
+    <!-- ================= نافذة تعيين الوسم ================= -->
     <div id="addTagModal" class="glass-modal">
         <div class="modal-content glass-box" style="max-height: 85vh; display: flex; flex-direction: column; width: 92%;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(212,175,55,0.3); padding-bottom: 8px;">
@@ -196,7 +217,7 @@
         </div>
     </div>
 
-    <!-- ================= نافذة التأكيد الملكية المخصصة ================= -->
+    <!-- ================= نافذة التأكيد ================= -->
     <div id="customConfirmModal" class="glass-modal">
         <div class="modal-content glass-box" style="max-width: 340px; text-align: center; padding: 22px;">
             <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(212,175,55,0.15); border: 1px solid rgba(212,175,55,0.4); display: grid; place-items: center; margin: 0 auto 12px;">
@@ -211,7 +232,7 @@
         </div>
     </div>
 
-    <!-- ================= نافذة البحث داخل الكتاب الحالي ================= -->
+    <!-- ================= نافذة البحث داخل الكتاب ================= -->
     <div id="inBookSearchModal" class="glass-modal">
         <div class="modal-content glass-box" style="max-height: 80vh; display: flex; flex-direction: column; width: 92%;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid rgba(212,175,55,0.3); padding-bottom: 8px;">
@@ -339,6 +360,10 @@
                 <i class="fas fa-mosque"></i>
                 <span>الرواق</span>
             </button>
+            <button id="navCatalogBtn" class="nav-item tactile-btn" onclick="switchTab('catalog')">
+                <i class="fas fa-book-open"></i>
+                <span>قائمة الكتب</span>
+            </button>
             <button id="navTagsBtn" class="nav-item tactile-btn" onclick="switchTab('tags')">
                 <i class="fas fa-tags"></i>
                 <span>الوسوم</span>
@@ -350,6 +375,6 @@
         </div>
     </nav>
 
-    <script src="main.js?v=230"></script>
+    <script src="main.js?v=250"></script>
 </body>
 </html>

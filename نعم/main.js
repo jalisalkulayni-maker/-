@@ -27,6 +27,7 @@ let savedSelectionText = "";
 let currentTagFilter = 'all';
 let dailyHadithCollection = [];
 let currentDailyHadith = null;
+let hadithIntervalTimer = null;
 
 // ==================== نظام الإشعارات والتنبيهات الملكي ====================
 let toastTimeout = null;
@@ -65,7 +66,6 @@ function closeConfirmModal(isConfirmed) {
     confirmCallback = null;
 }
 
-// الوسوم الافتراضية الأولية
 const defaultTags = [
     { name: "عقائد", color: "#D4AF37" },
     { name: "أخلاق ومواعظ", color: "#4caf50" },
@@ -120,6 +120,10 @@ function switchTab(tabKey) {
     if (tabKey === 'home') {
         document.getElementById('navHomeBtn')?.classList.add('active');
         showView('homeView');
+    } else if (tabKey === 'catalog') {
+        document.getElementById('navCatalogBtn')?.classList.add('active');
+        showView('catalogView');
+        renderCatalogAccordion();
     } else if (tabKey === 'tags') {
         document.getElementById('navTagsBtn')?.classList.add('active');
         showView('tagsView');
@@ -150,7 +154,20 @@ function getGroupName(book, bookId) {
         .trim() || title;
 }
 
-// 2. تحميل الكتب من السحابة والذاكرة المحلية
+function getBookCategory(book) {
+    if (book.category && book.category.trim() !== "") return book.category.trim();
+    
+    let title = (book.title || "").toLowerCase();
+    if (title.includes("تفسير") || title.includes("القرآن") || title.includes("بيان")) return "التفسير وعلوم القرآن";
+    if (title.includes("حديث") || title.includes("الكافي") || title.includes("بحار") || title.includes("استبصار") || title.includes("تهذیب")) return "الحديث الشريف ومصادره";
+    if (title.includes("دعاء") || title.includes("صحيفة") || title.includes("زيارة") || title.includes("مناجات")) return "الأدعية والزيارات";
+    if (title.includes("عقائد") || title.includes("توحيد") || title.includes("امامة") || title.includes("عدل")) return "العقائد الكلامية";
+    if (title.includes("فقه") || title.includes("احكام") || title.includes("شرايع")) return "الفقه والأحكام";
+
+    return "المتون العامة";
+}
+
+// 2. تحميل الكتب
 function loadBooksFromCloud() {
     const container = document.getElementById('dynamicBooksContainer');
     if (!container) return;
@@ -182,6 +199,7 @@ function loadBooksFromCloud() {
                         id: id,
                         title: b.title || "",
                         series: b.series || "",
+                        category: b.category || "",
                         cover: b.cover || b.cover_url || "",
                         total_pages: b.total_pages || (b.pages ? Object.keys(b.pages).length : 0),
                         toc: b.toc || []
@@ -269,6 +287,116 @@ function processAndRenderBooks(data) {
     });
 
     renderSearchFilterPills(groups);
+}
+
+// ----------------- قائمة الكتب (نظام الأكورديون القابل للطي) -----------------
+
+function renderCatalogAccordion() {
+    const catalogContainer = document.getElementById('catalogAccordionContainer');
+    if (!catalogContainer) return;
+
+    if (Object.keys(allBooksData).length === 0) {
+        catalogContainer.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:30px;">جاري تحميل وسحب الكتب من السحابة...</div>';
+        return;
+    }
+
+    const categoriesMap = {};
+    const bookKeys = Object.keys(allBooksData);
+    const groups = {};
+
+    bookKeys.forEach(bookId => {
+        let book = allBooksData[bookId];
+        book.id = bookId;
+        let groupName = getGroupName(book, bookId);
+        if (!groups[groupName]) groups[groupName] = [];
+        groups[groupName].push(book);
+    });
+
+    Object.keys(groups).forEach(groupTitle => {
+        const booksInGroup = groups[groupTitle];
+        booksInGroup.sort((a, b) => (a.id || "").localeCompare(b.id || "", undefined, { numeric: true }));
+        const mainBook = booksInGroup[0];
+        const cat = getBookCategory(mainBook);
+
+        if (!categoriesMap[cat]) categoriesMap[cat] = [];
+        categoriesMap[cat].push({ groupTitle, booksInGroup, mainBook });
+    });
+
+    catalogContainer.innerHTML = '';
+
+    Object.keys(categoriesMap).forEach((catName, index) => {
+        const items = categoriesMap[catName];
+        if (!items || items.length === 0) return;
+
+        const accordionId = `acc_item_${index}`;
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'catalog-accordion-item';
+        itemDiv.innerHTML = `
+            <div class="catalog-accordion-header tactile-btn" onclick="toggleAccordionBody('${accordionId}')">
+                <h4><i class="fas fa-bookmark text-gold"></i> ${catName} <span class="results-badge" style="font-size: 10px; margin-right: 6px;">${items.length} كتاب</span></h4>
+                <i class="fas fa-chevron-down text-gold" id="icon_${accordionId}" style="transition: transform 0.3s;"></i>
+            </div>
+            <div class="catalog-accordion-body" id="${accordionId}">
+                <div class="books-grid-container" id="grid_${accordionId}" style="padding: 4px 0 !important;"></div>
+            </div>
+        `;
+        attachTactilePhysics(itemDiv.querySelector('.catalog-accordion-header'));
+        catalogContainer.appendChild(itemDiv);
+
+        const gridEl = itemDiv.querySelector(`#grid_${accordionId}`);
+        items.forEach(item => {
+            const { groupTitle, booksInGroup, mainBook } = item;
+            const isSeries = booksInGroup.length > 1;
+
+            let coverSrc = "";
+            for (let b of booksInGroup) {
+                let candidate = (b.cover || b.cover_url || "").trim();
+                if (candidate !== "") { coverSrc = candidate; break; }
+            }
+
+            let coverHtml = coverSrc !== "" 
+                ? `<div class="book-cover-wrapper"><img src="${coverSrc}" alt="${groupTitle}"></div>`
+                : `<div class="book-cover-wrapper"><i class="fas fa-book-open text-dark"></i></div>`;
+
+            let pagesArray = mainBook.pages ? (Array.isArray(mainBook.pages) ? mainBook.pages : Object.values(mainBook.pages)) : [];
+            let totalPages = mainBook.total_pages || pagesArray.length;
+            let subtitle = isSeries ? `${booksInGroup.length} أجزاء` : `${totalPages} صفحة`;
+
+            const card = document.createElement("div");
+            card.className = "book-card tactile-btn";
+            card.innerHTML = `
+                ${coverHtml}
+                <div class="book-info">
+                    <h4 class="text-white">${groupTitle}</h4>
+                    <p class="text-muted">${subtitle}</p>
+                    <div class="progress-bar" style="width: 100%;"><div class="progress-fill" style="width: 100%;"></div></div>
+                </div>
+            `;
+
+            attachTactilePhysics(card);
+            if (isSeries) {
+                card.onclick = () => openVolumesModal(groupTitle, booksInGroup);
+            } else {
+                card.onclick = () => openReaderEngine(mainBook.id, mainBook.title, pagesArray, mainBook.toc, mainBook.total_pages);
+            }
+            gridEl.appendChild(card);
+        });
+    });
+}
+
+function toggleAccordionBody(accId) {
+    const bodyEl = document.getElementById(accId);
+    const iconEl = document.getElementById(`icon_${accId}`);
+    if (!bodyEl) return;
+
+    const isOpen = bodyEl.classList.contains('open');
+    document.querySelectorAll('.catalog-accordion-body').forEach(b => b.classList.remove('open'));
+    document.querySelectorAll('.catalog-accordion-header i.fa-chevron-up').forEach(i => i.className = 'fas fa-chevron-down text-gold');
+
+    if (!isOpen) {
+        bodyEl.classList.add('open');
+        if (iconEl) iconEl.className = 'fas fa-chevron-up text-gold';
+    }
 }
 
 // 3. نافذة المجلدات
@@ -542,7 +670,6 @@ function openAddTagModal() {
     }
     savedSelectionText = text;
 
-    // مسح التحديد فوراً لإخفاء شريط أندرويد الرمادي
     if (window.getSelection) {
         window.getSelection().removeAllRanges();
     }
@@ -623,8 +750,6 @@ function assignTagToSelection(tagName, tagColor) {
     closeAddTagModal();
     showToast(`تم تصنيف النص تحت وسم [${tagName}]`, "fa-tag");
 }
-
-// ----------------- عرض مستودع الوسوم (الشاشة الرئيسية) -----------------
 
 function renderTagsView(filterTag = 'all') {
     currentTagFilter = filterTag;
@@ -738,8 +863,7 @@ function deleteTaggedSnippet(itemId) {
     });
 }
 
-// ==================== المفضلة والإشارات المرجعية ====================
-
+// المفضلة والإشارات المرجعية
 function getStoredBookmarks() {
     const data = localStorage.getItem(`bookmarks_${currentBookId}`);
     return data ? JSON.parse(data) : [];
@@ -1195,7 +1319,7 @@ function executeGlobalSearch() {
     }
 }
 
-// 5. محرك الإشراقات السحابية
+// 5. محرك الإشراقات السحابية المتجددة تلقائياً
 function initDailyHadithSystem() {
     const cachedQuotes = localStorage.getItem('daily_quotes_cache');
     if (cachedQuotes) {
@@ -1225,6 +1349,13 @@ function initDailyHadithSystem() {
             loadRandomDailyHadith();
         }
     });
+
+    if (hadithIntervalTimer) clearInterval(hadithIntervalTimer);
+    hadithIntervalTimer = setInterval(() => {
+        if (dailyHadithCollection.length > 0) {
+            loadRandomDailyHadith();
+        }
+    }, 10000);
 }
 
 function loadRandomDailyHadith() {
