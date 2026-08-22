@@ -93,12 +93,11 @@ function getGroupName(book, bookId) {
         .trim() || title;
 }
 
-// 2. تحميل ومعالجة الكتب سحابياً ومحلياً مع حماية الذاكرة ومنع التجميد
+// 2. تحميل الكتب
 function loadBooksFromCloud() {
     const container = document.getElementById('dynamicBooksContainer');
     if (!container) return;
 
-    // استرجاع الكاش الخفيف فوراً إن وجد
     const cachedData = localStorage.getItem('library_cache_metadata');
     if (cachedData) {
         try {
@@ -118,7 +117,6 @@ function loadBooksFromCloud() {
 
             allBooksData = snapshot.val();
 
-            // حفظ نسخة البيانات الوصفية الخفيفة فقط لتجنب امتلاء localStorage
             try {
                 const lightMetadata = {};
                 Object.keys(allBooksData).forEach(id => {
@@ -261,7 +259,6 @@ function openReaderEngine(bookId, bookTitle, pagesArray, tocArray, totalPages) {
     currentBookTitle = bookTitle;
     document.getElementById('readerTitle').innerText = bookTitle;
     
-    // إذا لم تكن الصفحات محملة (مثلاً تم فتح الكتاب من كاش الـ metadata)، نجلبها من السحابة أو الكاش المحلي
     if (pagesArray && pagesArray.length > 0) {
         try {
             localStorage.setItem(`book_content_${bookId}`, JSON.stringify(pagesArray));
@@ -907,7 +904,7 @@ function executeGlobalSearch() {
     }
 }
 
-// 5. محرك الإشراقات السحابية المتجددة
+// 5. محرك الإشراقات السحابية
 function initDailyHadithSystem() {
     const cachedQuotes = localStorage.getItem('daily_quotes_cache');
     if (cachedQuotes) {
