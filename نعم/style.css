@@ -303,33 +303,71 @@ body {
     gap: 4px;
 }
 
-/* ورقة القراءة */
+/* أزرار التقليب العلوية النصية المصغرة */
+.reader-sub-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 16px 10px;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.15);
+}
+
+.mini-nav-btn {
+    background: rgba(212, 175, 55, 0.08);
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    color: var(--gold-main);
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-family: 'Cairo', sans-serif;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s ease;
+}
+
+.mini-nav-btn:active {
+    background: rgba(212, 175, 55, 0.25);
+    transform: scale(0.96);
+}
+
+/* ورقة القراءة الشفافة بدون إطار محيط */
 .reader-paper-section { 
-    padding: 10px 14px; 
+    padding: 10px 18px 100px !important; 
+    background: transparent !important;
 }
 
 .reader-paper-box {
-    background: #FDFBF4; 
-    border-radius: 12px; 
-    padding: 16px 14px; 
-    box-shadow: inset 0 0 15px rgba(212,175,55,0.1);
-    height: 74vh;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--gold-main) transparent;
+    background: transparent !important; 
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important; 
+    padding: 0 !important; 
+    height: auto !important;
+    min-height: 70vh;
+}
+
+#pageContent {
+    transition: color 0.3s ease;
 }
 
 #pageContent p, #pageContent div { 
-    margin-bottom: 5px !important; 
-    line-height: 1.75 !important; 
+    margin-bottom: 6px !important; 
+    line-height: 1.8 !important; 
 }
 
-#pageContent .footnote, #pageContent .hawamish {
-    font-size: 13px !important;
-    color: #666 !important;
-    margin-top: 10px !important;
-    border-top: 1px dashed rgba(212,175,55,0.4) !important;
-    padding-top: 6px !important;
+#pageContent .fnote, 
+#pageContent .footnote, 
+#pageContent .hawamish,
+#pageContent .margin,
+#pageContent .note {
+    font-size: 10px !important;
+    color: #888 !important;
+    margin-top: 8px !important;
+    border-top: 1px dashed rgba(212,175,55,0.3) !important;
+    padding-top: 4px !important;
+    line-height: 1.3 !important;
 }
 
 /* شريط التقليب السفلي */
@@ -370,6 +408,7 @@ body {
     color: var(--gold-main);
     min-width: 35px;
     text-align: center;
+    cursor: pointer;
 }
 
 .custom-range-slider {
@@ -390,6 +429,64 @@ body {
     cursor: pointer;
     box-shadow: 0 0 8px rgba(212, 175, 55, 0.8);
 }
+
+/* شريط أدوات تلوين النص المحدد */
+.selection-toolbar {
+    position: fixed;
+    bottom: 75px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(18, 24, 20, 0.95);
+    border: 1px solid #D4AF37;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+    border-radius: 30px;
+    padding: 5px 12px;
+    display: none;
+    align-items: center;
+    gap: 8px;
+    z-index: 1000;
+    backdrop-filter: blur(10px);
+}
+
+.color-dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.4);
+    cursor: pointer;
+}
+
+.theme-pill-btn {
+    flex: 1;
+    padding: 6px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-family: 'Cairo', sans-serif;
+    cursor: pointer;
+    border: 1px solid rgba(212,175,55,0.3);
+}
+
+/* وضعيات ألوان القراءة */
+body.theme-royal { background: #030705 !important; color: #ffffff !important; }
+body.theme-royal #pageContent { color: #ffffff !important; }
+
+body.theme-sepia { background: #F4ECD8 !important; color: #2B2118 !important; }
+body.theme-sepia #pageContent { color: #2B2118 !important; }
+body.theme-sepia .reader-top-bar, 
+body.theme-sepia .reader-bottom-bar { background: rgba(244, 236, 216, 0.95) !important; }
+
+body.theme-dark { background: #000000 !important; color: #d0d0d0 !important; }
+body.theme-dark #pageContent { color: #d0d0d0 !important; }
+
+body.theme-light { background: #FAF9F6 !important; color: #18241D !important; }
+body.theme-light #pageContent { color: #18241D !important; }
+body.theme-light .reader-top-bar, 
+body.theme-light .reader-bottom-bar { background: rgba(250, 249, 246, 0.95) !important; }
+
+/* ألوان التظليل */
+.hl-yellow { background-color: rgba(255, 235, 59, 0.45); border-radius: 2px; }
+.hl-green { background-color: rgba(76, 175, 80, 0.45); border-radius: 2px; }
+.hl-pink { background-color: rgba(233, 30, 99, 0.45); border-radius: 2px; }
 
 /* القوائم والنوافذ المنبثقة */
 .glass-modal { 
@@ -435,7 +532,7 @@ body {
 
 .toc-item-title {
     font-size: 13px;
-    color: #fff;
+    color: inherit;
     flex: 1;
     white-space: nowrap;
     overflow: hidden;
@@ -449,7 +546,7 @@ body {
     color: var(--gold-main);
 }
 
-/* ================== تصميم قسم البحث الاحترافي ================== */
+/* قسم البحث */
 .search-bar-wrap {
     display: flex;
     align-items: center;
@@ -639,7 +736,7 @@ body {
     margin: 0 auto;
 }
 
-/* بقية الأزرار */
+/* بقية الأزرار والقوائم */
 .glass-btn { 
     background: rgba(212, 175, 55, 0.1); 
     border: 1px solid rgba(212, 175, 55, 0.4); 

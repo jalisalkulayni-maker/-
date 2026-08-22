@@ -16,9 +16,11 @@ let currentBookPages = [];
 let currentBookToc = [];
 let currentPageIndex = 1;
 let currentBookTotalPages = 0;
+let currentBookId = "";
 
 let currentSearchFilter = 'all';
 let searchDebounceTimer = null;
+let savedSelectionRange = null;
 
 function attachTactilePhysics(btn) {
     if (!btn) return;
@@ -44,24 +46,16 @@ function switchTab(clickedBtn) {
     if (clickedBtn.innerText.includes('الرواق')) showView('homeView');
 }
 
-// دالة توحيد وتجميع العناوين
+// دالة تجميع الكتب
 function getGroupName(book, bookId) {
     if (book.series && book.series.trim() !== "") return book.series.trim();
 
     let title = book.title || "";
     let lowerId = (bookId || "").toLowerCase();
 
-    if (lowerId.startsWith("kafi") || title.includes("الكافي")) {
-        return "الكافي الشريف";
-    }
-
-    if (lowerId.startsWith("sahifa") || title.includes("الصحيفة السجادية")) {
-        return "الصحيفة السجادية";
-    }
-
-    if (lowerId.startsWith("bihar") || lowerId.startsWith("behar") || title.includes("بحار الأنوار") || title.includes("بحار الانوار")) {
-        return "بحار الأنوار";
-    }
+    if (lowerId.startsWith("kafi") || title.includes("الكافي")) return "الكافي الشريف";
+    if (lowerId.startsWith("sahifa") || title.includes("الصحيفة السجادية")) return "الصحيفة السجادية";
+    if (lowerId.startsWith("bihar") || lowerId.startsWith("behar") || title.includes("بحار الأنوار") || title.includes("بحار الانوار")) return "بحار الأنوار";
 
     return title
         .replace(/[\u064B-\u065F\u0670ـ]/g, "")
@@ -73,7 +67,7 @@ function getGroupName(book, bookId) {
         .trim() || title;
 }
 
-// 2. جلب الكتب من السحابة
+// 2. تحميل الكتب
 function loadBooksFromCloud() {
     const container = document.getElementById('dynamicBooksContainer');
     if (!container) return;
@@ -88,21 +82,13 @@ function loadBooksFromCloud() {
         allBooksData = snapshot.val(); 
 
         const bookKeys = Object.keys(allBooksData);
-        if (bookKeys.length === 0) {
-            container.innerHTML = '<div style="color:var(--text-muted); grid-column: span 2; text-align: center;">قائمة الكتب فارغة.</div>';
-            return;
-        }
-
         const groups = {};
 
         bookKeys.forEach(bookId => {
             let book = allBooksData[bookId];
             book.id = bookId;
-
             let groupName = getGroupName(book, bookId);
-            if (!groups[groupName]) {
-                groups[groupName] = [];
-            }
+            if (!groups[groupName]) groups[groupName] = [];
             groups[groupName].push(book);
         });
 
@@ -116,10 +102,7 @@ function loadBooksFromCloud() {
             let coverSrc = "";
             for (let b of booksInGroup) {
                 let candidate = (b.cover || b.cover_url || "").trim();
-                if (candidate !== "") {
-                    coverSrc = candidate;
-                    break;
-                }
+                if (candidate !== "") { coverSrc = candidate; break; }
             }
 
             let coverHtml = coverSrc !== "" 
@@ -142,13 +125,11 @@ function loadBooksFromCloud() {
             `;
 
             attachTactilePhysics(card);
-
             if (isSeries) {
                 card.onclick = () => openVolumesModal(groupTitle, booksInGroup);
             } else {
                 card.onclick = () => openReaderEngine(mainBook.id, mainBook.title, pagesArray, mainBook.toc, mainBook.total_pages);
             }
-
             container.appendChild(card);
         });
 
@@ -160,12 +141,10 @@ function loadBooksFromCloud() {
 function openVolumesModal(seriesTitle, volumesList) {
     const modalTitle = document.getElementById('volumesModalTitle');
     const container = document.getElementById('volumesListContainer');
-    
     if (modalTitle) modalTitle.innerText = seriesTitle;
     if (!container) return;
 
     container.innerHTML = '';
-
     volumesList.forEach(vol => {
         let pagesArr = vol.pages ? (Array.isArray(vol.pages) ? vol.pages : Object.values(vol.pages)) : [];
         let pagesCount = vol.total_pages || pagesArr.length || 0;
@@ -179,7 +158,6 @@ function openVolumesModal(seriesTitle, volumesList) {
             </div>
             <span class="toc-item-page">${pagesCount} ص</span>
         `;
-
         attachTactilePhysics(item);
         item.onclick = () => {
             closeVolumesModal();
@@ -197,9 +175,10 @@ function closeVolumesModal() {
     if (modal) modal.style.display = 'none';
 }
 
-// 4. محرك القراءة وعرض الفهرس
+// 4. محرك القراءة وعرض الصفحات
 function openReaderEngine(bookId, bookTitle, pagesArray, tocArray, totalPages) {
     showView('readerView');
+    currentBookId = bookId;
     document.getElementById('readerTitle').innerText = bookTitle;
     
     currentBookPages = pagesArray || [];
@@ -228,6 +207,7 @@ function renderCurrentPage() {
     const rangeSlider = document.getElementById('pageRangeSlider');
     const currentLbl = document.getElementById('currentPaginationLabel');
     const totalLbl = document.getElementById('totalPaginationLabel');
+    const topIndicator = document.getElementById('topPageIndicator');
 
     if (currentBookPages.length === 0) {
         contentDiv.innerHTML = '<div style="text-align:center; color:#888;">لا توجد صفحات متاحة.</div>';
@@ -246,19 +226,9 @@ function renderCurrentPage() {
     }
 
     // تصغير الحواشي
-    contentDiv.querySelectorAll('.fnote, .footnote, .hawamish, .margin, .note, [class*="fnote"], [class*="footnote"]').forEach(el => {
+    contentDiv.querySelectorAll('.fnote, .footnote, .hawamish, .margin, .note').forEach(el => {
         el.style.setProperty('font-size', '10px', 'important');
         el.style.setProperty('line-height', '1.3', 'important');
-        el.style.setProperty('margin-top', '4px', 'important');
-        el.style.setProperty('padding-top', '3px', 'important');
-    });
-
-    contentDiv.querySelectorAll('p, div, span').forEach(el => {
-        let text = el.innerText.trim();
-        if (text.includes('____________') || text.startsWith('انتهى')) {
-            el.style.setProperty('font-size', '10px', 'important');
-            el.style.setProperty('line-height', '1.3', 'important');
-        }
     });
 
     if (rangeSlider) {
@@ -269,41 +239,152 @@ function renderCurrentPage() {
 
     if (currentLbl) currentLbl.innerText = displayPage;
     if (totalLbl) totalLbl.innerText = currentBookTotalPages;
+    if (topIndicator) topIndicator.innerText = `صفحة ${displayPage} من ${currentBookTotalPages}`;
 }
 
 // التقليب بالنقر على أطراف الشاشة
 function handleScreenTap(e) {
     if (window.getSelection && window.getSelection().toString().length > 0) return;
-    if (e.target.closest('a, button, input, .glass-modal')) return;
+    if (e.target.closest('a, button, input, .glass-modal, .selection-toolbar')) return;
 
     const screenWidth = window.innerWidth;
     const tapX = e.clientX;
 
-    if (tapX < screenWidth * 0.3) {
-        nextPage();
-    } else if (tapX > screenWidth * 0.7) {
-        prevPage();
+    if (tapX < screenWidth * 0.3) nextPage();
+    else if (tapX > screenWidth * 0.7) prevPage();
+}
+
+// ==================== تلوين وتظليل النصوص المحددة ====================
+
+document.addEventListener('selectionchange', () => {
+    const selection = window.getSelection();
+    const toolbar = document.getElementById('selectionToolbar');
+    if (!toolbar) return;
+
+    if (selection && selection.toString().trim().length > 0) {
+        savedSelectionRange = selection.getRangeAt(0).cloneRange();
+        toolbar.style.display = 'flex';
+    } else {
+        setTimeout(() => {
+            if (!window.getSelection().toString().trim()) {
+                toolbar.style.display = 'none';
+            }
+        }, 300);
+    }
+});
+
+function applyHighlight(className) {
+    if (!savedSelectionRange) return;
+    const span = document.createElement('span');
+    span.className = className;
+    try {
+        savedSelectionRange.surroundContents(span);
+    } catch (e) {
+        document.execCommand('backColor', false, className === 'hl-yellow' ? '#ffeb3b' : (className === 'hl-green' ? '#4caf50' : '#e91e63'));
+    }
+    document.getElementById('selectionToolbar').style.display = 'none';
+    window.getSelection().removeAllRanges();
+}
+
+function removeHighlight() {
+    if (!savedSelectionRange) return;
+    document.execCommand('removeFormat', false, null);
+    document.getElementById('selectionToolbar').style.display = 'none';
+    window.getSelection().removeAllRanges();
+}
+
+// ==================== وضعيات ألوان القراءة ====================
+
+function setReadingTheme(themeName) {
+    const appBody = document.getElementById('appBody');
+    if (!appBody) return;
+    appBody.classList.remove('theme-royal', 'theme-sepia', 'theme-dark', 'theme-light');
+    appBody.classList.add(themeName);
+    localStorage.setItem('reading_theme', themeName);
+}
+
+// استعادة الثيم المحفوظ
+const savedTheme = localStorage.getItem('reading_theme');
+if (savedTheme) setReadingTheme(savedTheme);
+
+// ==================== البحث داخل الكتاب المفتوح ====================
+
+function openInBookSearch() {
+    const modal = document.getElementById('inBookSearchModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        setTimeout(() => {
+            const input = document.getElementById('inBookSearchInput');
+            if (input) input.focus();
+        }, 150);
     }
 }
 
-// ==================== نظام الانتقال المطور للصفحات ====================
+function closeInBookSearch() {
+    const modal = document.getElementById('inBookSearchModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function executeInBookSearch(val) {
+    const query = val.trim().toLowerCase();
+    const container = document.getElementById('inBookSearchResults');
+    if (!container) return;
+
+    if (!query) {
+        container.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:20px;">اكتب كلمة للبحث داخل هذا الكتاب...</p>';
+        return;
+    }
+
+    container.innerHTML = '';
+    let found = 0;
+    const cleanQ = query.replace(/[\u064B-\u065F\u0670ـ]/g, "");
+
+    currentBookPages.forEach((page, idx) => {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = page.content || '';
+        const text = tempDiv.textContent || '';
+        const cleanText = text.replace(/[\u064B-\u065F\u0670ـ]/g, "").toLowerCase();
+
+        if (cleanText.includes(cleanQ)) {
+            found++;
+            const item = document.createElement('div');
+            item.className = 'toc-item tactile-btn';
+            item.innerHTML = `
+                <div style="flex:1;">
+                    <span style="color:#D4AF37; font-size:12px; font-weight:bold;">صفحة ${page.page_number}</span>
+                    <p style="font-size:12px; color:#aaa; margin:2px 0;">${text.substring(0, 80)}...</p>
+                </div>
+            `;
+            attachTactilePhysics(item);
+            item.onclick = () => {
+                currentPageIndex = idx + 1;
+                renderCurrentPage();
+                closeInBookSearch();
+            };
+            container.appendChild(item);
+        }
+    });
+
+    if (found === 0) {
+        container.innerHTML = `<p style="text-align:center; color:var(--text-muted); padding:20px;">لا توجد نتائج مطابقة لـ "${query}" في هذا الكتاب.</p>`;
+    }
+}
+
+// ==================== الانتقال المطور للصفحات ====================
 
 function openPageJumpModal() {
     const modal = document.getElementById('pageJumpModal');
     const input = document.getElementById('jumpPageInput');
     const minDisplay = document.getElementById('jumpMinPageDisplay');
     const maxDisplay = document.getElementById('jumpMaxPageDisplay');
-
     if (!modal) return;
 
-    // استخراج أصغر وأكبر رقم صفحة مطبوع
     let firstPageNum = currentBookPages.length > 0 ? (currentBookPages[0].page_number || 1) : 1;
     let lastPageNum = currentBookTotalPages || currentBookPages.length;
 
     if (minDisplay) minDisplay.innerText = firstPageNum;
     if (maxDisplay) maxDisplay.innerText = lastPageNum;
 
-    // استخراج رقم الصفحة الحالية
     let curPageData = currentBookPages[currentPageIndex - 1];
     let curPageNum = curPageData ? (curPageData.page_number || currentPageIndex) : currentPageIndex;
 
@@ -314,12 +395,7 @@ function openPageJumpModal() {
     }
 
     modal.style.display = 'flex';
-    setTimeout(() => {
-        if (input) {
-            input.focus();
-            input.select();
-        }
-    }, 150);
+    setTimeout(() => { if (input) { input.focus(); input.select(); } }, 150);
 }
 
 function closePageJumpModal() {
@@ -332,27 +408,18 @@ function executeCustomJump() {
     if (!input) return;
 
     let targetPage = parseInt(input.value.trim());
-    if (isNaN(targetPage)) {
-        alert("يرجى كتابة رقم صفحة صحيح.");
-        return;
-    }
+    if (isNaN(targetPage)) return;
 
-    // 1. محاولة مطابقة رقم الصفحة المطبوعة الفعلي
     let foundIndex = currentBookPages.findIndex(p => Number(p.page_number) === targetPage);
-
     if (foundIndex !== -1) {
         currentPageIndex = foundIndex + 1;
     } else {
-        // 2. إذا لم يطابق تماماً، البحث عن أقرب صفحة له
         let closestIndex = 0;
         let minDiff = Infinity;
         currentBookPages.forEach((p, idx) => {
             let pNum = Number(p.page_number) || (idx + 1);
             let diff = Math.abs(pNum - targetPage);
-            if (diff < minDiff) {
-                minDiff = diff;
-                closestIndex = idx;
-            }
+            if (diff < minDiff) { minDiff = diff; closestIndex = idx; }
         });
         currentPageIndex = closestIndex + 1;
     }
@@ -364,30 +431,25 @@ function executeCustomJump() {
 function quickStepPage(step) {
     const input = document.getElementById('jumpPageInput');
     if (input) {
-        let currentVal = parseInt(input.value) || currentPageIndex;
-        let newVal = Math.max(1, currentVal + step);
-        input.value = newVal;
+        let cur = parseInt(input.value) || currentPageIndex;
+        input.value = Math.max(1, cur + step);
     }
 }
 
 function jumpToBoundary(type) {
-    if (type === 'first') {
-        currentPageIndex = 1;
-    } else {
-        currentPageIndex = currentBookPages.length;
-    }
+    currentPageIndex = (type === 'first') ? 1 : currentBookPages.length;
     renderCurrentPage();
     closePageJumpModal();
 }
 
+// 5. الفهرست والتحكم بالصفحات
 function renderTocList() {
     const tocContainer = document.getElementById('tocListContainer');
     if (!tocContainer) return;
-    
     tocContainer.innerHTML = '';
     
     if (currentBookToc.length === 0) {
-        tocContainer.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding: 20px;">لا يوجد فهرس تفصيلي مسجل لهذا الكتاب.</div>';
+        tocContainer.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding: 20px;">لا يوجد فهرس تفصيلي مسجل.</div>';
         return;
     }
 
@@ -409,15 +471,8 @@ function renderTocList() {
     });
 }
 
-function openTocModal() { 
-    const modal = document.getElementById('tocModal');
-    if (modal) modal.style.display = 'flex'; 
-}
-
-function closeTocModal() { 
-    const modal = document.getElementById('tocModal');
-    if (modal) modal.style.display = 'none'; 
-}
+function openTocModal() { const m = document.getElementById('tocModal'); if (m) m.style.display = 'flex'; }
+function closeTocModal() { const m = document.getElementById('tocModal'); if (m) m.style.display = 'none'; }
 
 function nextPage() {
     if (currentPageIndex < currentBookPages.length) {
@@ -441,20 +496,11 @@ function slidePageChanged(val) {
     }
 }
 
-function closeReader() {
-    showView('homeView');
-}
+function closeReader() { showView('homeView'); }
 
-// 5. الإعدادات والخطوط
-function openSettings() { 
-    const modal = document.getElementById('settingsModal');
-    if (modal) modal.style.display = 'flex'; 
-}
-
-function closeSettings() { 
-    const modal = document.getElementById('settingsModal');
-    if (modal) modal.style.display = 'none'; 
-}
+// 6. الإعدادات والخطوط
+function openSettings() { const m = document.getElementById('settingsModal'); if (m) m.style.display = 'flex'; }
+function closeSettings() { const m = document.getElementById('settingsModal'); if (m) m.style.display = 'none'; }
 
 function adjustFontSize(delta) {
     let content = document.getElementById('pageContent');
@@ -469,13 +515,10 @@ function adjustFontSize(delta) {
 
 function changeFontFamily(font) {
     const content = document.getElementById('pageContent');
-    if (content) {
-        content.style.fontFamily = font === 'Amiri' ? "'Amiri', serif" : "'Cairo', sans-serif";
-    }
+    if (content) content.style.fontFamily = font === 'Amiri' ? "'Amiri', serif" : "'Cairo', sans-serif";
 }
 
-// ==================== 6. محرك البحث الشامل والكتب ====================
-
+// 7. البحث الشامل
 function openSearch() { 
     showView('searchView');
     setTimeout(() => {
@@ -484,9 +527,7 @@ function openSearch() {
     }, 150);
 }
 
-function closeSearch() { 
-    showView('homeView'); 
-}
+function closeSearch() { showView('homeView'); }
 
 function renderSearchFilterPills(groups) {
     const container = document.getElementById('searchFilterPills');
@@ -519,17 +560,12 @@ function handleSearchInput(val) {
     if (clearBtn) clearBtn.style.display = val.trim().length > 0 ? 'block' : 'none';
 
     clearTimeout(searchDebounceTimer);
-    searchDebounceTimer = setTimeout(() => {
-        executeGlobalSearch();
-    }, 250);
+    searchDebounceTimer = setTimeout(() => { executeGlobalSearch(); }, 250);
 }
 
 function clearSearch() {
     const input = document.getElementById('searchInput');
-    if (input) {
-        input.value = '';
-        input.focus();
-    }
+    if (input) { input.value = ''; input.focus(); }
     handleSearchInput('');
 }
 
@@ -538,9 +574,7 @@ function generateHighlightedSnippet(fullText, rawQuery) {
     const cleanQuery = rawQuery.replace(/[\u064B-\u065F\u0670ـ]/g, "").trim();
     
     const matchIndex = cleanText.indexOf(cleanQuery);
-    if (matchIndex === -1) {
-        return fullText.substring(0, 110) + '...';
-    }
+    if (matchIndex === -1) return fullText.substring(0, 110) + '...';
 
     const start = Math.max(0, matchIndex - 35);
     const end = Math.min(fullText.length, matchIndex + cleanQuery.length + 65);
@@ -591,7 +625,7 @@ function executeGlobalSearch() {
     let foundCount = 0;
     const cleanQuery = query.replace(/[\u064B-\u065F\u0670ـ]/g, "").toLowerCase();
 
-    // 1. مطابقة أسماء الكتب أولاً
+    // البحث في أسماء الكتب
     const matchedGroups = {};
     targetBookIds.forEach(bookId => {
         let book = allBooksData[bookId];
@@ -630,7 +664,7 @@ function executeGlobalSearch() {
         container.appendChild(bookResult);
     });
 
-    // 2. البحث في المتون
+    // البحث في المتون
     targetBookIds.forEach(bookId => {
         let book = allBooksData[bookId];
         let pages = book.pages ? (Array.isArray(book.pages) ? book.pages : Object.values(book.pages)) : [];
@@ -643,11 +677,9 @@ function executeGlobalSearch() {
 
             if (cleanContent.includes(cleanQuery)) {
                 foundCount++;
-
                 const snippetHTML = generateHighlightedSnippet(plainText, query);
                 const card = document.createElement('div');
                 card.className = "search-result-card tactile-btn";
-                
                 card.innerHTML = `
                     <div class="search-card-header">
                         <h4><i class="fas fa-feather-pointed text-gold"></i> ${book.title || 'كتاب'}</h4>
@@ -655,14 +687,12 @@ function executeGlobalSearch() {
                     </div>
                     <p class="search-snippet">${snippetHTML}</p>
                 `;
-
                 attachTactilePhysics(card);
                 card.onclick = () => {
                     openReaderEngine(bookId, book.title, pages, book.toc, book.total_pages);
                     currentPageIndex = idx + 1;
                     renderCurrentPage();
                 };
-
                 container.appendChild(card);
             }
         });

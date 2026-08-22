@@ -13,7 +13,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
-<body>
+<body id="appBody">
 
     <div class="bg-orb orb-1"></div>
     <div class="bg-orb orb-2"></div>
@@ -67,40 +67,73 @@
                 <h1 id="readerTitle" class="reader-header-title">جاري التحميل...</h1>
             </div>
             <div class="reader-top-actions">
-                <button class="tactile-btn icon-btn-flat" onclick="openPageJumpModal()" title="انتقال لصفحة"><i class="fas fa-location-crosshairs text-gold"></i></button>
+                <button class="tactile-btn icon-btn-flat" onclick="openInBookSearch()" title="بحث داخل الكتاب"><i class="fas fa-magnifying-glass text-gold"></i></button>
+                <button class="tactile-btn icon-btn-flat" onclick="openPageJumpModal()" title="انتقال لصفحة"><i class="fas fa-location-crosshairs"></i></button>
                 <button class="tactile-btn icon-btn-flat" onclick="openTocModal()" title="الفهرس"><i class="fas fa-list-ul"></i></button>
-                <button class="tactile-btn icon-btn-flat" onclick="openSettings()" title="الخط"><i class="fas fa-font"></i></button>
-                <button class="tactile-btn icon-btn-flat" onclick="openSearch()" title="بحث"><i class="fas fa-search"></i></button>
+                <button class="tactile-btn icon-btn-flat" onclick="openSettings()" title="المظهر والخط"><i class="fas fa-palette"></i></button>
             </div>
         </header>
 
-        <!-- ورقة القراءة مع مستشعر النقر على الأطراف -->
+        <!-- أزرار التقليب العلوية المصغرة النصية -->
+        <div class="reader-sub-nav">
+            <button class="mini-nav-btn tactile-btn" onclick="nextPage()">
+                الصفحة التالية <i class="fas fa-chevron-left" style="font-size: 9px;"></i>
+            </button>
+            <span style="font-size: 11px; color: var(--text-muted);" id="topPageIndicator">صفحة -</span>
+            <button class="mini-nav-btn tactile-btn" onclick="prevPage()">
+                <i class="fas fa-chevron-right" style="font-size: 9px;"></i> الصفحة السابقة
+            </button>
+        </div>
+
+        <!-- ورقة القراءة بدون إطار مربع -->
         <section class="reader-paper-section" id="readerTapArea" onclick="handleScreenTap(event)">
             <div class="reader-paper-box">
-                <div id="pageContent" style="color: #18241D; font-size: 15px; font-family: 'Amiri', serif; text-align: justify; line-height: 1.8;">
+                <div id="pageContent" style="font-size: 15px; font-family: 'Amiri', serif; text-align: justify; line-height: 1.8;">
                     <!-- محتوى الصفحة -->
                 </div>
             </div>
         </section>
 
-        <!-- شريط التمرير والتقليب السفلي -->
+        <!-- شريط التقليب السفلي -->
         <footer class="reader-bottom-bar">
             <div class="slider-progress-wrapper">
                 <button class="tactile-btn footer-arrow-btn" onclick="nextPage()"><i class="fas fa-chevron-right"></i></button>
-                
-                <!-- النقر على أرقام الصفحات يفتح نافذة الانتقال المطور -->
-                <span id="currentPaginationLabel" class="pagination-text tactile-btn" onclick="openPageJumpModal()" title="انقر للانتقال المباشر" style="border: 1px solid rgba(212,175,55,0.3); border-radius: 6px; padding: 2px 8px;">1</span>
+                <span id="currentPaginationLabel" class="pagination-text tactile-btn" onclick="openPageJumpModal()" title="انقر للانتقال المباشر">1</span>
                 <input type="range" id="pageRangeSlider" min="1" max="100" value="1" class="custom-range-slider" oninput="slidePageChanged(this.value)">
                 <span id="totalPaginationLabel" class="pagination-text">1</span>
-                
                 <button class="tactile-btn footer-arrow-btn" onclick="prevPage()"><i class="fas fa-chevron-left"></i></button>
             </div>
         </footer>
     </main>
 
-    <!-- ================= نافذة الانتقال المطور للصفحات (Page Jump Modal) ================= -->
+    <!-- ================= شريط أدوات تلوين النص المحدد ================= -->
+    <div id="selectionToolbar" class="selection-toolbar">
+        <span style="font-size: 11px; color: #D4AF37; margin-left: 4px;">تلوين:</span>
+        <div class="color-dot" style="background: #ffeb3b;" onclick="applyHighlight('hl-yellow')"></div>
+        <div class="color-dot" style="background: #4caf50;" onclick="applyHighlight('hl-green')"></div>
+        <div class="color-dot" style="background: #e91e63;" onclick="applyHighlight('hl-pink')"></div>
+        <button class="tactile-btn" style="background: transparent; border: none; color: #ff5252; font-size: 12px; margin-right: 4px;" onclick="removeHighlight()"><i class="fas fa-eraser"></i></button>
+    </div>
+
+    <!-- ================= نافذة البحث داخل الكتاب الحالي ================= -->
+    <div id="inBookSearchModal" class="glass-modal">
+        <div class="modal-content glass-box" style="max-height: 80vh; display: flex; flex-direction: column; width: 92%;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid rgba(212,175,55,0.3); padding-bottom: 8px;">
+                <h3 class="text-gold" style="font-size: 15px;"><i class="fas fa-magnifying-glass"></i> بحث في هذا الكتاب</h3>
+                <i class="fas fa-times text-muted tactile-btn" onclick="closeInBookSearch()" style="font-size: 18px; cursor: pointer;"></i>
+            </div>
+            <div class="search-bar-wrap glass-box" style="margin-bottom: 10px;">
+                <input type="text" id="inBookSearchInput" placeholder="اكتب عبارة للبحث في صفحات الكتاب..." class="search-input" oninput="executeInBookSearch(this.value)">
+            </div>
+            <div id="inBookSearchResults" class="toc-scroll-list" style="flex: 1;">
+                <p style="text-align: center; color: var(--text-muted); font-size: 12px; padding: 20px;">اكتب أي كلمة للبحث الفوري داخل صفحات هذا المتن.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= نافذة الانتقال المطور للصفحات ================= -->
     <div id="pageJumpModal" class="glass-modal">
-        <div class="modal-content glass-box" style="max-width: 360px; width: 90%; border: 1px solid rgba(212,175,55,0.4); text-align: center;">
+        <div class="modal-content glass-box" style="max-width: 360px; width: 90%; text-align: center;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid rgba(212,175,55,0.25); padding-bottom: 8px;">
                 <h3 class="text-gold" style="font-size: 15px; margin: 0;"><i class="fas fa-compass"></i> الانتقال المباشر لصفحة</h3>
                 <i class="fas fa-times text-muted tactile-btn" onclick="closePageJumpModal()" style="font-size: 18px; cursor: pointer;"></i>
@@ -115,7 +148,6 @@
                 <button class="tactile-btn glass-btn" onclick="executeCustomJump()" style="padding: 10px 18px; font-weight: bold; background: rgba(212,175,55,0.2); border-color: #D4AF37; color: #fff;">انتقال <i class="fas fa-arrow-left"></i></button>
             </div>
 
-            <!-- أزرار الإزاحة السريعة -->
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px;">
                 <button class="tactile-btn glass-btn" style="font-size: 11px; padding: 6px;" onclick="quickStepPage(-50)">- 50</button>
                 <button class="tactile-btn glass-btn" style="font-size: 11px; padding: 6px;" onclick="quickStepPage(-10)">- 10</button>
@@ -130,7 +162,7 @@
         </div>
     </div>
 
-    <!-- ================= نافذة اختيار المجلدات والأجزاء ================= -->
+    <!-- ================= نافذة اختيار المجلدات ================= -->
     <div id="volumesModal" class="glass-modal">
         <div class="modal-content glass-box" style="max-height: 80vh; display: flex; flex-direction: column;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(212,175,55,0.3); padding-bottom: 8px;">
@@ -152,7 +184,7 @@
         </div>
     </div>
 
-    <!-- ================= شاشة البحث الشامل والكتب ================= -->
+    <!-- ================= شاشة البحث الشامل ================= -->
     <main id="searchView" class="stage-view">
         <header class="royal-header">
             <button class="tactile-btn icon-btn" onclick="closeSearch()">
@@ -192,14 +224,25 @@
         <div style="height: 100px;"></div>
     </main>
 
-    <!-- ================= نافذة الإعدادات ================= -->
+    <!-- ================= نافذة الإعدادات والمظهر ================= -->
     <div id="settingsModal" class="glass-modal">
         <div class="modal-content glass-box">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 16px;">
-                <h3 class="text-gold" style="font-size: 16px;">إعدادات القراءة</h3>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 14px;">
+                <h3 class="text-gold" style="font-size: 16px;">المظهر وإعدادات القراءة</h3>
                 <i class="fas fa-times text-muted tactile-btn" onclick="closeSettings()" style="font-size: 18px;"></i>
             </div>
             
+            <!-- وضعيات الألوان -->
+            <div style="margin-bottom: 14px;">
+                <p class="text-white" style="margin-bottom: 6px; font-size: 13px;">نمط لون القراءة</p>
+                <div style="display: flex; gap: 6px;">
+                    <button class="theme-pill-btn" style="background: #030705; color: #D4AF37;" onclick="setReadingTheme('theme-royal')">ملكي</button>
+                    <button class="theme-pill-btn" style="background: #F4ECD8; color: #2B2118;" onclick="setReadingTheme('theme-sepia')">ورقي</button>
+                    <button class="theme-pill-btn" style="background: #000000; color: #ffffff;" onclick="setReadingTheme('theme-dark')">داكن</button>
+                    <button class="theme-pill-btn" style="background: #FAF9F6; color: #111111;" onclick="setReadingTheme('theme-light')">فاتح</button>
+                </div>
+            </div>
+
             <div style="margin-bottom: 14px;">
                 <p class="text-white" style="margin-bottom: 6px; font-size: 13px;">حجم الخط (<span id="fontSizeDisplay">15</span>)</p>
                 <div style="display: flex; gap: 10px;">
@@ -236,6 +279,6 @@
         </div>
     </nav>
 
-    <script src="main.js?v=30"></script>
+    <script src="main.js?v=40"></script>
 </body>
 </html>
