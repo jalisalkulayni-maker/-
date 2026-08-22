@@ -8,7 +8,7 @@
     
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Amiri:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=200">
+    <link rel="stylesheet" href="style.css?v=230">
 
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -19,6 +19,12 @@
     <div class="bg-orb orb-1"></div>
     <div class="bg-orb orb-2"></div>
     <div class="noise-overlay"></div>
+
+    <!-- عنصر التنبيه والإشعار الملكي الفاخر -->
+    <div id="royalToast" class="royal-toast">
+        <i class="fas fa-circle-check"></i>
+        <span id="royalToastText">تمت العملية بنجاح</span>
+    </div>
 
     <!-- ================= الشاشة الرئيسية (الرواق) ================= -->
     <main id="homeView" class="stage-view active">
@@ -72,9 +78,38 @@
         <div style="height: 100px;"></div>
     </main>
 
+    <!-- ================= شاشة مستودع الوسوم والتصنيفات ================= -->
+    <main id="tagsView" class="stage-view">
+        <header class="royal-header">
+            <div>
+                <div class="tag-gold">✦ الحافظة التخصصية</div>
+                <h1 class="main-title">مستودع الوسوم</h1>
+            </div>
+            <button class="tactile-btn icon-btn" onclick="openSearch()">
+                <i class="fas fa-search text-gold"></i>
+            </button>
+        </header>
+
+        <section style="padding: 0 20px;">
+            <div class="search-filters-scroll" id="tagsFilterPillsContainer">
+                <button class="filter-pill active tactile-btn" onclick="renderTagsView('all')">
+                    <i class="fas fa-layer-group"></i> كل الوسوم
+                </button>
+            </div>
+
+            <div id="taggedItemsListContainer" class="tagged-items-grid">
+                <div class="search-empty-state">
+                    <div class="empty-icon-box"><i class="fas fa-tags text-gold"></i></div>
+                    <h4>لا توجد نصوص موسومة بعد</h4>
+                    <p>أثناء قراءتك في أي كتاب، حدد أي حديث واضغط على زر «وسم» لتصنيفه وحفظه هنا.</p>
+                </div>
+            </div>
+        </section>
+        <div style="height: 100px;"></div>
+    </main>
+
     <!-- ================= شاشة القارئ ================= -->
     <main id="readerView" class="stage-view">
-        <!-- الشريط العلوي الثابت تماماً -->
         <header class="reader-top-bar">
             <button class="tactile-btn icon-btn-flat" onclick="closeReader()">
                 <i class="fas fa-arrow-right"></i>
@@ -99,7 +134,7 @@
             </div>
         </section>
 
-        <!-- شريط التحكمات السفلي المتكامل والمتوسط -->
+        <!-- شريط التحكمات السفلي -->
         <footer class="reader-bottom-bar">
             <div class="reader-controls-row">
                 <div class="nav-btn-group">
@@ -126,7 +161,7 @@
         </footer>
     </main>
 
-    <!-- ================= شريط أدوات تلوين ومشاركة النص المحدد ================= -->
+    <!-- ================= شريط أدوات تلوين وتوسيم النص المحدد ================= -->
     <div id="selectionToolbar" class="selection-toolbar">
         <span style="font-size: 11px; color: #D4AF37; margin-left: 2px;">تلوين:</span>
         <div class="color-dot" style="background: #ffeb3b;" onclick="applyHighlight('hl-yellow')" title="أصفر"></div>
@@ -134,7 +169,46 @@
         <div class="color-dot" style="background: #e91e63;" onclick="applyHighlight('hl-pink')" title="وردي"></div>
         <button class="toolbar-action-btn" onclick="removeHighlight()" title="مسح التلوين"><i class="fas fa-eraser" style="color: #ff5252;"></i></button>
         <div style="width: 1px; height: 16px; background: rgba(212,175,55,0.4); margin: 0 4px;"></div>
+        <button class="toolbar-action-btn" onclick="openAddTagModal()" title="إضافة وسم دلالي"><i class="fas fa-tag text-gold"></i> وسم</button>
+        <div style="width: 1px; height: 16px; background: rgba(212,175,55,0.4); margin: 0 4px;"></div>
         <button class="toolbar-action-btn" onclick="shareSelectedQuote()" title="مشاركة واقتباس"><i class="fas fa-share-nodes"></i> اقتباس</button>
+    </div>
+
+    <!-- ================= نافذة تعيين الوسم للنص المحدد ================= -->
+    <div id="addTagModal" class="glass-modal">
+        <div class="modal-content glass-box" style="max-height: 85vh; display: flex; flex-direction: column; width: 92%;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(212,175,55,0.3); padding-bottom: 8px;">
+                <h3 class="text-gold" style="font-size: 15px;"><i class="fas fa-tag"></i> تصنيف النص بوسم</h3>
+                <i class="fas fa-times text-muted tactile-btn" onclick="closeAddTagModal()" style="font-size: 18px; cursor: pointer;"></i>
+            </div>
+
+            <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">اختر وسماً لتصنيف الحديث به:</p>
+            <div id="availableTagsList" class="available-tags-grid"></div>
+
+            <div style="border-top: 1px dashed rgba(212,175,55,0.25); margin-top: 12px; padding-top: 10px;">
+                <p style="font-size: 11px; color: var(--gold-bright); margin-bottom: 6px;"><i class="fas fa-plus"></i> إنشاء وسم مخصص جديد:</p>
+                <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                    <input type="text" id="newTagNameInput" placeholder="اسم الوسم (مثال: بر الوالدين)" class="direct-jump-input" style="flex:1; text-align:right; padding: 6px 10px; border-radius:8px; background: rgba(255,255,255,0.08); font-size:12px;">
+                    <input type="color" id="newTagColorInput" value="#D4AF37" style="width: 38px; height: 32px; border: none; background: transparent; cursor: pointer; border-radius: 6px;">
+                </div>
+                <button class="tactile-btn glass-btn" style="width: 100%;" onclick="createNewCustomTag()">إضافة وتصنيف النص</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= نافذة التأكيد الملكية المخصصة ================= -->
+    <div id="customConfirmModal" class="glass-modal">
+        <div class="modal-content glass-box" style="max-width: 340px; text-align: center; padding: 22px;">
+            <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(212,175,55,0.15); border: 1px solid rgba(212,175,55,0.4); display: grid; place-items: center; margin: 0 auto 12px;">
+                <i class="fas fa-circle-question text-gold" style="font-size: 22px;"></i>
+            </div>
+            <h4 class="text-white" style="font-size: 15px; margin-bottom: 8px;">تأكيد الإجراء</h4>
+            <p id="confirmModalMsg" style="font-size: 12px; color: var(--text-muted); line-height: 1.6; margin-bottom: 18px;"></p>
+            <div style="display: flex; gap: 10px;">
+                <button class="tactile-btn glass-btn flex-1" onclick="closeConfirmModal(true)">تأكيد</button>
+                <button class="tactile-btn glass-btn flex-1" style="border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.05);" onclick="closeConfirmModal(false)">إلغاء</button>
+            </div>
+        </div>
     </div>
 
     <!-- ================= نافذة البحث داخل الكتاب الحالي ================= -->
@@ -261,21 +335,21 @@
     <!-- شريط الملاحة السفلي -->
     <nav class="glass-bottom-nav">
         <div class="nav-inner glass-box">
-            <button class="nav-item active tactile-btn" onclick="switchTab(this)">
+            <button id="navHomeBtn" class="nav-item active tactile-btn" onclick="switchTab('home')">
                 <i class="fas fa-mosque"></i>
                 <span>الرواق</span>
             </button>
-            <button class="nav-item tactile-btn" onclick="switchTab(this)">
-                <i class="fas fa-book-quran"></i>
-                <span>الخزانة</span>
+            <button id="navTagsBtn" class="nav-item tactile-btn" onclick="switchTab('tags')">
+                <i class="fas fa-tags"></i>
+                <span>الوسوم</span>
             </button>
-            <button class="nav-item tactile-btn" onclick="openSearch()">
+            <button id="navSearchBtn" class="nav-item tactile-btn" onclick="switchTab('search')">
                 <i class="fas fa-search"></i>
                 <span>البحث</span>
             </button>
         </div>
     </nav>
 
-    <script src="main.js?v=200"></script>
+    <script src="main.js?v=230"></script>
 </body>
 </html>

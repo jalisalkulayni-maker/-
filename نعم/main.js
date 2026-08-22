@@ -22,9 +22,56 @@ let currentBookTitle = "";
 let currentSearchFilter = 'all';
 let searchDebounceTimer = null;
 let savedSelectionRange = null;
+let savedSelectionText = "";
 
+let currentTagFilter = 'all';
 let dailyHadithCollection = [];
 let currentDailyHadith = null;
+
+// ==================== نظام الإشعارات والتنبيهات الملكي ====================
+let toastTimeout = null;
+function showToast(message, iconClass = 'fa-circle-check') {
+    const toast = document.getElementById('royalToast');
+    const toastText = document.getElementById('royalToastText');
+    if (!toast || !toastText) return;
+
+    toast.innerHTML = `<i class="fas ${iconClass}"></i> <span>${message}</span>`;
+    toast.classList.add('show');
+
+    clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+    }, 2800);
+}
+
+let confirmCallback = null;
+function showConfirm(message, onConfirm) {
+    const modal = document.getElementById('customConfirmModal');
+    const msgEl = document.getElementById('confirmModalMsg');
+    if (!modal || !msgEl) return;
+
+    msgEl.innerText = message;
+    confirmCallback = onConfirm;
+    modal.style.display = 'flex';
+}
+
+function closeConfirmModal(isConfirmed) {
+    const modal = document.getElementById('customConfirmModal');
+    if (modal) modal.style.display = 'none';
+
+    if (isConfirmed && typeof confirmCallback === 'function') {
+        confirmCallback();
+    }
+    confirmCallback = null;
+}
+
+// الوسوم الافتراضية الأولية
+const defaultTags = [
+    { name: "عقائد", color: "#D4AF37" },
+    { name: "أخلاق ومواعظ", color: "#4caf50" },
+    { name: "استدلال فقهي", color: "#2196f3" },
+    { name: "مراجعة لاحقة", color: "#e91e63" }
+];
 
 const fallbackHadithCollection = [
     {
@@ -67,10 +114,20 @@ function showView(viewId) {
     }
 }
 
-function switchTab(clickedBtn) {
+function switchTab(tabKey) {
     document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
-    clickedBtn.classList.add('active');
-    if (clickedBtn.innerText.includes('الرواق')) showView('homeView');
+
+    if (tabKey === 'home') {
+        document.getElementById('navHomeBtn')?.classList.add('active');
+        showView('homeView');
+    } else if (tabKey === 'tags') {
+        document.getElementById('navTagsBtn')?.classList.add('active');
+        showView('tagsView');
+        renderTagsView(currentTagFilter);
+    } else if (tabKey === 'search') {
+        document.getElementById('navSearchBtn')?.classList.add('active');
+        openSearch();
+    }
 }
 
 function getGroupName(book, bookId) {
@@ -93,7 +150,7 @@ function getGroupName(book, bookId) {
         .trim() || title;
 }
 
-// 2. تحميل الكتب
+// 2. تحميل الكتب من السحابة والذاكرة المحلية
 function loadBooksFromCloud() {
     const container = document.getElementById('dynamicBooksContainer');
     if (!container) return;
@@ -252,7 +309,7 @@ function closeVolumesModal() {
     if (modal) modal.style.display = 'none';
 }
 
-// 4. محرك القراءة وعرض الصفحات
+// 4. محرك القراءة
 function openReaderEngine(bookId, bookTitle, pagesArray, tocArray, totalPages) {
     showView('readerView');
     currentBookId = bookId;
@@ -393,6 +450,8 @@ function executeInlineJump() {
     renderCurrentPage();
 }
 
+// ==================== شريط الأدوات والوسوم الدلالية ====================
+
 document.addEventListener('selectionchange', () => {
     const selection = window.getSelection();
     const toolbar = document.getElementById('selectionToolbar');
@@ -400,6 +459,7 @@ document.addEventListener('selectionchange', () => {
 
     if (selection && selection.toString().trim().length > 0) {
         savedSelectionRange = selection.getRangeAt(0).cloneRange();
+        savedSelectionText = selection.toString().trim();
         toolbar.style.display = 'flex';
     } else {
         setTimeout(() => {
@@ -421,6 +481,7 @@ function applyHighlight(className) {
     }
     document.getElementById('selectionToolbar').style.display = 'none';
     window.getSelection().removeAllRanges();
+    showToast("تم تظليل النص بنجاح", "fa-highlighter");
 }
 
 function removeHighlight() {
@@ -428,10 +489,11 @@ function removeHighlight() {
     document.execCommand('removeFormat', false, null);
     document.getElementById('selectionToolbar').style.display = 'none';
     window.getSelection().removeAllRanges();
+    showToast("تمت إزالة التظليل", "fa-eraser");
 }
 
 function shareSelectedQuote() {
-    const selectedText = window.getSelection().toString().trim();
+    const selectedText = window.getSelection().toString().trim() || savedSelectionText;
     if (!selectedText) return;
 
     let pageData = currentBookPages[currentPageIndex - 1];
@@ -445,12 +507,238 @@ function shareSelectedQuote() {
         }).catch(() => {});
     } else {
         navigator.clipboard.writeText(quoteFormatted);
-        alert("تم نسخ الاقتباس مع التوثيق والمصدر بنجاح!");
+        showToast("تم نسخ الاقتباس مع التوثيق والمصدر", "fa-clipboard-check");
     }
 
     document.getElementById('selectionToolbar').style.display = 'none';
     window.getSelection().removeAllRanges();
 }
+
+// ----------------- دوال نظام الوسوم المخصصة -----------------
+
+function getStoredTags() {
+    const data = localStorage.getItem('custom_tags_list');
+    return data ? JSON.parse(data) : defaultTags;
+}
+
+function saveStoredTags(tags) {
+    localStorage.setItem('custom_tags_list', JSON.stringify(tags));
+}
+
+function getStoredTaggedSnippets() {
+    const data = localStorage.getItem('custom_tagged_snippets');
+    return data ? JSON.parse(data) : [];
+}
+
+function saveStoredTaggedSnippets(items) {
+    localStorage.setItem('custom_tagged_snippets', JSON.stringify(items));
+}
+
+function openAddTagModal() {
+    const text = window.getSelection().toString().trim() || savedSelectionText;
+    if (!text) {
+        showToast("يرجى تحديد نص لتصنيفه أولاً", "fa-triangle-exclamation");
+        return;
+    }
+    savedSelectionText = text;
+
+    // مسح التحديد فوراً لإخفاء شريط أندرويد الرمادي
+    if (window.getSelection) {
+        window.getSelection().removeAllRanges();
+    }
+
+    renderAvailableTagsSelection();
+    const modal = document.getElementById('addTagModal');
+    if (modal) modal.style.display = 'flex';
+    document.getElementById('selectionToolbar').style.display = 'none';
+}
+
+function closeAddTagModal() {
+    const modal = document.getElementById('addTagModal');
+    if (modal) modal.style.display = 'none';
+    if (window.getSelection) {
+        window.getSelection().removeAllRanges();
+    }
+}
+
+function renderAvailableTagsSelection() {
+    const container = document.getElementById('availableTagsList');
+    if (!container) return;
+
+    const tags = getStoredTags();
+    container.innerHTML = '';
+
+    tags.forEach(t => {
+        const btn = document.createElement('div');
+        btn.className = 'tag-badge-select tactile-btn';
+        btn.style.backgroundColor = t.color;
+        btn.innerHTML = `<i class="fas fa-tag"></i> ${t.name}`;
+        attachTactilePhysics(btn);
+        btn.onclick = () => assignTagToSelection(t.name, t.color);
+        container.appendChild(btn);
+    });
+}
+
+function createNewCustomTag() {
+    const nameInput = document.getElementById('newTagNameInput');
+    const colorInput = document.getElementById('newTagColorInput');
+    const name = nameInput.value.trim();
+    const color = colorInput.value;
+
+    if (!name) {
+        showToast("يرجى كتابة اسم للوسم أولاً", "fa-triangle-exclamation");
+        return;
+    }
+
+    const tags = getStoredTags();
+    if (!tags.some(t => t.name === name)) {
+        tags.push({ name, color });
+        saveStoredTags(tags);
+    }
+
+    nameInput.value = '';
+    assignTagToSelection(name, color);
+}
+
+function assignTagToSelection(tagName, tagColor) {
+    if (!savedSelectionText) return;
+
+    let pageData = currentBookPages[currentPageIndex - 1];
+    let pageNum = pageData ? (pageData.page_number || currentPageIndex) : currentPageIndex;
+
+    const taggedItems = getStoredTaggedSnippets();
+    taggedItems.unshift({
+        id: 'tag_' + Date.now(),
+        tagName: tagName,
+        tagColor: tagColor,
+        text: savedSelectionText,
+        bookId: currentBookId,
+        bookTitle: currentBookTitle,
+        pageNum: pageNum,
+        pageIndex: currentPageIndex,
+        date: new Date().toLocaleDateString('ar-IQ')
+    });
+
+    saveStoredTaggedSnippets(taggedItems);
+    closeAddTagModal();
+    showToast(`تم تصنيف النص تحت وسم [${tagName}]`, "fa-tag");
+}
+
+// ----------------- عرض مستودع الوسوم (الشاشة الرئيسية) -----------------
+
+function renderTagsView(filterTag = 'all') {
+    currentTagFilter = filterTag;
+    const pillsContainer = document.getElementById('tagsFilterPillsContainer');
+    const listContainer = document.getElementById('taggedItemsListContainer');
+    if (!pillsContainer || !listContainer) return;
+
+    const tags = getStoredTags();
+    const items = getStoredTaggedSnippets();
+
+    pillsContainer.innerHTML = `
+        <button class="filter-pill ${currentTagFilter === 'all' ? 'active' : ''} tactile-btn" onclick="renderTagsView('all')">
+            <i class="fas fa-layer-group"></i> كل الوسوم (${items.length})
+        </button>
+    `;
+
+    tags.forEach(t => {
+        const count = items.filter(i => i.tagName === t.name).length;
+        const btn = document.createElement('button');
+        btn.className = `filter-pill ${currentTagFilter === t.name ? 'active' : ''} tactile-btn`;
+        btn.style.borderColor = t.color;
+        btn.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${t.color}; margin-left:4px;"></span> ${t.name} (${count})`;
+        btn.onclick = () => renderTagsView(t.name);
+        pillsContainer.appendChild(btn);
+    });
+
+    const filteredItems = (currentTagFilter === 'all') 
+        ? items 
+        : items.filter(i => i.tagName === currentTagFilter);
+
+    listContainer.innerHTML = '';
+
+    if (filteredItems.length === 0) {
+        listContainer.innerHTML = `
+            <div class="search-empty-state">
+                <div class="empty-icon-box"><i class="fas fa-tags text-gold"></i></div>
+                <h4>لا توجد نصوص موسومة في هذا التصنيف</h4>
+                <p>حدد أي نص أثناء قراءة الكتب واضغط على «وسم» لإضافته هنا.</p>
+            </div>
+        `;
+        return;
+    }
+
+    filteredItems.forEach((item) => {
+        const card = document.createElement('div');
+        card.className = 'tagged-item-card';
+        card.innerHTML = `
+            <div class="tagged-card-header">
+                <span class="tag-pill-badge" style="background-color: ${item.tagColor || '#D4AF37'};">
+                    <i class="fas fa-tag"></i> ${item.tagName}
+                </span>
+                <span style="font-size: 10px; color: var(--text-muted);">${item.date || ''}</span>
+            </div>
+            <p class="tagged-quote-text">«${item.text}»</p>
+            <div class="tagged-card-footer">
+                <div>
+                    <i class="fas fa-book-bookmark text-gold"></i> ${item.bookTitle} (صـ ${item.pageNum})
+                </div>
+                <div class="tagged-actions">
+                    <button class="tactile-btn mini-action-btn" title="انتقال للموضع في الكتاب" onclick="jumpToTaggedSnippet('${item.bookId}', '${item.bookTitle}', ${item.pageIndex || item.pageNum})">
+                        <i class="fas fa-arrow-up-right-from-square"></i>
+                    </button>
+                    <button class="tactile-btn mini-action-btn" title="مشاركة" onclick="shareTaggedSnippet('${item.id}')">
+                        <i class="fas fa-share-nodes"></i>
+                    </button>
+                    <button class="tactile-btn mini-action-btn" title="حذف" style="color:#ff5252;" onclick="deleteTaggedSnippet('${item.id}')">
+                        <i class="fas fa-trash-can"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        attachTactilePhysics(card);
+        listContainer.appendChild(card);
+    });
+}
+
+function jumpToTaggedSnippet(bookId, bookTitle, pageIndexOrNum) {
+    const book = allBooksData[bookId] || {};
+    const pages = book.pages ? (Array.isArray(book.pages) ? book.pages : Object.values(book.pages)) : [];
+    openReaderEngine(bookId, bookTitle || book.title, pages, book.toc, book.total_pages);
+    
+    currentPageIndex = parseInt(pageIndexOrNum) || 1;
+    renderCurrentPage();
+}
+
+function shareTaggedSnippet(itemId) {
+    const items = getStoredTaggedSnippets();
+    const target = items.find(i => i.id === itemId);
+    if (!target) return;
+
+    const shareContent = `✦ [${target.tagName}] من علوم آل محمد:\n\n«${target.text}»\n\n📖 المصدر: ${target.bookTitle} (صـ ${target.pageNum})\n✦ مكتبة سيد الساجدين: https://t.me/Jali4s`;
+
+    if (navigator.share) {
+        navigator.share({
+            title: target.bookTitle,
+            text: shareContent
+        }).catch(() => {});
+    } else {
+        navigator.clipboard.writeText(shareContent);
+        showToast("تم نسخ النص الموسوم مع المصدر", "fa-clipboard-check");
+    }
+}
+
+function deleteTaggedSnippet(itemId) {
+    showConfirm("هل أنت متأكد من رغبتك في إزالة هذا الحديث من الوسوم؟", () => {
+        let items = getStoredTaggedSnippets();
+        items = items.filter(i => i.id !== itemId);
+        saveStoredTaggedSnippets(items);
+        renderTagsView(currentTagFilter);
+        showToast("تمت إزالة الحديث من الوسوم", "fa-trash-can");
+    });
+}
+
+// ==================== المفضلة والإشارات المرجعية ====================
 
 function getStoredBookmarks() {
     const data = localStorage.getItem(`bookmarks_${currentBookId}`);
@@ -468,6 +756,7 @@ function toggleBookmark() {
 
     if (existingIndex !== -1) {
         bookmarks.splice(existingIndex, 1);
+        showToast("تمت إزالة الإشارة المرجعية", "fa-bookmark");
     } else {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = curPageData ? curPageData.content : '';
@@ -479,6 +768,7 @@ function toggleBookmark() {
             preview: preview,
             date: new Date().toLocaleDateString('ar-IQ')
         });
+        showToast(`تم حفظ الإشارة المرجعية (صـ ${curPageNum})`, "fa-bookmark");
     }
 
     try {
@@ -541,6 +831,7 @@ function deleteBookmark(idx, event) {
     } catch (e) {}
     updateBookmarkIconState();
     renderBookmarksList();
+    showToast("تم حذف الإشارة المرجعية", "fa-trash-can");
 }
 
 function switchModalTab(tab) {
@@ -965,7 +1256,7 @@ function shareDailyHadith() {
         }).catch(() => {});
     } else {
         navigator.clipboard.writeText(shareContent);
-        alert("تم نسخ الإشراقة مع التوثيق والمصدر بنجاح!");
+        showToast("تم نسخ الإشراقة المباركة مع التوثيق والمصدر", "fa-clipboard-check");
     }
 }
 
