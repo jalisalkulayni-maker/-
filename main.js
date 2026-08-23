@@ -1204,4 +1204,268 @@ function renderSearchFilterPills(groups) {
     if (!container) return;
 
     container.innerHTML = `
-        <button class="filter-pill ${currentSearchScope === 'all' ? 'active' : ''} tactile-btn" onclick="setSe
+        <button class="filter-pill ${currentSearchScope === 'all' ? 'active' : ''} tactile-btn" onclick="setSearchScope('all', this)">
+            <i class="fas fa-globe"></i> كل المكتبة
+        </button>
+    `;
+
+    Object.keys(groups).forEach(gName => {
+        const btn = document.createElement('button');
+        btn.className = `filter-pill ${currentSearchScope === 'group:' + gName ? 'active' : ''} tactile-btn`;
+        btn.innerHTML = `<i class="fas fa-book"></i> ${gName}`;
+        btn.onclick = () => setSearchScope('group:' + gName, btn);
+        container.appendChild(btn);
+    });
+}
+
+function setSearchScope(scopeKey, element) {
+    currentSearchScope = scopeKey;
+    document.querySelectorAll('#searchFilterPills .filter-pill').forEach(el => el.classList.remove('active'));
+    if (element) element.classList.add('active');
+    executeGlobalSearch();
+}
+
+function handleSearchInput(val) {
+    const clearBtn = document.getElementById('searchClearBtn');
+    if (clearBtn) clearBtn.style.display = val.trim().length > 0 ? 'block' : 'none';
+
+    isDeepSearching = false;
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => { executeGlobalSearch(); }, 250);
+}
+
+function clearSearch() {
+    const input = document.getElementById('searchInput');
+    if (input) { input.value = ''; input.focus(); }
+    handleSearchInput('');
+}
+
+async function executeGlobalSearch() {
+    const query = document.getElementById('searchInput').value.trim();
+    const container = document.getElementById('searchResultsContainer');
+    const statusInfo = document.getElementById('searchStatusInfo');
+    const countBadge = document.getElementById('searchResultCount');
+    const filterBadge = document.getElementById('searchFilterName');
+
+    if (!container) return;
+
+    if (!query) {
+        if (statusInfo) statusInfo.style.display = 'none';
+        container.innerHTML = `
+            <div class="search-empty-state">
+                <div class="empty-icon-box"><i class="fas fa-book-bookmark text-gold"></i></div>
+                <h4>ابحث في أسماء المتون، الأبواب، أو نصوص الصفحات</h4>
+                <p>حدد النوع والنطاق من الأزرار أعلاه ثم اكتب عبارة البحث.</p>
+            </div>
+        `;
+        return;
+    }
+
+    let targetBookIds = Object.keys(allBooksManifest);
+    let filterLabel = "في كل المكتبة";
+
+    if (currentSearchScope !== 'all') {
+        if (currentSearchScope.startsWith('group:')) {
+            const gTarget = currentSearchScope.replace('group:', '');
+            targetBookIds = targetBookIds.filter(bId => getGroupName(allBooksManifest[bId], bId) === gTarget);
+            filterLabel = `في ${gTarget}`;
+        }
+    }
+
+    container.innerHTML = "";
+    let foundCount = 0;
+    const cleanQuery = normalizeArabicText(query);
+
+    // 1. الوضع الأول: البحث في الأبواب والفهارس والعناوين
+    if (currentSearchTarget === 'toc') {
+        targetBookIds.forEach(bookId => {
+            let book = allBooksManifest[bookId];
+            let groupName = getGroupName(book, bookId);
+            let cleanTitle = normalizeArabicText(book.title || "");
+            let cleanGroup = normalizeArabicText(groupName);
+
+            if (cleanTitle.includes(cleanQuery) || cleanGroup.includes(cleanQuery)) {
+                foundCount++;
+                const bookCard = document.createElement('div');
+                bookCard.className = "search-result-card tactile-btn";
+                bookCard.style.borderRight = "3px solid #D4AF37";
+                bookCard.innerHTML = `
+                    <div class="search-card-header">
+                        <h4><i class="fas fa-book-open text-gold"></i> ${book.title || groupName}</h4>
+                        <span class="search-page-badge">كتاب كامل</span>
+                    </div>
+                    <p class="search-snippet" style="color: var(--text-gold);">اضغط لفتح هذا المجلد مباشرة.</p>
+                `;
+                attachTactilePhysics(bookCard);
+                bookCard.onclick = () => loadAndOpenBook(book.id, book.title, book.toc, book.total_pages);
+                container.appendChild(bookCard);
+            }
+
+            if (book.toc && Array.isArray(book.toc)) {
+                book.toc.forEach(tocItem => {
+                    let cleanTocTitle = normalizeArabicText(tocItem.title || "");
+                    if (cleanTocTitle.includes(cleanQuery)) {
+                        foundCount++;
+                        const tocCard = document.createElement('div');
+                        tocCard.className = "search-result-card tactile-btn";
+                        tocCard.innerHTML = `
+                            <div class="search-card-header">
+                                <h4 style="font-size: 13px;"><i class="fas fa-bookmark text-gold"></i> ${tocItem.title}</h4>
+                                <span class="search-page-badge">صـ ${tocItem.page_number}</span>
+                            </div>
+                            <p class="search-snippet">${book.title || groupName}</p>
+                        `;
+                        attachTactilePhysics(tocCard);
+                        tocCard.onclick = () => loadAndOpenBook(book.id, book.title, book.toc, book.total_pages, tocItem.page_number);
+                        container.appendChild(tocCard);
+                    }
+                });
+            }
+        });
+
+        if (statusInfo && countBadge && filterBadge) {
+            statusInfo.style.display = 'flex';
+            countBadge.innerText = `${foundCount} نتائج`;
+            filterBadge.innerText = `${filterLabel} (أبواب)`;
+        }
+
+        if (foundCount === 0) {
+            container.innerHTML = `
+                <div class="search-empty-state">
+                    <div class="empty-icon-box"><i class="fas fa-search-minus" style="color: var(--text-muted);"></i></div>
+                    <h4>لم نجد أبواباً مطابقة لـ "${query}"</h4>
+                    <p>جرّب التحويل إلى خيار «نصوص وصفحات الكتب» بالأعلى.</p>
+                </div>
+            `;
+        }
+    } 
+    // 2. الوضع الثاني: البحث المعمق في نصوص وصفحات الكتب
+    else if (currentSearchTarget === 'fulltext') {
+        const progressIndicator = document.createElement('div');
+        progressIndicator.className = "glass-box";
+        progressIndicator.style.padding = "10px 14px";
+        progressIndicator.style.marginBottom = "10px";
+        progressIndicator.style.textAlign = "center";
+        progressIndicator.style.fontSize = "12px";
+        progressIndicator.style.color = "var(--gold-bright)";
+        progressIndicator.innerHTML = `<i class="fas fa-spinner fa-spin"></i> جاري البحث في نصوص الصفحات... (<span id="deepSearchProgress">0%</span>)`;
+        container.appendChild(progressIndicator);
+
+        isDeepSearching = true;
+        let total = targetBookIds.length;
+        let processed = 0;
+
+        for (const bookId of targetBookIds) {
+            if (!isDeepSearching) break;
+
+            try {
+                const bookMeta = allBooksManifest[bookId];
+                let bookData = null;
+
+                const cached = localStorage.getItem(`book_pages_${bookId}`);
+                if (cached) {
+                    bookData = { pages: JSON.parse(cached) };
+                } else {
+                    bookData = await fetchBookData(bookId);
+                }
+
+                if (bookData && bookData.pages) {
+                    bookData.pages.forEach(page => {
+                        const temp = document.createElement('div');
+                        temp.innerHTML = page.content || '';
+                        const raw = temp.textContent || '';
+                        const clean = normalizeArabicText(raw);
+
+                        if (clean.includes(cleanQuery)) {
+                            foundCount++;
+                            const snippet = generateSearchSnippet(raw, query);
+                            const card = document.createElement('div');
+                            card.className = "search-result-card tactile-btn";
+                            card.style.borderLeft = "3px solid #4caf50";
+                            card.innerHTML = `
+                                <div class="search-card-header">
+                                    <h4 style="font-size: 13px;"><i class="fas fa-quote-right" style="color:#4caf50;"></i> ${bookMeta.title}</h4>
+                                    <span class="search-page-badge">صـ ${page.page_number}</span>
+                                </div>
+                                <p class="search-snippet" style="color: #fff;">${snippet}</p>
+                            `;
+                            attachTactilePhysics(card);
+                            card.onclick = () => loadAndOpenBook(bookId, bookMeta.title, bookMeta.toc, bookMeta.total_pages, page.page_number);
+                            container.appendChild(card);
+                        }
+                    });
+                }
+            } catch (e) {}
+
+            processed++;
+            const progEl = document.getElementById('deepSearchProgress');
+            if (progEl) progEl.innerText = `${Math.round((processed / total) * 100)}%`;
+        }
+
+        progressIndicator.remove();
+        isDeepSearching = false;
+
+        if (statusInfo && countBadge && filterBadge) {
+            statusInfo.style.display = 'flex';
+            countBadge.innerText = `${foundCount} نتائج`;
+            filterBadge.innerText = `${filterLabel} (نصوص)`;
+        }
+
+        if (foundCount === 0) {
+            container.innerHTML = `
+                <div class="search-empty-state">
+                    <div class="empty-icon-box"><i class="fas fa-search-minus" style="color: var(--text-muted);"></i></div>
+                    <h4>لم نجد نصوصاً مطابقة لـ "${query}" في نطاق البحث</h4>
+                    <p>تأكد من كتابة الكلمة بدون أخطاء إملائية.</p>
+                </div>
+            `;
+        }
+    }
+}
+
+// ==================== محرك الإشراقات اليومية ====================
+function initDailyHadithSystem() {
+    dailyHadithCollection = fallbackHadithCollection;
+    loadRandomDailyHadith();
+
+    if (hadithIntervalTimer) clearInterval(hadithIntervalTimer);
+    hadithIntervalTimer = setInterval(() => {
+        if (dailyHadithCollection.length > 0) {
+            loadRandomDailyHadith();
+        }
+    }, 10000);
+}
+
+function loadRandomDailyHadith() {
+    const textEl = document.getElementById('dailyHadithText');
+    const sourceEl = document.getElementById('dailyHadithSource');
+    if (!textEl || !sourceEl || dailyHadithCollection.length === 0) return;
+
+    const randomIndex = Math.floor(Math.random() * dailyHadithCollection.length);
+    currentDailyHadith = dailyHadithCollection[randomIndex];
+
+    textEl.style.opacity = 0;
+    setTimeout(() => {
+        textEl.innerText = currentDailyHadith.text || "";
+        sourceEl.innerHTML = `<i class="fas fa-feather-pointed text-gold"></i> المصدر: ${currentDailyHadith.source || "غير محدد"}`;
+        textEl.style.transition = 'opacity 0.3s ease';
+        textEl.style.opacity = 1;
+    }, 150);
+}
+
+function shareDailyHadith() {
+    if (!currentDailyHadith) return;
+    const shareContent = `✦ إشراقة النور من علوم آل محمد:\n\n${currentDailyHadith.text}\n\n📖 ${currentDailyHadith.source}\n✦ مكتبة سيد الساجدين: https://t.me/Jali4s`;
+
+    if (navigator.share) {
+        navigator.share({ title: "إشراقة علوم العترة", text: shareContent }).catch(() => {});
+    } else {
+        navigator.clipboard.writeText(shareContent);
+        showToast("تم نسخ الإشراقة المباركة مع التوثيق والمصدر", "fa-clipboard-check");
+    }
+}
+
+// ==================== التهيئة عند بدء التشغيل ====================
+document.querySelectorAll('.tactile-btn').forEach(btn => attachTactilePhysics(btn));
+loadLibraryManifest();
+initDailyHadithSystem();
