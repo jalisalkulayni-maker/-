@@ -1,5 +1,11 @@
 // ==================== إعدادات ومسارات النظام ====================
-const DATA_MANIFEST_URL = "./manifest.json";
+// قائمة ملفات الفهرس المنفصلة (يمكنك إضافة المزيد هنا مستقبلاً)
+const MANIFEST_FILES = [
+    "./manifest.json",
+    "./manifest_2.json"
+    // "./manifest_3.json"
+];
+
 const BOOKS_FOLDER_PATH = "./";
 const CLOUD_FALLBACK_URL = "https://cdn.jsdelivr.net/gh/jalisalkulayni-maker/-@main/";
 
@@ -144,7 +150,7 @@ function normalizeArabicText(text) {
 
 function getVolumeNumber(vol) {
     let idMatch = (vol.id || "").match(/_(\d+)/);
-    if (idMatch) return parseInt(idMatch[1], 10);
+    if (idMatch) return parseInt(idMatch, 10);
 
     let textMatch = (vol.title || "").match(/\d+/);
     if (textMatch) return parseInt(textMatch[0], 10);
@@ -233,31 +239,49 @@ function getBookCategory(book) {
     return "المتون العامة";
 }
 
-// ==================== تحميل ومعالجة الفهرس ====================
+// ==================== تحميل ودمج الفهارس المتعددة ====================
 async function loadLibraryManifest() {
     const container = document.getElementById('dynamicBooksContainer');
     if (!container) return;
 
+    allBooksManifest = {};
+
     try {
-        let res = await fetch(DATA_MANIFEST_URL + '?v=' + Date.now());
-        if (!res.ok) {
-            res = await fetch(`${CLOUD_FALLBACK_URL}manifest.json?v=` + Date.now());
-        }
-        if (!res.ok) throw new Error("تعذر قراءة ملف manifest.json");
-        const data = await res.json();
+        // جلب كل ملفات الفهرس بالتوازي
+        const fetchPromises = MANIFEST_FILES.map(async (fileUrl) => {
+            try {
+                let res = await fetch(fileUrl + '?v=' + Date.now());
+                if (!res.ok) {
+                    const fileName = fileUrl.replace('./', '');
+                    res = await fetch(`${CLOUD_FALLBACK_URL}${fileName}?v=` + Date.now());
+                }
+                if (res.ok) {
+                    const data = await res.json();
+                    return data.books || data;
+                }
+            } catch (err) {
+                console.warn(`تعذر تحميل الملف: ${fileUrl}`, err);
+            }
+            return {};
+        });
 
-        if (data.books && typeof data.books === 'object' && Object.keys(data.books).length > 0) {
-            allBooksManifest = data.books;
-        } else if (typeof data === 'object' && !data.version) {
-            allBooksManifest = data;
-        } else {
-            allBooksManifest = data.books || {};
+        const results = await Promise.all(fetchPromises);
+
+        // دمج كافة الكتب في كائن واحد
+        results.forEach(booksObj => {
+            allBooksManifest = { ...allBooksManifest, ...booksObj };
+        });
+
+        if (Object.keys(allBooksManifest).length === 0) {
+            throw new Error("لم يتم العثور على أي بيانات في ملفات manifest");
         }
 
+        // معالجة وعرض جميع الكتب المدمجة في الواجهة
         processAndRenderBooks(allBooksManifest);
+
     } catch (err) {
         console.error(err);
-        container.innerHTML = `<div style="color:#ff6b6b; grid-column: span 2; text-align: center; font-size: 13px; padding: 20px;">تعذر تحميل الفهرس: تأكد من رفع ملف manifest.json بشكل صحيح.</div>`;
+        container.innerHTML = `<div style="color:#ff6b6b; grid-column: span 2; text-align: center; font-size: 13px; padding: 20px;">تعذر تحميل الفهارس: تأكد من مسارات ملفات manifest.</div>`;
     }
 }
 
@@ -440,14 +464,13 @@ function toggleAccordionBody(accId) {
     }
 }
 
-// ==================== قائمة اختيار الأجزاء (الترتيب والتنسيق الرقمي الذكي) ====================
+// ==================== قائمة اختيار الأجزاء ====================
 function openVolumesModal(seriesTitle, volumesList) {
     const modalTitle = document.getElementById('volumesModalTitle');
     const container = document.getElementById('volumesListContainer');
     if (modalTitle) modalTitle.innerText = seriesTitle;
     if (!container) return;
 
-    // ترتيب الأجزاء تصاعدياً بدقة
     volumesList.sort((a, b) => getVolumeNumber(a) - getVolumeNumber(b));
 
     container.innerHTML = '';
