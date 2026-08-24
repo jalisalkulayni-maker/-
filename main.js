@@ -227,7 +227,7 @@ function getBookCategory(book) {
     if (title.includes("تفسير") || title.includes("القرآن") || title.includes("قرآن") || title.includes("بيان") || title.includes("برهان") || title.includes("عياشي")) return "التفسير وعلوم القرآن";
     if (title.includes("حديث") || title.includes("الكافي") || title.includes("بحار") || title.includes("استبصار") || title.includes("تهذیب") || title.includes("وافي") || title.includes("من لا يحضره") || title.includes("وسائل") || title.includes("إحتجاج") || title.includes("احتجاج")) return "الحديث الشريف ومصادره";
     if (title.includes("دعاء") || title.includes("صحيفة") || title.includes("زيارة") || title.includes("مناجات") || title.includes("مفاتيح")) return "الأدعية والزيارات";
-    if (title.includes("عقائد") || title.includes("توحيد") || title.includes("امامة") || title.includes("عدل") || title.includes("اعتقادات")) return "العقائد الكلامية";
+    if (title.includes("عقائد") || title.includes("توحيد") || title.includes("امامة") || title.includes("عدل") || title.includes("اعتقادات")) return "العقائد";
     if (title.includes("فقه") || title.includes("احكام") || title.includes("شرايع") || title.includes("رسالة") || title.includes("حدائق")) return "الفقه والأحكام";
     if (title.includes("تاريخ") || title.includes("سيرة") || title.includes("مقتل") || title.includes("إرشاد")) return "السيرة والتاريخ";
     return "المتون العامة";
