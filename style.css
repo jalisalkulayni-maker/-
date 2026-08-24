@@ -20,6 +20,12 @@
     -webkit-tap-highlight-color: transparent;
 }
 
+a {
+    color: inherit;
+    text-decoration: none;
+    font-family: inherit;
+}
+
 body {
     background-color: var(--bg-dark);
     color: var(--text-white);
@@ -253,6 +259,7 @@ body {
     display: block;
 }
 
+/* شريط القارئ العلوي */
 .reader-top-bar {
     position: fixed;
     top: 0; left: 0; right: 0;
@@ -286,25 +293,165 @@ body {
     align-items: center;
     gap: 4px;
 }
+
+/* مساحة ورقة القراءة */
 .reader-paper-section {
     padding: 68px 16px 115px;
     min-height: 100vh;
     user-select: text;
+    transition: background-color 0.25s ease, color 0.25s ease;
 }
 .reader-paper-box {
     max-width: 720px;
     margin: 0 auto;
+    font-family: var(--font-amiri);
+    font-size: 20px;
+    line-height: 2.3;
 }
 
-.theme-royal { background: #030705; color: #FDF0B2; }
-.theme-sepia { background: #F4ECD8; color: #2B2118; }
-.theme-sepia .glass-box, .theme-sepia .reader-top-bar, .theme-sepia .reader-bottom-bar { background: rgba(235, 224, 201, 0.85); border-color: rgba(43, 33, 24, 0.15); color: #2B2118; }
-.theme-sepia .text-white, .theme-sepia .reader-header-title { color: #2B2118 !important; }
-.theme-dark { background: #000000; color: #FFFFFF; }
-.theme-light { background: #FAF9F6; color: #111111; }
-.theme-light .glass-box, .theme-light .reader-top-bar, .theme-light .reader-bottom-bar { background: rgba(255, 255, 255, 0.9); border-color: rgba(0,0,0,0.1); color: #111; }
-.theme-light .text-white, .theme-light .reader-header-title { color: #111 !important; }
+/* تنسيق متون ونصوص وعناوين الكتاب */
+.book-heading,
+.reader-paper-box h1,
+.reader-paper-box h2,
+.reader-paper-box h3,
+.reader-paper-box h4 {
+    color: var(--gold-bright);
+    text-align: center;
+    margin: 26px 0 18px;
+    font-weight: 900;
+    line-height: 1.7;
+    font-family: var(--font-amiri);
+}
 
+.book-paragraph {
+    text-align: justify;
+    margin-bottom: 16px;
+    text-justify: inter-word;
+}
+
+.footnote-item {
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.8;
+    margin-top: 6px;
+}
+.footnote-first {
+    margin-top: 25px;
+    border-top: 1px dashed var(--surface-border);
+    padding-top: 12px;
+}
+.footnote-ref {
+    color: var(--gold-main);
+    font-size: 0.75em;
+    vertical-align: super;
+    margin: 0 3px;
+    font-weight: bold;
+}
+
+/* تنسيق تذييل الصفحة وروابط الكتاب */
+.page-footer {
+    margin-top: 35px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--surface-border);
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: var(--font-cairo);
+}
+
+.page-footer-link,
+.page-footer a {
+    color: var(--gold-main) !important;
+    text-decoration: none !important;
+    font-family: inherit !important;
+    font-weight: 700;
+    display: inline-block;
+    transition: opacity 0.2s ease, color 0.2s ease;
+}
+
+.page-footer-link:hover,
+.page-footer a:hover {
+    color: var(--gold-bright) !important;
+    opacity: 0.85;
+}
+
+/* ========================================================
+   ثيمات القراءة: مقتصرة فقط على خلفية ونصوص صفحة القراءة
+   ======================================================== */
+
+/* 1. الثيم الملكي (الافتراضي) */
+.theme-royal .reader-paper-section,
+.reader-paper-section.theme-royal {
+    background: #030705;
+    color: #FDF0B2;
+}
+.theme-royal .book-heading,
+.reader-paper-section.theme-royal .book-heading {
+    color: var(--gold-bright);
+}
+
+/* 2. ثيم السبيا (ورق قديم) */
+.theme-sepia .reader-paper-section,
+.reader-paper-section.theme-sepia {
+    background: #F4ECD8;
+    color: #2B2118;
+}
+.theme-sepia .book-heading,
+.reader-paper-section.theme-sepia .book-heading {
+    color: #8C6239;
+    text-shadow: none;
+}
+.theme-sepia .footnote-first,
+.reader-paper-section.theme-sepia .footnote-first,
+.theme-sepia .page-footer,
+.reader-paper-section.theme-sepia .page-footer {
+    border-color: rgba(43, 33, 24, 0.15);
+    color: #6E5844;
+}
+.theme-sepia .page-footer-link,
+.theme-sepia .page-footer a,
+.reader-paper-section.theme-sepia .page-footer-link,
+.reader-paper-section.theme-sepia .page-footer a {
+    color: #8C6239 !important;
+}
+
+/* 3. ثيم داكن خالص */
+.theme-dark .reader-paper-section,
+.reader-paper-section.theme-dark {
+    background: #000000;
+    color: #E0E0E0;
+}
+.theme-dark .book-heading,
+.reader-paper-section.theme-dark .book-heading {
+    color: var(--gold-main);
+}
+
+/* 4. ثيم فاتح */
+.theme-light .reader-paper-section,
+.reader-paper-section.theme-light {
+    background: #FAF9F6;
+    color: #111111;
+}
+.theme-light .book-heading,
+.reader-paper-section.theme-light .book-heading {
+    color: #8B6508;
+    text-shadow: none;
+}
+.theme-light .footnote-first,
+.reader-paper-section.theme-light .footnote-first,
+.theme-light .page-footer,
+.reader-paper-section.theme-light .page-footer {
+    border-color: rgba(0, 0, 0, 0.12);
+    color: #666;
+}
+.theme-light .page-footer-link,
+.theme-light .page-footer a,
+.reader-paper-section.theme-light .page-footer-link,
+.reader-paper-section.theme-light .page-footer a {
+    color: #8B6508 !important;
+}
+
+/* شريط القارئ السفلي والأدوات */
 .reader-bottom-bar {
     position: fixed;
     bottom: 0; left: 0; right: 0;
@@ -778,3 +925,4 @@ body {
 .text-white { color: #fff; }
 .text-muted { color: var(--text-muted); }
 .flex-1 { flex: 1; }
+ 
