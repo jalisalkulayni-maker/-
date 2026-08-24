@@ -1494,7 +1494,7 @@ function shareDailyHadith() {
         navigator.share({ title: "إشراقة علوم العترة", text: shareContent }).catch(() => {});
     } else {
         navigator.clipboard.writeText(shareContent);
-        showToast("تم نسخ الإشراقة المباركة مع التوثيق والمصدر", "fa-clipboard-check");
+        showToast("تمّ نسخ الإشراقة المباركة مع التوثيق والمصدر", "fa-clipboard-check");
     }
 }
 
