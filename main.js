@@ -2,11 +2,13 @@
 // قائمة ملفات الفهرس المنفصلة (يمكنك إضافة المزيد هنا مستقبلاً)
 const MANIFEST_FILES = [
     "./manifest.json",
-    "./manifest_2.json"
-    // "./manifest_3.json"
+    "./manifest_2.json",
+    "./data/manifest.json",
+    "./data/manifest_2.json"
 ];
 
-const BOOKS_FOLDER_PATH = "./";
+// المسار الافتراضي للكتب ومجلد data
+const BOOKS_FOLDER_PATH = "./data/";
 const CLOUD_FALLBACK_URL = "https://cdn.jsdelivr.net/gh/jalisalkulayni-maker/-@main/";
 
 let allBooksManifest = {};
@@ -149,9 +151,17 @@ function normalizeArabicText(text) {
 }
 
 function getVolumeNumber(vol) {
-    let idMatch = (vol.id || "").match(/_(\d+)/);
-    if (idMatch) return parseInt(idMatch, 10);
+    // 1. فحص حقل volume أولاً إذا كان يحتوي على رقم
+    if (vol.volume) {
+        let cleanVol = String(vol.volume).replace(/\D/g, '');
+        if (cleanVol) return parseInt(cleanVol, 10);
+    }
 
+    // 2. استخراج الرقم من معرف الكتاب id (مثل knz_11 -> 11)
+    let idMatch = (vol.id || "").match(/_(\d+)/);
+    if (idMatch && idMatch) return parseInt(idMatch, 10);
+
+    // 3. استخراج الرقم من العنوان
     let textMatch = (vol.title || "").match(/\d+/);
     if (textMatch) return parseInt(textMatch[0], 10);
 
@@ -208,6 +218,7 @@ function getGroupName(book, bookId) {
     if (lowerId.startsWith("nahj") || normTitle.includes("نهج البلاغه")) return "نهج البلاغة";
     if (lowerId.startsWith("stb") || lowerId.startsWith("istibsar") || normTitle.includes("الاستبصار")) return "الاستبصار";
     if (lowerId.startsWith("thb") || lowerId.startsWith("tahdhib") || normTitle.includes("تهذيب الاحكام")) return "تهذيب الأحكام";
+    if (lowerId.startsWith("knz") || normTitle.includes("كنز الدقائق")) return "تفسير كنز الدقائق وبحر الغرائب";
     if (normTitle.includes("من لا يحضره")) return "من لا يحضره الفقيه";
     if (normTitle.includes("مستدرك الوسائل")) return "مستدرك الوسائل";
     if (normTitle.includes("نور الثقلين")) return "تفسير نور الثقلين";
@@ -230,7 +241,7 @@ function getGroupName(book, bookId) {
 function getBookCategory(book) {
     if (book.category && book.category.trim() !== "") return book.category.trim();
     let title = (book.title || "").toLowerCase();
-    if (title.includes("تفسير") || title.includes("القرآن") || title.includes("قرآن") || title.includes("بيان") || title.includes("برهان") || title.includes("عياشي")) return "التفسير وعلوم القرآن";
+    if (title.includes("تفسير") || title.includes("القرآن") || title.includes("قرآن") || title.includes("بيان") || title.includes("برهان") || title.includes("عياشي") || title.includes("كنز")) return "التفسير وعلوم القرآن";
     if (title.includes("حديث") || title.includes("الكافي") || title.includes("بحار") || title.includes("استبصار") || title.includes("تهذیب") || title.includes("وافي") || title.includes("من لا يحضره") || title.includes("وسائل") || title.includes("إحتجاج") || title.includes("احتجاج")) return "الحديث الشريف ومصادره";
     if (title.includes("دعاء") || title.includes("صحيفة") || title.includes("زيارة") || title.includes("مناجات") || title.includes("مفاتيح")) return "الأدعية والزيارات";
     if (title.includes("عقائد") || title.includes("توحيد") || title.includes("امامة") || title.includes("عدل") || title.includes("اعتقادات")) return "العقائد";
@@ -247,12 +258,11 @@ async function loadLibraryManifest() {
     allBooksManifest = {};
 
     try {
-        // جلب كل ملفات الفهرس بالتوازي
         const fetchPromises = MANIFEST_FILES.map(async (fileUrl) => {
             try {
                 let res = await fetch(fileUrl + '?v=' + Date.now());
                 if (!res.ok) {
-                    const fileName = fileUrl.replace('./', '');
+                    const fileName = fileUrl.replace('./', '').replace('data/', '');
                     res = await fetch(`${CLOUD_FALLBACK_URL}${fileName}?v=` + Date.now());
                 }
                 if (res.ok) {
@@ -267,7 +277,6 @@ async function loadLibraryManifest() {
 
         const results = await Promise.all(fetchPromises);
 
-        // دمج كافة الكتب في كائن واحد
         results.forEach(booksObj => {
             allBooksManifest = { ...allBooksManifest, ...booksObj };
         });
@@ -276,7 +285,6 @@ async function loadLibraryManifest() {
             throw new Error("لم يتم العثور على أي بيانات في ملفات manifest");
         }
 
-        // معالجة وعرض جميع الكتب المدمجة في الواجهة
         processAndRenderBooks(allBooksManifest);
 
     } catch (err) {
@@ -476,7 +484,7 @@ function openVolumesModal(seriesTitle, volumesList) {
     container.innerHTML = '';
     volumesList.forEach(vol => {
         let volNum = getVolumeNumber(vol);
-        let volLabel = (volNum !== 999) ? `الجزء ${volNum}` : (vol.title || seriesTitle);
+        let volLabel = (volNum !== 999 && !isNaN(volNum)) ? `الجزء ${volNum}` : (vol.title || seriesTitle);
 
         const item = document.createElement('div');
         item.className = 'toc-item tactile-btn';
@@ -506,9 +514,11 @@ function closeVolumesModal() {
 
 // ==================== محرك القارئ وعرض الصفحات ====================
 async function fetchBookData(bookId) {
+    // محاولة جلب الكتاب من عدة مسارات محتملة تلقائياً
     let res = await fetch(`${BOOKS_FOLDER_PATH}${bookId}.json`);
-    if (!res.ok) res = await fetch(`./${bookId}.json`);
+    if (!res.ok) res = await fetch(`./data/${bookId}.json`);
     if (!res.ok) res = await fetch(`./books/${bookId}.json`);
+    if (!res.ok) res = await fetch(`./${bookId}.json`);
     if (!res.ok) res = await fetch(`${CLOUD_FALLBACK_URL}${bookId}.json`);
     if (!res.ok) throw new Error("تعذر جلب ملف الكتاب");
     return await res.json();
