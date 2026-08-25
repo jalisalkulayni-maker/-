@@ -1,18 +1,23 @@
 // ==================== إعدادات ومسارات النظام ====================
-// قائمة ملفات الفهرس المنفصلة (تشمل المجلدات: data و data2 و data3)
+// قائمة ملفات الفهرس المنفصلة (تشمل المجلدات السابقة والمستقبلية)
 const MANIFEST_FILES = [
     "./manifest.json",
     "./manifest_2.json",
     "./manifest_3.json",
+    "./manifest_4.json",
+    "./manifest_5.json",
     "./data/manifest.json",
     "./data/manifest_2.json",
     "./data2/manifest.json",
     "./data3/manifest.json",
-    "./data3/manifest_3.json"
+    "./data3/manifest_3.json",
+    "./data4/manifest.json",
+    "./data5/manifest.json",
+    "./books/manifest.json"
 ];
 
-// المسار الافتراضي للكتب ومجلد data
-const BOOKS_FOLDER_PATH = "./data/";
+// قائمة المجلدات المعتمدة للبحث عن صفحات الكتب تلقائياً
+const SEARCH_FOLDERS = ["./data3/", "./data2/", "./data/", "./data4/", "./data5/", "./books/", "./"];
 const CLOUD_FALLBACK_URL = "https://cdn.jsdelivr.net/gh/jalisalkulayni-maker/-@main/";
 
 let allBooksManifest = {};
@@ -210,54 +215,61 @@ function normalizeArabicText(text) {
         .trim();
 }
 
+const compoundMap = {
+    "الحادي والتسعون": 91, "الثاني والتسعون": 92, "الثالث والتسعون": 93, "الرابع والتسعون": 94,
+    "الخامس والتسعون": 95, "السادس والتسعون": 96, "السابع والتسعون": 97, "الثامن والتسعون": 98, "التاسع والتسعون": 99,
+    "الحادي والثمانون": 81, "الثاني والثمانون": 82, "الثالث والثمانون": 83, "الرابع والثمانون": 84,
+    "الخامس والثمانون": 85, "السادس والثمانون": 86, "السابع والثمانون": 87, "الثامن والثمانون": 88, "التاسع والثمانون": 89,
+    "الحادي والسبعون": 71, "الثاني والسبعون": 72, "الثالث والسبعون": 73, "الرابع والسبعون": 74,
+    "الخامس والسبعون": 75, "السادس والسبعون": 76, "السابع والسبعون": 77, "الثامن والسبعون": 78, "التاسع والسبعون": 79,
+    "الحادي والستون": 61, "الثاني والستون": 62, "الثالث والستون": 63, "الرابع والستون": 64,
+    "الخامس والستون": 65, "السادس والستون": 66, "السابع والستون": 67, "الثامن والستون": 68, "التاسع والستون": 69,
+    "الحادي والخمسون": 51, "الثاني والخمسون": 52, "الثالث والخمسون": 53, "الرابع والخمسون": 54,
+    "الخامس والخمسون": 55, "السادس والخمسون": 56, "السابع والخمسون": 57, "الثامن والخمسون": 58, "التاسع والخمسون": 59,
+    "الحادي والاربعون": 41, "الحادي والأربعون": 41, "الثاني والاربعون": 42, "الثاني والأربعون": 42,
+    "الثالث والاربعون": 43, "الثالث والأربعون": 43, "الرابع والاربعون": 44, "الرابع والأربعون": 44,
+    "الخامس والاربعون": 45, "الخامس والأربعون": 45, "السادس والاربعون": 46, "السادس والأربعون": 46,
+    "السابع والاربعون": 47, "السابع والأربعون": 47, "الثامن والاربعون": 48, "الثامن والأربعون": 48,
+    "التاسع والاربعون": 49, "التاسع والأربعون": 49,
+    "الحادي والثلاثون": 31, "الثاني والثلاثون": 32, "الثالث والثلاثون": 33, "الرابع والثلاثون": 34,
+    "الخامس والثلاثون": 35, "السادس والثلاثون": 36, "السابع والثلاثون": 37, "الثامن والثلاثون": 38, "التاسع والثلاثون": 39,
+    "الحادي والعشرون": 21, "الثاني والعشرون": 22, "الثالث والعشرون": 23, "الرابع والعشرون": 24,
+    "الخامس والعشرون": 25, "السادس والعشرون": 26, "السابع والعشرون": 27, "الثامن والعشرون": 28, "التاسع والعشرون": 29,
+    "الحادي عشر": 11, "الثاني عشر": 12, "الثالث عشر": 13, "الرابع عشر": 14, "الخامس عشر": 15,
+    "السادس عشر": 16, "السابع عشر": 17, "الثامن عشر": 18, "التاسع عشر": 19,
+    "المائة": 100, "المئة": 100, "التسعون": 90, "الثمانون": 80, "السبعون": 70,
+    "الستون": 60, "الخمسون": 50, "الأربعون": 40, "الاربعون": 40, "الثلاثون": 30, "العشرون": 20,
+    "العاشر": 10, "التاسع": 9, "الثامن": 8, "السابع": 7, "السادس": 6,
+    "الخامس": 5, "الرابع": 4, "الثالث": 3, "الثاني": 2, "الأول": 1, "الاول": 1
+};
+
 function getVolumeNumber(vol) {
     if (vol.volume) {
         let cleanVol = String(vol.volume).replace(/\D/g, '');
-        if (cleanVol) return parseInt(cleanVol, 10);
+        if (cleanVol && !isNaN(parseInt(cleanVol, 10))) {
+            return parseInt(cleanVol, 10);
+        }
     }
 
     let idMatch = (vol.id || "").match(/_(\d+)/);
-    if (idMatch && idMatch) return parseInt(idMatch, 10);
-
-    let textMatch = (vol.title || "").match(/\d+/);
-    if (textMatch) return parseInt(textMatch[0], 10);
-
-    const compoundMap = {
-        "الحادي والتسعون": 91, "الثاني والتسعون": 92, "الثالث والتسعون": 93, "الرابع والتسعون": 94,
-        "الخامس والتسعون": 95, "السادس والتسعون": 96, "السابع والتسعون": 97, "الثامن والتسعون": 98, "التاسع والتسعون": 99,
-        "الحادي والثمانون": 81, "الثاني والثمانون": 82, "الثالث والثمانون": 83, "الرابع والثمانون": 84,
-        "الخامس والثمانون": 85, "السادس والثمانون": 86, "السابع والثمانون": 87, "الثامن والثمانون": 88, "التاسع والثمانون": 89,
-        "الحادي والسبعون": 71, "الثاني والسبعون": 72, "الثالث والسبعون": 73, "الرابع والسبعون": 74,
-        "الخامس والسبعون": 75, "السادس والسبعون": 76, "السابع والسبعون": 77, "الثامن والسبعون": 78, "التاسع والسبعون": 79,
-        "الحادي والستون": 61, "الثاني والستون": 62, "الثالث والستون": 63, "الرابع والستون": 64,
-        "الخامس والستون": 65, "السادس والستون": 66, "السابع والستون": 67, "الثامن والستون": 68, "التاسع والستون": 69,
-        "الحادي والخمسون": 51, "الثاني والخمسون": 52, "الثالث والخمسون": 53, "الرابع والخمسون": 54,
-        "الخامس والخمسون": 55, "السادس والخمسون": 56, "السابع والخمسون": 57, "الثامن والخمسون": 58, "التاسع والخمسون": 59,
-        "الحادي والاربعون": 41, "الحادي والأربعون": 41, "الثاني والاربعون": 42, "الثاني والأربعون": 42,
-        "الثالث والاربعون": 43, "الثالث والأربعون": 43, "الرابع والاربعون": 44, "الرابع والأربعون": 44,
-        "الخامس والاربعون": 45, "الخامس والأربعون": 45, "السادس والاربعون": 46, "السادس والأربعون": 46,
-        "السابع والاربعون": 47, "السابع والأربعون": 47, "الثامن والاربعون": 48, "الثامن والأربعون": 48,
-        "التاسع والاربعون": 49, "التاسع والأربعون": 49,
-        "الحادي والثلاثون": 31, "الثاني والثلاثون": 32, "الثالث والثلاثون": 33, "الرابع والثلاثون": 34,
-        "الخامس والثلاثون": 35, "السادس والثلاثون": 36, "السابع والثلاثون": 37, "الثامن والثلاثون": 38, "التاسع والثلاثون": 39,
-        "الحادي والعشرون": 21, "الثاني والعشرون": 22, "الثالث والعشرون": 23, "الرابع والعشرون": 24,
-        "الخامس والعشرون": 25, "السادس والعشرون": 26, "السابع والعشرون": 27, "الثامن والعشرون": 28, "التاسع والعشرون": 29,
-        "الحادي عشر": 11, "الثاني عشر": 12, "الثالث عشر": 13, "الرابع عشر": 14, "الخامس عشر": 15,
-        "السادس عشر": 16, "السابع عشر": 17, "الثامن عشر": 18, "التاسع عشر": 19,
-        "المائة": 100, "المئة": 100, "التسعون": 90, "الثمانون": 80, "السبعون": 70,
-        "الستون": 60, "الخمسون": 50, "الأربعون": 40, "الاربعون": 40, "الثلاثون": 30, "العشرون": 20,
-        "العاشر": 10, "التاسع": 9, "الثامن": 8, "السابع": 7, "السادس": 6,
-        "الخامس": 5, "الرابع": 4, "الثالث": 3, "الثاني": 2, "الأول": 1, "الاول": 1
-    };
+    if (idMatch && idMatch && !isNaN(parseInt(idMatch, 10))) {
+        return parseInt(idMatch, 10);
+    }
 
     let cleanTitle = (vol.title || "").replace(/[\u064B-\u065F\u0670ـ]/g, "");
     for (let [word, num] of Object.entries(compoundMap)) {
         if (cleanTitle.includes(word)) return num;
     }
+
+    let textMatch = cleanTitle.match(/\d+/);
+    if (textMatch && !isNaN(parseInt(textMatch[0], 10))) {
+        return parseInt(textMatch[0], 10);
+    }
+
     return 999;
 }
 
-// دالة التجميع الذكية والموسعة لجميع السلاسل
+// خوارزمية التجميع الشاملة والذكية لتوحيد جميع السلاسل (تمنع تشتت الكتب إلى بطاقات متعددة)
 function getGroupName(book, bookId) {
     let lowerId = (bookId || "").toLowerCase();
     let rawTitle = (book.title || "").trim();
@@ -265,49 +277,51 @@ function getGroupName(book, bookId) {
 
     if (lowerId.startsWith("bhr") || lowerId.startsWith("bihar") || normTitle.includes("بحار الانوار")) return "بحار الأنوار";
     if (lowerId.startsWith("kafi") || normTitle.includes("الكافي") || normTitle.includes("الاصول") || normTitle.includes("الفروع") || normTitle.includes("الروضه")) return "الكافي الشريف";
+    if (normTitle.includes("العقول") || lowerId.startsWith("mrat") || lowerId.startsWith("mra")) return "مرآة العقول في شرح أخبار آل الرسول";
     if (lowerId.startsWith("hdyq") || lowerId.startsWith("hadaiq") || normTitle.includes("الحدائق")) return "الحدائق الناضرة";
     if (lowerId.startsWith("brh") || lowerId.startsWith("burhan") || normTitle.includes("البرهان")) return "تفسير البرهان";
-    if (lowerId.startsWith("ayash") || lowerId.startsWith("aysh") || normTitle.includes("العياشي")) return "تفسير العياشي";
-    if (lowerId.startsWith("htj") || lowerId.startsWith("iht") || normTitle.includes("الاحتجاج") || normTitle.includes("الاحتجاء")) return "الإحتجاج للطبرسي";
+    if (lowerId.startsWith("knz") || normTitle.includes("كنز الدقائق")) return "تفسير كنز الدقائق وبحر الغرائب";
+    if (normTitle.includes("كمال الدين")) return "كمال الدين وتمام النعمة";
+    if (normTitle.includes("نور الثقلين")) return "تفسير نور الثقلين";
+    if (normTitle.includes("من لا يحضره")) return "من لا يحضره الفقيه";
+    if (normTitle.includes("مستدرك الوسائل")) return "مستدرك الوسائل";
     if (lowerId.startsWith("wsl") || lowerId.startsWith("wasail") || normTitle.includes("وسائل الشيعه")) return "وسائل الشيعة";
     if (lowerId.startsWith("mzn") || lowerId.startsWith("mizan") || normTitle.includes("الميزان")) return "تفسير الميزان";
     if (lowerId.startsWith("shf") || lowerId.startsWith("sahifa") || normTitle.includes("الصحيفه السجاديه")) return "الصحيفة السجادية";
     if (lowerId.startsWith("nahj") || normTitle.includes("نهج البلاغه")) return "نهج البلاغة";
     if (lowerId.startsWith("stb") || lowerId.startsWith("istibsar") || normTitle.includes("الاستبصار")) return "الاستبصار";
     if (lowerId.startsWith("thb") || lowerId.startsWith("tahdhib") || normTitle.includes("تهذيب الاحكام")) return "تهذيب الأحكام";
-    if (lowerId.startsWith("knz") || normTitle.includes("كنز الدقائق")) return "تفسير كنز الدقائق وبحر الغرائب";
-    if (normTitle.includes("من لا يحضره")) return "من لا يحضره الفقيه";
-    if (normTitle.includes("مستدرك الوسائل")) return "مستدرك الوسائل";
-    if (normTitle.includes("نور الثقلين")) return "تفسير نور الثقلين";
-
-    if (book.series && book.series.trim() !== "") {
-        return book.series.trim();
-    }
 
     let clean = rawTitle
         .replace(/[\u064B-\u065F\u0670ـ]/g, "")
-        .replace(/[-–—_:\/]/g, ' ')
-        .replace(/(?:الجزء|المجلد|ج|م|vol|v)?\s*(?:الأول|الاول|الثاني|الثالث|الرابع|الخامس|السادس|السابع|الثامن|التاسع|العاشر|الحادي\s*عشر|الثاني\s*عشر|الثالث\s*عشر|الرابع\s*عشر|الخامس\s*عشر|السادس\s*عشر|السابع\s*عشر|الثامن\s*عشر|التاسع\s*عشر|العشرون|[ا-ي\s]+العشرون|[ا-ي\s]+الثلاثون|[ا-ي\s]+الأربعون|[ا-ي\s]+الخمسون|[ا-ي\s]+الستون|[ا-ي\s]+السبعون|[ا-ي\s]+الثمانون|[ا-ي\s]+التسعون|\d+)/gi, '')
+        .replace(/[-–—_:\/,\.،؛\(\)]/g, ' ');
+
+    for (let w of Object.keys(compoundMap).sort((a, b) => b.length - a.length)) {
+        clean = clean.replace(new RegExp(`\\b${w}\\b`, 'gi'), '');
+    }
+
+    clean = clean
+        .replace(/\b(?:الجزء|المجلد|جزء|مجلد|ج|م|vol|v)\b\s*\d*/gi, '')
+        .replace(/\s+\d+\s*$/g, '')
         .replace(/\s+/g, ' ')
         .trim();
 
-    clean = clean.replace(/^[-–—_:\s]+|[-–—_:\s]+$/g, '');
-    return clean || rawTitle;
+    return clean || (book.series && book.series.trim() !== "" ? book.series.trim() : rawTitle);
 }
 
 function getBookCategory(book) {
     if (book.category && book.category.trim() !== "") return book.category.trim();
     let title = (book.title || "").toLowerCase();
     if (title.includes("تفسير") || title.includes("القرآن") || title.includes("قرآن") || title.includes("بيان") || title.includes("برهان") || title.includes("عياشي") || title.includes("كنز")) return "التفسير وعلوم القرآن";
-    if (title.includes("حديث") || title.includes("الكافي") || title.includes("بحار") || title.includes("استبصار") || title.includes("تهذیب") || title.includes("وافي") || title.includes("من لا يحضره") || title.includes("وسائل") || title.includes("إحتجاج") || title.includes("احتجاج")) return "الحديث الشريف ومصادره";
+    if (title.includes("حديث") || title.includes("الكافي") || title.includes("بحار") || title.includes("استبصار") || title.includes("تهذیب") || title.includes("وافي") || title.includes("من لا يحضره") || title.includes("وسائل") || title.includes("إحتجاج") || title.includes("احتجاج") || title.includes("العقول")) return "الحديث الشريف ومصادره";
     if (title.includes("دعاء") || title.includes("صحيفة") || title.includes("زيارة") || title.includes("مناجات") || title.includes("مفاتيح")) return "الأدعية والزيارات";
-    if (title.includes("عقائد") || title.includes("توحيد") || title.includes("امامة") || title.includes("عدل") || title.includes("اعتقادات")) return "العقائد";
+    if (title.includes("عقائد") || title.includes("توحيد") || title.includes("امامة") || title.includes("عدل") || title.includes("اعتقادات") || title.includes("كمال الدين")) return "العقائد الكلامية";
     if (title.includes("فقه") || title.includes("احكام") || title.includes("شرايع") || title.includes("رسالة") || title.includes("حدائق")) return "الفقه والأحكام";
     if (title.includes("تاريخ") || title.includes("سيرة") || title.includes("مقتل") || title.includes("إرشاد") || title.includes("هجوم") || title.includes("فاطمة")) return "السيرة والتاريخ";
     return "المتون العامة";
 }
 
-// ==================== تحميل ودمج الفهارس المتعددة ====================
+// ==================== تحميل ودمج الفهارس المتعددة مع دعم الروابط الخارجية ====================
 async function loadLibraryManifest() {
     const container = document.getElementById('dynamicBooksContainer');
     if (!container) return;
@@ -326,9 +340,7 @@ async function loadLibraryManifest() {
                     const data = await res.json();
                     return data.books || data;
                 }
-            } catch (err) {
-                console.warn(`تعذر تحميل الملف: ${fileUrl}`, err);
-            }
+            } catch (err) {}
             return {};
         });
 
@@ -343,6 +355,14 @@ async function loadLibraryManifest() {
         }
 
         processAndRenderBooks(allBooksManifest);
+
+        // 🌟 فتح الكتاب تلقائياً إذا دخل الزائر عبر رابط مباشر من Google أو غيره (?book=...)
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetBookId = urlParams.get('book');
+        if (targetBookId && allBooksManifest[targetBookId]) {
+            const b = allBooksManifest[targetBookId];
+            loadAndOpenBook(targetBookId, b.title, b.toc, b.total_pages);
+        }
 
     } catch (err) {
         console.error(err);
@@ -571,16 +591,23 @@ function closeVolumesModal() {
 
 // ==================== محرك القارئ وعرض الصفحات ====================
 async function fetchBookData(bookId) {
-    // محاولة جلب الكتاب تلقائياً من المجلدات الثلاثة والمسار الرئيسي
-    let res = await fetch(`${BOOKS_FOLDER_PATH}${bookId}.json`);
-    if (!res.ok) res = await fetch(`./data3/${bookId}.json`);  // المجلد الثالث
-    if (!res.ok) res = await fetch(`./data2/${bookId}.json`);  // المجلد الثاني
-    if (!res.ok) res = await fetch(`./data/${bookId}.json`);   // المجلد الأول
-    if (!res.ok) res = await fetch(`./books/${bookId}.json`);
-    if (!res.ok) res = await fetch(`./${bookId}.json`);
-    if (!res.ok) res = await fetch(`${CLOUD_FALLBACK_URL}${bookId}.json`);
-    if (!res.ok) throw new Error("تعذر جلب ملف الكتاب");
-    return await res.json();
+    const encodedId = encodeURIComponent(bookId);
+    
+    // فحص المجلدات المتاحة تلقائياً
+    for (let folder of SEARCH_FOLDERS) {
+        try {
+            let res = await fetch(`${folder}${bookId}.json`);
+            if (!res.ok) res = await fetch(`${folder}${encodedId}.json`);
+            if (res.ok) return await res.json();
+        } catch (e) {}
+    }
+
+    try {
+        let res = await fetch(`${CLOUD_FALLBACK_URL}${encodedId}.json`);
+        if (res.ok) return await res.json();
+    } catch (e) {}
+
+    throw new Error("تعذر جلب ملف الكتاب");
 }
 
 async function loadAndOpenBook(bookId, bookTitle, bookToc, totalPages, targetPageNumber = null) {
