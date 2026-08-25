@@ -269,29 +269,61 @@ function getVolumeNumber(vol) {
     return 999;
 }
 
-// خوارزمية التجميع الشاملة والذكية لتوحيد جميع السلاسل (تمنع تشتت الكتب إلى بطاقات متعددة)
+// دالة التجميع الشاملة والذكية لتوحيد جميع السلاسل والكتب
 function getGroupName(book, bookId) {
     let lowerId = (bookId || "").toLowerCase();
     let rawTitle = (book.title || "").trim();
     let normTitle = normalizeArabicText(rawTitle);
 
-    if (lowerId.startsWith("bhr") || lowerId.startsWith("bihar") || normTitle.includes("بحار الانوار")) return "بحار الأنوار";
+    // 1. قاموس المطابقة الدقيقة لجميع المصادر والسلاسل الإسلامية
+    if (lowerId.startsWith("bhr") || normTitle.includes("بحار الانوار")) return "بحار الأنوار";
     if (lowerId.startsWith("kafi") || normTitle.includes("الكافي") || normTitle.includes("الاصول") || normTitle.includes("الفروع") || normTitle.includes("الروضه")) return "الكافي الشريف";
-    if (normTitle.includes("العقول") || lowerId.startsWith("mrat") || lowerId.startsWith("mra")) return "مرآة العقول في شرح أخبار آل الرسول";
-    if (lowerId.startsWith("hdyq") || lowerId.startsWith("hadaiq") || normTitle.includes("الحدائق")) return "الحدائق الناضرة";
-    if (lowerId.startsWith("brh") || lowerId.startsWith("burhan") || normTitle.includes("البرهان")) return "تفسير البرهان";
+    if (lowerId.startsWith("mrat") || lowerId.startsWith("mra") || normTitle.includes("العقول")) return "مرآة العقول في شرح أخبار آل الرسول";
+    if (lowerId.startsWith("iqbal") || normTitle.includes("اقبال") || normTitle.includes("إقبال") || normTitle.includes("لاقبال")) return "الإقبال بالأعمال الحسنة";
+    if (lowerId.startsWith("mtehjd") || normTitle.includes("المتهجد")) return "مصباح المتهجد وسلاح المتعبد";
+    if (lowerId.startsWith("mhj") || normTitle.includes("مهج الدعوات")) return "مهج الدعوات ومنهج العبادات";
+    if (lowerId.startsWith("hdyq") || normTitle.includes("الحدائق")) return "الحدائق الناضرة";
+    if (lowerId.startsWith("brh") || normTitle.includes("البرهان")) return "تفسير البرهان";
     if (lowerId.startsWith("knz") || normTitle.includes("كنز الدقائق")) return "تفسير كنز الدقائق وبحر الغرائب";
-    if (normTitle.includes("كمال الدين")) return "كمال الدين وتمام النعمة";
-    if (normTitle.includes("نور الثقلين")) return "تفسير نور الثقلين";
-    if (normTitle.includes("من لا يحضره")) return "من لا يحضره الفقيه";
-    if (normTitle.includes("مستدرك الوسائل")) return "مستدرك الوسائل";
-    if (lowerId.startsWith("wsl") || lowerId.startsWith("wasail") || normTitle.includes("وسائل الشيعه")) return "وسائل الشيعة";
-    if (lowerId.startsWith("mzn") || lowerId.startsWith("mizan") || normTitle.includes("الميزان")) return "تفسير الميزان";
-    if (lowerId.startsWith("shf") || lowerId.startsWith("sahifa") || normTitle.includes("الصحيفه السجاديه")) return "الصحيفة السجادية";
-    if (lowerId.startsWith("nahj") || normTitle.includes("نهج البلاغه")) return "نهج البلاغة";
-    if (lowerId.startsWith("stb") || lowerId.startsWith("istibsar") || normTitle.includes("الاستبصار")) return "الاستبصار";
-    if (lowerId.startsWith("thb") || lowerId.startsWith("tahdhib") || normTitle.includes("تهذيب الاحكام")) return "تهذيب الأحكام";
+    if (lowerId.startsWith("nwr") || normTitle.includes("نور الثقلين")) return "تفسير نور الثقلين";
+    if (lowerId.startsWith("kml") || normTitle.includes("كمال الدين")) return "كمال الدين وتمام النعمة";
+    if (lowerId.startsWith("wsl") || normTitle.includes("وسائل الشيعه") || normTitle.includes("وسائل الشيعة")) return "وسائل الشيعة";
+    if (lowerId.startsWith("mstdrk") || normTitle.includes("مستدرك الوسائل")) return "مستدرك الوسائل";
+    if (lowerId.startsWith("mzn") || normTitle.includes("الميزان")) return "تفسير الميزان";
+    if (lowerId.startsWith("shf") || normTitle.includes("الصحيفه السجاديه") || normTitle.includes("الصحيفة السجادية")) return "الصحيفة السجادية";
+    if (lowerId.startsWith("nahj") || normTitle.includes("نهج البلاغه") || normTitle.includes("نهج البلاغة")) return "نهج البلاغة";
+    if (lowerId.startsWith("stb") || normTitle.includes("الاستبصار")) return "الاستبصار";
+    if (lowerId.startsWith("thb") || normTitle.includes("تهذيب الاحكام") || normTitle.includes("تهذيب الأحكام")) return "تهذيب الأحكام";
+    if (lowerId.startsWith("faqih") || normTitle.includes("من لا يحضره")) return "من لا يحضره الفقيه";
+    if (lowerId.startsWith("ayash") || lowerId.startsWith("aysh") || normTitle.includes("العياشي")) return "تفسير العياشي";
+    if (lowerId.startsWith("htj") || normTitle.includes("الاحتجاج") || normTitle.includes("الإحتجاج")) return "الإحتجاج للطبرسي";
+    if (lowerId.startsWith("irshad") || normTitle.includes("الارشاد") || normTitle.includes("الإرشاد")) return "الإرشاد في معرفة حجج الله على العباد";
+    if (lowerId.startsWith("amli") || normTitle.includes("امالي") || normTitle.includes("الأمالي")) return "الأمالي";
+    if (lowerId.startsWith("ilzam") || normTitle.includes("الزام الناصب") || normTitle.includes("إلزام الناصب")) return "إلزام الناصب في إثبات الحجة الغائب";
+    if (lowerId.startsWith("bsayr") || normTitle.includes("بصائر الدرجات")) return "بصائر الدرجات";
+    if (lowerId.startsWith("thwab") || normTitle.includes("ثواب الاعمال") || normTitle.includes("ثواب الأعمال")) return "ثواب الأعمال وعقاب الأعمال";
+    if (lowerId.startsWith("zad") || normTitle.includes("زاد المعاد")) return "زاد المعاد";
+    if (lowerId.startsWith("bld") || normTitle.includes("البلد الامين") || normTitle.includes("البلد الأمين")) return "البلد الأمين والدرع الحصين";
+    if (lowerId.startsWith("msb_kfc") || (normTitle.includes("مصباح") && normTitle.includes("كفعمي"))) return "مصباح الكفعمي";
+    if (lowerId.startsWith("mzr_shd") || (normTitle.includes("مزار") && normTitle.includes("شهيد"))) return "المزار للشهيد الأول";
+    if (lowerId.startsWith("mzr_mshd") || (normTitle.includes("مزار") && normTitle.includes("مشهدي"))) return "المزار الكبير للمشهدي";
+    if (lowerId.startsWith("mzr_bk") || normTitle.includes("المزار")) return "المزار";
+    if (lowerId.startsWith("jmal") || normTitle.includes("جمال الاسبوع") || normTitle.includes("جمال الأسبوع")) return "جمال الأسبوع بكمال العمل المشروع";
+    if (lowerId.startsWith("mjtna") || normTitle.includes("المجتنى") || normTitle.includes("المجتني")) return "المجتنى من الدعاء المجتبى";
+    if (lowerId.startsWith("slwh") || normTitle.includes("سلوه الحزين") || normTitle.includes("سلوة الحزين") || normTitle.includes("الدعوات للراوندي")) return "الدعوات (سلوة الحزين)";
+    if (lowerId.startsWith("flah") || lowerId.startsWith("fdayl") || normTitle.includes("فلاح السائل")) return "فلاح السائل ونجاح المسائل";
+    if (lowerId.startsWith("fth") || normTitle.includes("فتح الابواب") || normTitle.includes("فتح الأبواب")) return "فتح الأبواب في الاستخارات";
+    if (lowerId.startsWith("drwa") || normTitle.includes("الدر النظيم")) return "الدر النظيم";
+    if (lowerId.startsWith("aman") || normTitle.includes("الامان من اخطار") || normTitle.includes("الأمان من أخطار")) return "الأمان من أخطار الأسفار والأزمان";
+    if (lowerId.startsWith("qny") || normTitle.includes("المقنع")) return "المقنع للمفيد";
+    if (lowerId.startsWith("add") || normTitle.includes("العدد القوية")) return "العدد القوية لدفع المخاوف اليومية";
 
+    // 2. إذا كان حقل السلسلة موجوداً صراحة
+    if (book.series && book.series.trim() !== "") {
+        return book.series.trim();
+    }
+
+    // 3. التنظيف التلقائي الذكي لأي كتاب آخر خارج القائمة
     let clean = rawTitle
         .replace(/[\u064B-\u065F\u0670ـ]/g, "")
         .replace(/[-–—_:\/,\.،؛\(\)]/g, ' ');
@@ -306,7 +338,7 @@ function getGroupName(book, bookId) {
         .replace(/\s+/g, ' ')
         .trim();
 
-    return clean || (book.series && book.series.trim() !== "" ? book.series.trim() : rawTitle);
+    return clean || rawTitle;
 }
 
 function getBookCategory(book) {
