@@ -31,6 +31,9 @@ let currentDailyHadith = null;
 let hadithIntervalTimer = null;
 let isDeepSearching = false;
 
+// متغير لحفظ موضع التمرير في الشاشة الرئيسية
+let savedScrollPosition = 0;
+
 // ==================== نظام التنبيهات والإشعارات ====================
 let toastTimeout = null;
 function showToast(message, iconClass = 'fa-circle-check') {
@@ -106,8 +109,13 @@ function attachTactilePhysics(btn) {
     btn.addEventListener('touchcancel', () => btn.classList.remove('pressed'), { passive: true });
 }
 
-// ==================== إدارة التبويبات والشاشات ====================
-function showView(viewId) {
+// ==================== إدارة التبويبات والشاشات مع دعم الرجوع الذكي ====================
+function showView(viewId, pushHistory = true) {
+    // حفظ موضع التمرير إذا كنا نغادر الشاشة الرئيسية
+    if (document.getElementById('homeView')?.classList.contains('active') && viewId !== 'homeView') {
+        savedScrollPosition = window.scrollY || document.documentElement.scrollTop || 0;
+    }
+
     document.querySelectorAll('.stage-view').forEach(v => v.classList.remove('active'));
     const target = document.getElementById(viewId);
     if (target) target.classList.add('active');
@@ -115,6 +123,18 @@ function showView(viewId) {
     const bottomNav = document.querySelector('.glass-bottom-nav');
     if (bottomNav) {
         bottomNav.style.display = (viewId === 'readerView') ? 'none' : 'block';
+    }
+
+    // إضافة الحالة لتاريخ المتصفح لمنع إعادة تحميل الصفحة
+    if (pushHistory) {
+        history.pushState({ view: viewId }, '', '');
+    }
+
+    // استعادة موضع التمرير عند الرجوع للرئيسية
+    if (viewId === 'homeView') {
+        setTimeout(() => {
+            window.scrollTo({ top: savedScrollPosition, behavior: 'instant' });
+        }, 40);
     }
 }
 
@@ -138,6 +158,42 @@ function switchTab(tabKey) {
     }
 }
 
+// الاستماع لزر الرجوع في الهاتف للتعامل معه دون إعادة تحميل
+window.addEventListener('popstate', (event) => {
+    // 1. إغلاق النوافذ المنبثقة أولاً إن وجدت
+    const openModals = [
+        document.getElementById('volumesModal'),
+        document.getElementById('tocModal'),
+        document.getElementById('settingsModal'),
+        document.getElementById('inBookSearchModal'),
+        document.getElementById('addTagModal'),
+        document.getElementById('customConfirmModal')
+    ];
+
+    let modalClosed = false;
+    for (let modal of openModals) {
+        if (modal && (modal.style.display === 'flex' || modal.style.display === 'block')) {
+            modal.style.display = 'none';
+            modalClosed = true;
+        }
+    }
+    if (modalClosed) return;
+
+    // 2. التنقل للشاشة السابقة بسلاسة
+    const targetView = event.state?.view || 'homeView';
+    showView(targetView, false);
+
+    // تحديث أزرار شريط التنقل السفلي
+    document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
+    if (targetView === 'homeView') {
+        document.getElementById('navHomeBtn')?.classList.add('active');
+    } else if (targetView === 'catalogView') {
+        document.getElementById('navCatalogBtn')?.classList.add('active');
+    } else if (targetView === 'tagsView') {
+        document.getElementById('navTagsBtn')?.classList.add('active');
+    }
+});
+
 // ==================== معالجة وتوحيد النصوص العربية واستخراج الأرقام ====================
 function normalizeArabicText(text) {
     if (!text) return "";
@@ -151,17 +207,14 @@ function normalizeArabicText(text) {
 }
 
 function getVolumeNumber(vol) {
-    // 1. فحص حقل volume أولاً إذا كان يحتوي على رقم
     if (vol.volume) {
         let cleanVol = String(vol.volume).replace(/\D/g, '');
         if (cleanVol) return parseInt(cleanVol, 10);
     }
 
-    // 2. استخراج الرقم من معرف الكتاب id (مثل knz_11 -> 11)
     let idMatch = (vol.id || "").match(/_(\d+)/);
     if (idMatch && idMatch) return parseInt(idMatch, 10);
 
-    // 3. استخراج الرقم من العنوان
     let textMatch = (vol.title || "").match(/\d+/);
     if (textMatch) return parseInt(textMatch[0], 10);
 
@@ -514,7 +567,6 @@ function closeVolumesModal() {
 
 // ==================== محرك القارئ وعرض الصفحات ====================
 async function fetchBookData(bookId) {
-    // محاولة جلب الكتاب من عدة مسارات محتملة تلقائياً
     let res = await fetch(`${BOOKS_FOLDER_PATH}${bookId}.json`);
     if (!res.ok) res = await fetch(`./data/${bookId}.json`);
     if (!res.ok) res = await fetch(`./books/${bookId}.json`);
@@ -1190,7 +1242,13 @@ function slidePageChanged(val) {
     }
 }
 
-function closeReader() { showView('homeView'); }
+function closeReader() { 
+    if (history.state && history.state.view === 'readerView') {
+        history.back();
+    } else {
+        showView('homeView', false);
+    }
+}
 
 function openSettings() { const m = document.getElementById('settingsModal'); if (m) m.style.display = 'flex'; }
 function closeSettings() { const m = document.getElementById('settingsModal'); if (m) m.style.display = 'none'; }
@@ -1222,7 +1280,11 @@ function openSearch() {
 
 function closeSearch() { 
     isDeepSearching = false;
-    showView('homeView'); 
+    if (history.state && history.state.view === 'searchView') {
+        history.back();
+    } else {
+        showView('homeView', false);
+    }
 }
 
 function setSearchTargetMode(mode) {
@@ -1494,7 +1556,7 @@ function shareDailyHadith() {
         navigator.share({ title: "إشراقة علوم العترة", text: shareContent }).catch(() => {});
     } else {
         navigator.clipboard.writeText(shareContent);
-        showToast("تمّ نسخ الإشراقة المباركة مع التوثيق والمصدر", "fa-clipboard-check");
+        showToast("تم نسخ الإشراقة المباركة مع التوثيق والمصدر", "fa-clipboard-check");
     }
 }
 
