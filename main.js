@@ -1,10 +1,14 @@
 // ==================== إعدادات ومسارات النظام ====================
-// قائمة ملفات الفهرس المنفصلة (يمكنك إضافة المزيد هنا مستقبلاً)
+// قائمة ملفات الفهرس المنفصلة (تشمل المجلدات: data و data2 و data3)
 const MANIFEST_FILES = [
     "./manifest.json",
     "./manifest_2.json",
+    "./manifest_3.json",
     "./data/manifest.json",
-    "./data/manifest_2.json"
+    "./data/manifest_2.json",
+    "./data2/manifest.json",
+    "./data3/manifest.json",
+    "./data3/manifest_3.json"
 ];
 
 // المسار الافتراضي للكتب ومجلد data
@@ -299,7 +303,7 @@ function getBookCategory(book) {
     if (title.includes("دعاء") || title.includes("صحيفة") || title.includes("زيارة") || title.includes("مناجات") || title.includes("مفاتيح")) return "الأدعية والزيارات";
     if (title.includes("عقائد") || title.includes("توحيد") || title.includes("امامة") || title.includes("عدل") || title.includes("اعتقادات")) return "العقائد";
     if (title.includes("فقه") || title.includes("احكام") || title.includes("شرايع") || title.includes("رسالة") || title.includes("حدائق")) return "الفقه والأحكام";
-    if (title.includes("تاريخ") || title.includes("سيرة") || title.includes("مقتل") || title.includes("إرشاد")) return "السيرة والتاريخ";
+    if (title.includes("تاريخ") || title.includes("سيرة") || title.includes("مقتل") || title.includes("إرشاد") || title.includes("هجوم") || title.includes("فاطمة")) return "السيرة والتاريخ";
     return "المتون العامة";
 }
 
@@ -315,7 +319,7 @@ async function loadLibraryManifest() {
             try {
                 let res = await fetch(fileUrl + '?v=' + Date.now());
                 if (!res.ok) {
-                    const fileName = fileUrl.replace('./', '').replace('data/', '');
+                    const fileName = fileUrl.replace('./', '').replace(/data\d?\//, '');
                     res = await fetch(`${CLOUD_FALLBACK_URL}${fileName}?v=` + Date.now());
                 }
                 if (res.ok) {
@@ -567,8 +571,11 @@ function closeVolumesModal() {
 
 // ==================== محرك القارئ وعرض الصفحات ====================
 async function fetchBookData(bookId) {
+    // محاولة جلب الكتاب تلقائياً من المجلدات الثلاثة والمسار الرئيسي
     let res = await fetch(`${BOOKS_FOLDER_PATH}${bookId}.json`);
-    if (!res.ok) res = await fetch(`./data/${bookId}.json`);
+    if (!res.ok) res = await fetch(`./data3/${bookId}.json`);  // المجلد الثالث
+    if (!res.ok) res = await fetch(`./data2/${bookId}.json`);  // المجلد الثاني
+    if (!res.ok) res = await fetch(`./data/${bookId}.json`);   // المجلد الأول
     if (!res.ok) res = await fetch(`./books/${bookId}.json`);
     if (!res.ok) res = await fetch(`./${bookId}.json`);
     if (!res.ok) res = await fetch(`${CLOUD_FALLBACK_URL}${bookId}.json`);
