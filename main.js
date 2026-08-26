@@ -39,6 +39,12 @@ let isDeepSearching = false;
 let savedScrollPosition = 0;
 let currentActiveSearchHighlight = "";
 
+// متغيرات التكبير والتصغير للمخطوطات
+let currentZoomScale = 1;
+let currentPanX = 0, currentPanY = 0;
+let isPanning = false, startPanX = 0, startPanY = 0;
+let initialPinchDistance = 0, initialScale = 1;
+
 // ==================== نظام التنبيهات والإشعارات ====================
 let toastTimeout = null;
 function showToast(message, iconClass = 'fa-circle-check') {
@@ -162,6 +168,7 @@ function switchTab(tabKey) {
 
 window.addEventListener('popstate', (event) => {
     const openModals = [
+        document.getElementById('manuscriptZoomModal'),
         document.getElementById('volumesModal'),
         document.getElementById('tocModal'),
         document.getElementById('settingsModal'),
@@ -192,6 +199,121 @@ window.addEventListener('popstate', (event) => {
     }
 });
 
+// ==================== محرك تكبير وتصغير المخطوطات التفاعلي ====================
+function openImageZoomModal(imgSrc) {
+    let modal = document.getElementById('manuscriptZoomModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'manuscriptZoomModal';
+        modal.className = 'glass-modal';
+        modal.style.cssText = `
+            display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.95); z-index: 99999; flex-direction: column;
+            align-items: center; justify-content: center; overflow: hidden; touch-action: none;
+        `;
+        modal.innerHTML = `
+            <div style="position: absolute; top: 16px; right: 16px; z-index: 100000; display: flex; gap: 8px;">
+                <button class="tactile-btn" style="background: rgba(30,30,30,0.85); color: #D4AF37; border: 1px solid #D4AF37; border-radius: 50%; width: 40px; height: 40px; font-size: 16px; cursor: pointer;" onclick="zoomManuscriptImage(0.35)"><i class="fas fa-plus"></i></button>
+                <button class="tactile-btn" style="background: rgba(30,30,30,0.85); color: #D4AF37; border: 1px solid #D4AF37; border-radius: 50%; width: 40px; height: 40px; font-size: 16px; cursor: pointer;" onclick="zoomManuscriptImage(-0.35)"><i class="fas fa-minus"></i></button>
+                <button class="tactile-btn" style="background: rgba(30,30,30,0.85); color: #fff; border: 1px solid #666; border-radius: 50%; width: 40px; height: 40px; font-size: 14px; cursor: pointer;" onclick="resetManuscriptZoom()"><i class="fas fa-arrows-rotate"></i></button>
+                <button class="tactile-btn" style="background: #e53935; color: #fff; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 16px; cursor: pointer;" onclick="closeImageZoomModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="zoomImageWrapper" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: grab;">
+                <img id="zoomModalImg" src="" style="max-width: 95%; max-height: 95%; object-fit: contain; transform-origin: center center; transition: transform 0.1s ease-out; user-select: none;" />
+            </div>
+        `;
+        document.body.appendChild(modal);
+        setupZoomModalGestures(modal);
+    }
+
+    const zoomImg = document.getElementById('zoomModalImg');
+    if (zoomImg) zoomImg.src = imgSrc;
+    resetManuscriptZoom();
+    modal.style.display = 'flex';
+}
+
+function closeImageZoomModal() {
+    const modal = document.getElementById('manuscriptZoomModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function updateZoomTransform() {
+    const zoomImg = document.getElementById('zoomModalImg');
+    if (!zoomImg) return;
+    zoomImg.style.transform = `translate(${currentPanX}px, ${currentPanY}px) scale(${currentZoomScale})`;
+}
+
+function zoomManuscriptImage(delta) {
+    currentZoomScale = Math.min(Math.max(currentZoomScale + delta, 0.8), 5.0);
+    updateZoomTransform();
+}
+
+function resetManuscriptZoom() {
+    currentZoomScale = 1;
+    currentPanX = 0;
+    currentPanY = 0;
+    updateZoomTransform();
+}
+
+function setupZoomModalGestures(modal) {
+    const wrapper = document.getElementById('zoomImageWrapper');
+    if (!wrapper) return;
+
+    let lastTap = 0;
+
+    wrapper.addEventListener('touchend', (e) => {
+        let currentTime = new Date().getTime();
+        let tapLength = currentTime - lastTap;
+        if (tapLength < 300 && tapLength > 0) {
+            if (currentZoomScale > 1.2) {
+                resetManuscriptZoom();
+            } else {
+                currentZoomScale = 2.5;
+                updateZoomTransform();
+            }
+            e.preventDefault();
+        }
+        lastTap = currentTime;
+    });
+
+    wrapper.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+            isPanning = true;
+            startPanX = e.touches[0].clientX - currentPanX;
+            startPanY = e.touches[0].clientY - currentPanY;
+        } else if (e.touches.length === 2) {
+            isPanning = false;
+            initialPinchDistance = Math.hypot(
+                e.touches[0].clientX - e.touches.clientX,
+                e.touches[0].clientY - e.touches.clientY
+            );
+            initialScale = currentZoomScale;
+        }
+    }, { passive: false });
+
+    wrapper.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 1 && isPanning && currentZoomScale > 1) {
+            currentPanX = e.touches[0].clientX - startPanX;
+            currentPanY = e.touches[0].clientY - startPanY;
+            updateZoomTransform();
+            e.preventDefault();
+        } else if (e.touches.length === 2) {
+            let currentDistance = Math.hypot(
+                e.touches[0].clientX - e.touches.clientX,
+                e.touches[0].clientY - e.touches.clientY
+            );
+            if (initialPinchDistance > 0) {
+                let scaleDelta = currentDistance / initialPinchDistance;
+                currentZoomScale = Math.min(Math.max(initialScale * scaleDelta, 0.8), 5.0);
+                updateZoomTransform();
+            }
+            e.preventDefault();
+        }
+    }, { passive: false });
+
+    wrapper.addEventListener('touchend', () => { isPanning = false; });
+}
+
 // ==================== محرك البحث الدقيق ومطابقة الكلمات المنفصلة ====================
 function normalizeArabicText(text) {
     if (!text) return "";
@@ -203,7 +325,6 @@ function normalizeArabicText(text) {
         .trim();
 }
 
-// بناء نمط بحث صارم يراعي حدود الكلمات ويتجاهل التشكيل بالكامل
 function createArabicSearchRegex(rawQuery) {
     if (!rawQuery) return null;
     let cleanQ = rawQuery.replace(/[\u064B-\u065F\u0670ـ]/g, "").trim();
@@ -234,7 +355,6 @@ function createArabicSearchRegex(rawQuery) {
         return p;
     });
 
-    // اشتراط وجود فاصل أو بداية كلمة لمنع تداخل أواخر الكلمات السابقة
     let fullPattern = "(?:^|[^\\u0621-\\u064A0-9])(" + wordPatterns.join("\\s+") + ")(?=[^\\u0621-\\u064A0-9]|$)";
     try {
         return new RegExp(fullPattern, "gim");
@@ -243,7 +363,6 @@ function createArabicSearchRegex(rawQuery) {
     }
 }
 
-// تلوين وتظليل الكلمة المطابقة بدقة
 function highlightArabicText(text, query) {
     if (!text || !query) return text || "";
     let reg = createArabicSearchRegex(query);
@@ -380,6 +499,7 @@ function getBookCategory(book) {
     if (book.category && book.category.trim() !== "") return book.category.trim();
     let title = (book.title || "").toLowerCase();
 
+    // 📜 تصنيف المخطوطات والوثائق التراثية
     if (title.includes("مخطوط") || title.includes("مخطوطة") || title.includes("نسخة خطية") || title.includes("وثيقة") || title.includes("رسالة خطية")) return "المخطوطات والوثائق التراثية";
 
     if (title.includes("تفسير") || title.includes("القرآن") || title.includes("قرآن") || title.includes("بيان") || title.includes("برهان") || title.includes("عياشي") || title.includes("كنز")) return "التفسير وعلوم القرآن";
@@ -765,6 +885,12 @@ function renderCurrentPage() {
     } else {
         contentDiv.innerHTML = rawHtml;
     }
+
+    // تفعيل تكبير الصور بمجرد النقر عليها
+    contentDiv.querySelectorAll('img').forEach(img => {
+        img.style.cursor = 'zoom-in';
+        img.onclick = () => openImageZoomModal(img.src);
+    });
 
     contentDiv.parentElement.scrollTop = 0;
 
@@ -1502,7 +1628,6 @@ async function executeGlobalSearch() {
     const searchRegex = createArabicSearchRegex(query);
     if (!searchRegex) return;
 
-    // 1. البحث في الأبواب والفهارس والعناوين مع مطابقة الكلمات المنفصلة
     if (currentSearchTarget === 'toc') {
         targetBookIds.forEach(bookId => {
             let book = allBooksManifest[bookId];
@@ -1534,7 +1659,7 @@ async function executeGlobalSearch() {
                         foundCount++;
                         const tocCard = document.createElement('div');
                         tocCard.className = "search-result-card tactile-btn";
-                        const highlightedToc = highlightArabicText(tocTitle, query);
+                        const highlightedToc = highlightArabicText(tocItem.title, query);
                         tocCard.innerHTML = `
                             <div class="search-card-header">
                                 <h4 style="font-size: 13px;"><i class="fas fa-bookmark text-gold"></i> ${highlightedToc}</h4>
@@ -1566,7 +1691,6 @@ async function executeGlobalSearch() {
             `;
         }
     } 
-    // 2. البحث المعمق في نصوص وصفحات الكتب
     else if (currentSearchTarget === 'fulltext') {
         const progressIndicator = document.createElement('div');
         progressIndicator.className = "glass-box";
