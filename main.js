@@ -511,7 +511,7 @@ function getBookCategory(book) {
     return "المتون العامة";
 }
 
-// ==================== تحميل ودمج الفهارس بسرعة فائقة ====================
+// ==================== تحميل ودمج الفهارس الذكي (مع الحفاظ على الأغلفة) ====================
 async function loadLibraryManifest() {
     const container = document.getElementById('dynamicBooksContainer');
     if (!container) return;
@@ -532,8 +532,18 @@ async function loadLibraryManifest() {
 
         const results = await Promise.all(fetchPromises);
 
+        // دمج الفهارس مع حماية الأغلفة من المسح
         results.forEach(booksObj => {
-            allBooksManifest = { ...allBooksManifest, ...booksObj };
+            for (let [id, bookData] of Object.entries(booksObj)) {
+                if (allBooksManifest[id]) {
+                    if (!bookData.cover && allBooksManifest[id].cover) {
+                        bookData.cover = allBooksManifest[id].cover;
+                    }
+                    allBooksManifest[id] = { ...allBooksManifest[id], ...bookData };
+                } else {
+                    allBooksManifest[id] = bookData;
+                }
+            }
         });
 
         if (Object.keys(allBooksManifest).length === 0) {
