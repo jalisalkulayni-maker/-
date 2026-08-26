@@ -1,19 +1,18 @@
-// ==================== إعدادات ومسارات النظام للمجلدات الفعلية ====================
+// ==================== إعدادات ومسارات النظام للمجلدات الأساسية ====================
 const MANIFEST_FILES = [
     "./manifest.json",
     "./manifest_2.json",
     "./manifest_3.json",
-    "./manifest_4.json",
     "./data/manifest.json",
+    "./data/manifest_2.json",
     "./data2/manifest.json",
     "./data3/manifest.json",
     "./data3/manifest_3.json",
-    "./data4/manifest.json",
-    "./data4/manifest_4.json",
     "./books/manifest.json"
 ];
 
-const SEARCH_FOLDERS = ["./data4/", "./data3/", "./data2/", "./data/", "./books/", "./"];
+// قائمة المجلدات المعتمدة للبحث عن صفحات الكتب
+const SEARCH_FOLDERS = ["./data3/", "./data2/", "./data/", "./books/", "./"];
 const CLOUD_FALLBACK_URL = "https://cdn.jsdelivr.net/gh/jalisalkulayni-maker/-@main/";
 
 let allBooksManifest = {};
@@ -38,12 +37,6 @@ let isDeepSearching = false;
 
 let savedScrollPosition = 0;
 let currentActiveSearchHighlight = "";
-
-// متغيرات التكبير والتصغير للمخطوطات
-let currentZoomScale = 1;
-let currentPanX = 0, currentPanY = 0;
-let isPanning = false, startPanX = 0, startPanY = 0;
-let initialPinchDistance = 0, initialScale = 1;
 
 // ==================== نظام التنبيهات والإشعارات ====================
 let toastTimeout = null;
@@ -168,7 +161,6 @@ function switchTab(tabKey) {
 
 window.addEventListener('popstate', (event) => {
     const openModals = [
-        document.getElementById('manuscriptZoomModal'),
         document.getElementById('volumesModal'),
         document.getElementById('tocModal'),
         document.getElementById('settingsModal'),
@@ -198,121 +190,6 @@ window.addEventListener('popstate', (event) => {
         document.getElementById('navTagsBtn')?.classList.add('active');
     }
 });
-
-// ==================== محرك تكبير وتصغير المخطوطات التفاعلي ====================
-function openImageZoomModal(imgSrc) {
-    let modal = document.getElementById('manuscriptZoomModal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'manuscriptZoomModal';
-        modal.className = 'glass-modal';
-        modal.style.cssText = `
-            display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0,0,0,0.95); z-index: 99999; flex-direction: column;
-            align-items: center; justify-content: center; overflow: hidden; touch-action: none;
-        `;
-        modal.innerHTML = `
-            <div style="position: absolute; top: 16px; right: 16px; z-index: 100000; display: flex; gap: 8px;">
-                <button class="tactile-btn" style="background: rgba(30,30,30,0.85); color: #D4AF37; border: 1px solid #D4AF37; border-radius: 50%; width: 40px; height: 40px; font-size: 16px; cursor: pointer;" onclick="zoomManuscriptImage(0.35)"><i class="fas fa-plus"></i></button>
-                <button class="tactile-btn" style="background: rgba(30,30,30,0.85); color: #D4AF37; border: 1px solid #D4AF37; border-radius: 50%; width: 40px; height: 40px; font-size: 16px; cursor: pointer;" onclick="zoomManuscriptImage(-0.35)"><i class="fas fa-minus"></i></button>
-                <button class="tactile-btn" style="background: rgba(30,30,30,0.85); color: #fff; border: 1px solid #666; border-radius: 50%; width: 40px; height: 40px; font-size: 14px; cursor: pointer;" onclick="resetManuscriptZoom()"><i class="fas fa-arrows-rotate"></i></button>
-                <button class="tactile-btn" style="background: #e53935; color: #fff; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 16px; cursor: pointer;" onclick="closeImageZoomModal()"><i class="fas fa-times"></i></button>
-            </div>
-            <div id="zoomImageWrapper" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: grab;">
-                <img id="zoomModalImg" src="" style="max-width: 95%; max-height: 95%; object-fit: contain; transform-origin: center center; transition: transform 0.1s ease-out; user-select: none;" />
-            </div>
-        `;
-        document.body.appendChild(modal);
-        setupZoomModalGestures(modal);
-    }
-
-    const zoomImg = document.getElementById('zoomModalImg');
-    if (zoomImg) zoomImg.src = imgSrc;
-    resetManuscriptZoom();
-    modal.style.display = 'flex';
-}
-
-function closeImageZoomModal() {
-    const modal = document.getElementById('manuscriptZoomModal');
-    if (modal) modal.style.display = 'none';
-}
-
-function updateZoomTransform() {
-    const zoomImg = document.getElementById('zoomModalImg');
-    if (!zoomImg) return;
-    zoomImg.style.transform = `translate(${currentPanX}px, ${currentPanY}px) scale(${currentZoomScale})`;
-}
-
-function zoomManuscriptImage(delta) {
-    currentZoomScale = Math.min(Math.max(currentZoomScale + delta, 0.8), 5.0);
-    updateZoomTransform();
-}
-
-function resetManuscriptZoom() {
-    currentZoomScale = 1;
-    currentPanX = 0;
-    currentPanY = 0;
-    updateZoomTransform();
-}
-
-function setupZoomModalGestures(modal) {
-    const wrapper = document.getElementById('zoomImageWrapper');
-    if (!wrapper) return;
-
-    let lastTap = 0;
-
-    wrapper.addEventListener('touchend', (e) => {
-        let currentTime = new Date().getTime();
-        let tapLength = currentTime - lastTap;
-        if (tapLength < 300 && tapLength > 0) {
-            if (currentZoomScale > 1.2) {
-                resetManuscriptZoom();
-            } else {
-                currentZoomScale = 2.5;
-                updateZoomTransform();
-            }
-            e.preventDefault();
-        }
-        lastTap = currentTime;
-    });
-
-    wrapper.addEventListener('touchstart', (e) => {
-        if (e.touches.length === 1) {
-            isPanning = true;
-            startPanX = e.touches[0].clientX - currentPanX;
-            startPanY = e.touches[0].clientY - currentPanY;
-        } else if (e.touches.length === 2) {
-            isPanning = false;
-            initialPinchDistance = Math.hypot(
-                e.touches[0].clientX - e.touches.clientX,
-                e.touches[0].clientY - e.touches.clientY
-            );
-            initialScale = currentZoomScale;
-        }
-    }, { passive: false });
-
-    wrapper.addEventListener('touchmove', (e) => {
-        if (e.touches.length === 1 && isPanning && currentZoomScale > 1) {
-            currentPanX = e.touches[0].clientX - startPanX;
-            currentPanY = e.touches[0].clientY - startPanY;
-            updateZoomTransform();
-            e.preventDefault();
-        } else if (e.touches.length === 2) {
-            let currentDistance = Math.hypot(
-                e.touches[0].clientX - e.touches.clientX,
-                e.touches[0].clientY - e.touches.clientY
-            );
-            if (initialPinchDistance > 0) {
-                let scaleDelta = currentDistance / initialPinchDistance;
-                currentZoomScale = Math.min(Math.max(initialScale * scaleDelta, 0.8), 5.0);
-                updateZoomTransform();
-            }
-            e.preventDefault();
-        }
-    }, { passive: false });
-
-    wrapper.addEventListener('touchend', () => { isPanning = false; });
-}
 
 // ==================== محرك البحث الدقيق ومطابقة الكلمات المنفصلة ====================
 function normalizeArabicText(text) {
@@ -499,9 +376,6 @@ function getBookCategory(book) {
     if (book.category && book.category.trim() !== "") return book.category.trim();
     let title = (book.title || "").toLowerCase();
 
-    // 📜 تصنيف المخطوطات والوثائق التراثية
-    if (title.includes("مخطوط") || title.includes("مخطوطة") || title.includes("نسخة خطية") || title.includes("وثيقة") || title.includes("رسالة خطية")) return "المخطوطات والوثائق التراثية";
-
     if (title.includes("تفسير") || title.includes("القرآن") || title.includes("قرآن") || title.includes("بيان") || title.includes("برهان") || title.includes("عياشي") || title.includes("كنز")) return "التفسير وعلوم القرآن";
     if (title.includes("حديث") || title.includes("الكافي") || title.includes("بحار") || title.includes("استبصار") || title.includes("تهذیب") || title.includes("وافي") || title.includes("من لا يحضره") || title.includes("وسائل") || title.includes("إحتجاج") || title.includes("احتجاج") || title.includes("العقول")) return "الحديث الشريف ومصادره";
     if (title.includes("دعاء") || title.includes("صحيفة") || title.includes("زيارة") || title.includes("مناجات") || title.includes("مفاتيح") || title.includes("إقبال") || title.includes("اقبال") || title.includes("مصباح") || title.includes("مهج")) return "الأدعية والزيارات";
@@ -532,14 +406,17 @@ async function loadLibraryManifest() {
 
         const results = await Promise.all(fetchPromises);
 
-        // دمج الفهارس مع حماية الأغلفة من المسح
+        // دمج الفهارس بذكاء للحفاظ على أغلفة الكتب الأصلية
         results.forEach(booksObj => {
             for (let [id, bookData] of Object.entries(booksObj)) {
+                if (!bookData) continue;
                 if (allBooksManifest[id]) {
-                    if (!bookData.cover && allBooksManifest[id].cover) {
-                        bookData.cover = allBooksManifest[id].cover;
-                    }
+                    const existingCover = (allBooksManifest[id].cover || "").trim();
+                    const newCover = (bookData.cover || "").trim();
                     allBooksManifest[id] = { ...allBooksManifest[id], ...bookData };
+                    if (existingCover !== "" && newCover === "") {
+                        allBooksManifest[id].cover = existingCover;
+                    }
                 } else {
                     allBooksManifest[id] = bookData;
                 }
@@ -604,7 +481,7 @@ function processAndRenderBooks(data) {
         }
 
         let coverHtml = coverSrc !== "" 
-            ? `<div class="book-cover-wrapper"><img src="${coverSrc}" class="book-cover-img" alt="${groupTitle}" onerror="this.parentElement.innerHTML='<i class=\\'fas fa-book-open text-gold\\'></i>'"></div>`
+            ? `<div class="book-cover-wrapper"><img src="${coverSrc}" class="book-cover-img" alt="${groupTitle}" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\\'fas fa-book-open text-gold\\'></i>';"></div>`
             : `<div class="book-cover-wrapper"><i class="fas fa-book-open text-gold"></i></div>`;
 
         let subtitle = isSeries ? `${booksInGroup.length} أجزاء / مجلدات` : `${mainBook.total_pages || 0} صفحة`;
@@ -702,7 +579,7 @@ function renderCatalogAccordion() {
             }
 
             let coverHtml = coverSrc !== "" 
-                ? `<div class="book-cover-wrapper"><img src="${coverSrc}" class="book-cover-img" alt="${groupTitle}" onerror="this.parentElement.innerHTML='<i class=\\'fas fa-book-open text-gold\\'></i>'"></div>`
+                ? `<div class="book-cover-wrapper"><img src="${coverSrc}" class="book-cover-img" alt="${groupTitle}" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\\'fas fa-book-open text-gold\\'></i>';"></div>`
                 : `<div class="book-cover-wrapper"><i class="fas fa-book-open text-gold"></i></div>`;
 
             let subtitle = isSeries ? `${booksInGroup.length} أجزاء` : `${mainBook.total_pages || 0} صفحة`;
@@ -784,12 +661,11 @@ function closeVolumesModal() {
     if (modal) modal.style.display = 'none';
 }
 
-// ==================== محرك القارئ والتعرف الذكي على الملفات ====================
+// ==================== محرك القارئ وجلب البيانات ====================
 async function fetchBookData(bookId) {
     const cleanId = (bookId || "").trim();
     const encodedId = encodeURIComponent(cleanId);
     
-    // 1. محاولة جلب الملف بالاسم الصريح أو المرمز
     for (let folder of SEARCH_FOLDERS) {
         try {
             let res = await fetch(`${folder}${cleanId}.json`);
@@ -798,7 +674,6 @@ async function fetchBookData(bookId) {
         } catch (e) {}
     }
 
-    // 2. محاولة ذكية: إذا كان الاسم يحتوي على لاحقة (_1 أو _2) والملف مرفوع كملف واحد أصلي
     let fallbackId = cleanId.replace(/_[0-9]+$/, '').replace(/_ج[0-9]+$/, '');
     if (fallbackId && fallbackId !== cleanId) {
         for (let folder of SEARCH_FOLDERS) {
@@ -895,12 +770,6 @@ function renderCurrentPage() {
     } else {
         contentDiv.innerHTML = rawHtml;
     }
-
-    // تفعيل تكبير الصور بمجرد النقر عليها
-    contentDiv.querySelectorAll('img').forEach(img => {
-        img.style.cursor = 'zoom-in';
-        img.onclick = () => openImageZoomModal(img.src);
-    });
 
     contentDiv.parentElement.scrollTop = 0;
 
