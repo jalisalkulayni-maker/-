@@ -1,4 +1,4 @@
-// ==================== إعدادات ومسارات النظام للمجلدات الفعلية (1 إلى 4) ====================
+// ==================== إعدادات ومسارات النظام للمجلدات الفعلية ====================
 const MANIFEST_FILES = [
     "./manifest.json",
     "./manifest_2.json",
@@ -13,7 +13,6 @@ const MANIFEST_FILES = [
     "./books/manifest.json"
 ];
 
-// قائمة المجلدات المعتمدة فقط (من data إلى data4)
 const SEARCH_FOLDERS = ["./data4/", "./data3/", "./data2/", "./data/", "./books/", "./"];
 const CLOUD_FALLBACK_URL = "https://cdn.jsdelivr.net/gh/jalisalkulayni-maker/-@main/";
 
@@ -37,10 +36,7 @@ let currentDailyHadith = null;
 let hadithIntervalTimer = null;
 let isDeepSearching = false;
 
-// متغير لحفظ موضع التمرير في الشاشة الرئيسية
 let savedScrollPosition = 0;
-
-// متغير لتظليل وتلوين الكلمة المبحوث عنها في متن الصفحة الحالية
 let currentActiveSearchHighlight = "";
 
 // ==================== نظام التنبيهات والإشعارات ====================
@@ -196,55 +192,66 @@ window.addEventListener('popstate', (event) => {
     }
 });
 
-// ==================== معالجة وتوحيد وتلوين النصوص العربية (تجاهل التشكيل) ====================
+// ==================== محرك البحث الدقيق ومطابقة الكلمات المنفصلة ====================
 function normalizeArabicText(text) {
     if (!text) return "";
     return text
         .replace(/[\u064B-\u065F\u0670ـ]/g, "")
         .replace(/[أإآ]/g, "ا")
         .replace(/ة/g, "ه")
-        .replace(/ى/g, "ي")
         .toLowerCase()
         .trim();
 }
 
-function createArabicHighlightRegex(rawQuery) {
+// بناء نمط بحث صارم يراعي حدود الكلمات ويتجاهل التشكيل بالكامل
+function createArabicSearchRegex(rawQuery) {
     if (!rawQuery) return null;
     let cleanQ = rawQuery.replace(/[\u064B-\u065F\u0670ـ]/g, "").trim();
     if (!cleanQ) return null;
 
     const tashkeel = "[\\u064B-\\u065F\\u0670ـ]*";
-    const charMap = {
-        "ا": "[اأإآى]", "أ": "[اأإآى]", "إ": "[اأإآى]", "آ": "[اأإآى]", "ى": "[اأإآىي]", "ي": "[يىئ]",
-        "ه": "[هة]", "ة": "[هة]", "و": "[وؤ]", "ء": "[ءئؤ]"
-    };
+    let words = cleanQ.split(/\s+/).filter(w => w.length > 0);
+    if (words.length === 0) return null;
 
-    let pattern = "";
-    for (let i = 0; i < cleanQ.length; i++) {
-        let char = cleanQ[i];
-        if (charMap[char]) {
-            pattern += charMap[char] + tashkeel;
-        } else if (/\s/.test(char)) {
-            pattern += "\\s+";
-        } else if (/[a-zA-Z0-9\u0621-\u064A]/.test(char)) {
-            pattern += char + tashkeel;
-        } else {
-            pattern += "\\" + char;
+    let wordPatterns = words.map(w => {
+        let p = "";
+        for (let i = 0; i < w.length; i++) {
+            let c = w[i];
+            if (c === "ا" || c === "أ" || c === "إ" || c === "آ") {
+                p += "[اأإآ]" + tashkeel;
+            } else if (c === "ه" || c === "ة") {
+                p += "[هة]" + tashkeel;
+            } else if (c === "ي") {
+                p += "ي" + tashkeel;
+            } else if (c === "ى") {
+                p += "ى" + tashkeel;
+            } else if (/[a-zA-Z0-9\u0621-\u064A]/.test(c)) {
+                p += c + tashkeel;
+            } else {
+                p += "\\" + c;
+            }
         }
-    }
+        return p;
+    });
 
+    // اشتراط وجود فاصل أو بداية كلمة لمنع تداخل أواخر الكلمات السابقة
+    let fullPattern = "(?:^|[^\\u0621-\\u064A0-9])(" + wordPatterns.join("\\s+") + ")(?=[^\\u0621-\\u064A0-9]|$)";
     try {
-        return new RegExp(`(${pattern})`, "gi");
-    } catch (e) {
+        return new RegExp(fullPattern, "gim");
+    } catch(e) {
         return null;
     }
 }
 
+// تلوين وتظليل الكلمة المطابقة بدقة
 function highlightArabicText(text, query) {
     if (!text || !query) return text || "";
-    let reg = createArabicHighlightRegex(query);
+    let reg = createArabicSearchRegex(query);
     if (!reg) return text;
-    return text.replace(reg, '<mark class="search-highlight" style="background-color: #ffd54f; color: #111; padding: 1px 4px; border-radius: 3px; font-weight: bold; box-shadow: 0 0 4px rgba(212,175,55,0.6);">$1</mark>');
+    return text.replace(reg, (match, p1) => {
+        let prefix = match.substring(0, match.indexOf(p1));
+        return prefix + '<mark class="search-highlight" style="background-color: #ffd54f; color: #111; padding: 1px 4px; border-radius: 3px; font-weight: bold; box-shadow: 0 0 4px rgba(212,175,55,0.6);">' + p1 + '</mark>';
+    });
 }
 
 const compoundMap = {
@@ -373,7 +380,6 @@ function getBookCategory(book) {
     if (book.category && book.category.trim() !== "") return book.category.trim();
     let title = (book.title || "").toLowerCase();
 
-    // 📜 تصنيف المخطوطات والوثائق التراثية
     if (title.includes("مخطوط") || title.includes("مخطوطة") || title.includes("نسخة خطية") || title.includes("وثيقة") || title.includes("رسالة خطية")) return "المخطوطات والوثائق التراثية";
 
     if (title.includes("تفسير") || title.includes("القرآن") || title.includes("قرآن") || title.includes("بيان") || title.includes("برهان") || title.includes("عياشي") || title.includes("كنز")) return "التفسير وعلوم القرآن";
@@ -416,7 +422,6 @@ async function loadLibraryManifest() {
 
         processAndRenderBooks(allBooksManifest);
 
-        // فتح الكتاب تلقائياً إذا دخل الزائر عبر رابط مباشر (?book=...)
         const urlParams = new URLSearchParams(window.location.search);
         const targetBookId = urlParams.get('book');
         if (targetBookId && allBooksManifest[targetBookId]) {
@@ -649,16 +654,30 @@ function closeVolumesModal() {
     if (modal) modal.style.display = 'none';
 }
 
-// ==================== محرك القارئ وعرض الصفحات ====================
+// ==================== محرك القارئ والتعرف الذكي على الملفات ====================
 async function fetchBookData(bookId) {
-    const encodedId = encodeURIComponent(bookId);
+    const cleanId = (bookId || "").trim();
+    const encodedId = encodeURIComponent(cleanId);
     
+    // 1. محاولة جلب الملف بالاسم الصريح أو المرمز
     for (let folder of SEARCH_FOLDERS) {
         try {
-            let res = await fetch(`${folder}${bookId}.json`);
+            let res = await fetch(`${folder}${cleanId}.json`);
             if (!res.ok) res = await fetch(`${folder}${encodedId}.json`);
             if (res.ok) return await res.json();
         } catch (e) {}
+    }
+
+    // 2. محاولة ذكية: إذا كان الاسم يحتوي على لاحقة (_1 أو _2) والملف مرفوع كملف واحد أصلي
+    let fallbackId = cleanId.replace(/_[0-9]+$/, '').replace(/_ج[0-9]+$/, '');
+    if (fallbackId && fallbackId !== cleanId) {
+        for (let folder of SEARCH_FOLDERS) {
+            try {
+                let res = await fetch(`${folder}${fallbackId}.json`);
+                if (!res.ok) res = await fetch(`${folder}${encodeURIComponent(fallbackId)}.json`);
+                if (res.ok) return await res.json();
+            } catch (e) {}
+        }
     }
 
     try {
@@ -1239,15 +1258,15 @@ function executeInBookSearch(val) {
 
     container.innerHTML = '';
     let found = 0;
-    const cleanQ = normalizeArabicText(query);
+    const searchRegex = createArabicSearchRegex(query);
+    if (!searchRegex) return;
 
     currentBookPages.forEach((page, idx) => {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = page.content || '';
         const rawText = tempDiv.textContent || '';
-        const cleanText = normalizeArabicText(rawText);
 
-        if (cleanText.includes(cleanQ)) {
+        if (searchRegex.test(rawText)) {
             found++;
             const snippet = generateSearchSnippet(rawText, query);
             const item = document.createElement('div');
@@ -1275,20 +1294,24 @@ function executeInBookSearch(val) {
 }
 
 function generateSearchSnippet(fullText, rawQuery) {
-    const cleanText = normalizeArabicText(fullText);
-    const cleanQuery = normalizeArabicText(rawQuery);
-    const matchIndex = cleanText.indexOf(cleanQuery);
+    if (!fullText || !rawQuery) return fullText || "";
+    
+    let regex = createArabicSearchRegex(rawQuery);
+    if (!regex) return fullText.substring(0, 100) + '...';
 
+    let match = regex.exec(fullText);
     let snippet = "";
-    if (matchIndex === -1) {
-        snippet = fullText.substring(0, 100) + '...';
-    } else {
-        const start = Math.max(0, matchIndex - 40);
-        const end = Math.min(fullText.length, matchIndex + cleanQuery.length + 65);
+
+    if (match) {
+        let matchIdx = match.index;
+        let start = Math.max(0, matchIdx - 35);
+        let end = Math.min(fullText.length, matchIdx + match[0].length + 65);
         snippet = fullText.substring(start, end);
 
         if (start > 0) snippet = '...' + snippet;
         if (end < fullText.length) snippet = snippet + '...';
+    } else {
+        snippet = fullText.substring(0, 100) + '...';
     }
 
     return highlightArabicText(snippet, rawQuery);
@@ -1376,7 +1399,7 @@ function changeFontFamily(font) {
     if (content) content.style.fontFamily = font === 'Amiri' ? "'Amiri', serif" : "'Cairo', sans-serif";
 }
 
-// ==================== محرك البحث الشامل والمتقدم ====================
+// ==================== محرك البحث الشامل ====================
 function openSearch() { 
     showView('searchView');
     setTimeout(() => {
@@ -1476,21 +1499,22 @@ async function executeGlobalSearch() {
 
     container.innerHTML = "";
     let foundCount = 0;
-    const cleanQuery = normalizeArabicText(query);
+    const searchRegex = createArabicSearchRegex(query);
+    if (!searchRegex) return;
 
+    // 1. البحث في الأبواب والفهارس والعناوين مع مطابقة الكلمات المنفصلة
     if (currentSearchTarget === 'toc') {
         targetBookIds.forEach(bookId => {
             let book = allBooksManifest[bookId];
             let groupName = getGroupName(book, bookId);
-            let cleanTitle = normalizeArabicText(book.title || "");
-            let cleanGroup = normalizeArabicText(groupName);
+            let rawTitle = book.title || "";
 
-            if (cleanTitle.includes(cleanQuery) || cleanGroup.includes(cleanQuery)) {
+            if (searchRegex.test(rawTitle) || searchRegex.test(groupName)) {
                 foundCount++;
                 const bookCard = document.createElement('div');
                 bookCard.className = "search-result-card tactile-btn";
                 bookCard.style.borderRight = "3px solid #D4AF37";
-                const highlightedHeader = highlightArabicText(book.title || groupName, query);
+                const highlightedHeader = highlightArabicText(rawTitle || groupName, query);
                 bookCard.innerHTML = `
                     <div class="search-card-header">
                         <h4><i class="fas fa-book-open text-gold"></i> ${highlightedHeader}</h4>
@@ -1505,18 +1529,18 @@ async function executeGlobalSearch() {
 
             if (book.toc && Array.isArray(book.toc)) {
                 book.toc.forEach(tocItem => {
-                    let cleanTocTitle = normalizeArabicText(tocItem.title || "");
-                    if (cleanTocTitle.includes(cleanQuery)) {
+                    let tocTitle = tocItem.title || "";
+                    if (searchRegex.test(tocTitle)) {
                         foundCount++;
                         const tocCard = document.createElement('div');
                         tocCard.className = "search-result-card tactile-btn";
-                        const highlightedToc = highlightArabicText(tocItem.title, query);
+                        const highlightedToc = highlightArabicText(tocTitle, query);
                         tocCard.innerHTML = `
                             <div class="search-card-header">
                                 <h4 style="font-size: 13px;"><i class="fas fa-bookmark text-gold"></i> ${highlightedToc}</h4>
                                 <span class="search-page-badge">صـ ${tocItem.page_number}</span>
                             </div>
-                            <p class="search-snippet">${book.title || groupName}</p>
+                            <p class="search-snippet">${rawTitle || groupName}</p>
                         `;
                         attachTactilePhysics(tocCard);
                         tocCard.onclick = () => loadAndOpenBook(book.id, book.title, book.toc, book.total_pages, tocItem.page_number, query);
@@ -1542,6 +1566,7 @@ async function executeGlobalSearch() {
             `;
         }
     } 
+    // 2. البحث المعمق في نصوص وصفحات الكتب
     else if (currentSearchTarget === 'fulltext') {
         const progressIndicator = document.createElement('div');
         progressIndicator.className = "glass-box";
@@ -1576,9 +1601,8 @@ async function executeGlobalSearch() {
                         const temp = document.createElement('div');
                         temp.innerHTML = page.content || '';
                         const raw = temp.textContent || '';
-                        const clean = normalizeArabicText(raw);
 
-                        if (clean.includes(cleanQuery)) {
+                        if (searchRegex.test(raw)) {
                             foundCount++;
                             const snippet = generateSearchSnippet(raw, query);
                             const card = document.createElement('div');
