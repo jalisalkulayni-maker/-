@@ -1,13 +1,11 @@
-// ==================== إعدادات ومسارات النظام الشاملة ====================
+// ==================== إعدادات ومسارات النظام ====================
 const MANIFEST_FILES = [
     "./manifest.json",
     "./manifest_2.json",
     "./manifest_3.json",
     "./manifest_4.json",
     "./data/manifest.json",
-    "./data/manifest_2.json",
     "./data2/manifest.json",
-    "./data2/manifest_2.json",
     "./data3/manifest.json",
     "./data3/manifest_3.json",
     "./data4/manifest.json",
@@ -76,6 +74,25 @@ function closeConfirmModal(isConfirmed) {
         confirmCallback();
     }
     confirmCallback = null;
+}
+
+// ==================== مولّد الأغلفة الملكية والتراثية البديلة ====================
+function createProceduralCover(title, isPdf = false) {
+    let clean = (title || "").replace(/[\u064B-\u065F\u0670ـ]/g, "").trim();
+    if (clean.length > 30) clean = clean.substring(0, 28) + '...';
+    let icon = isPdf ? 'fa-file-pdf' : 'fa-book-quran';
+    return `
+        <div class="procedural-book-cover" style="
+            width: 100%; height: 100%; min-height: 140px; background: linear-gradient(135deg, #1c1815 0%, #2b211a 50%, #15110e 100%);
+            border: 1px solid rgba(212, 175, 55, 0.45); border-radius: 6px; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; padding: 10px; box-sizing: border-box; text-align: center;
+            position: relative; box-shadow: inset 0 0 14px rgba(0,0,0,0.85); overflow: hidden;
+        ">
+            <div style="position: absolute; top: 4px; left: 4px; right: 4px; bottom: 4px; border: 1px dashed rgba(212, 175, 55, 0.3); border-radius: 4px; pointer-events: none;"></div>
+            <i class="fas ${icon}" style="color: #D4AF37; font-size: 22px; margin-bottom: 8px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));"></i>
+            <span style="color: #f5eedb; font-family: 'Amiri', serif; font-size: 11.5px; font-weight: bold; line-height: 1.4; text-shadow: 0 2px 4px rgba(0,0,0,0.9); z-index: 1;">${clean}</span>
+        </div>
+    `;
 }
 
 // ==================== البيانات الافتراضية ====================
@@ -194,7 +211,7 @@ window.addEventListener('popstate', (event) => {
     }
 });
 
-// ==================== معالجة وتوحيد النصوص العربية ====================
+// ==================== محرك البحث الدقيق ومطابقة الكلمات المنفصلة ====================
 function normalizeArabicText(text) {
     if (!text) return "";
     return text
@@ -355,12 +372,9 @@ function getGroupName(book, bookId) {
     if (lowerId.startsWith("jmal") || normTitle.includes("جمال الاسبوع") || normTitle.includes("جمال الأسبوع")) return "جمال الأسبوع بكمال العمل المشروع";
     if (lowerId.startsWith("mjtna") || normTitle.includes("المجتنى") || normTitle.includes("المجتني")) return "المجتنى من الدعاء المجتبى";
     if (lowerId.startsWith("slwh") || normTitle.includes("سلوه الحزين") || normTitle.includes("سلوة الحزين") || normTitle.includes("الدعوات للراوندي")) return "الدعوات (سلوة الحزين)";
-    
-    // فلاح السائل فقط (مفصول عن كتب الفضائل)
     if (lowerId.startsWith("flah") || lowerId.startsWith("falah") || normTitle.includes("فلاح السائل")) return "فلاح السائل ونجاح المسائل";
-    
     if (lowerId.startsWith("fth") || normTitle.includes("فتح الابواب") || normTitle.includes("فتح الأبواب")) return "فتح الأبواب في الاستخارات";
-    if (lowerId.startsWith("drwa") || normTitle.includes("الدروع الواقية")) return "الدروع الواقية";
+    if (lowerId.startsWith("drwa") || normTitle.includes("الدر النظيم")) return "الدر النظيم";
     if (lowerId.startsWith("aman") || normTitle.includes("الامان من اخطار") || normTitle.includes("الأمان من أخطار")) return "الأمان من أخطار الأسفار والأزمان";
     if (lowerId.startsWith("qny") || normTitle.includes("المقنع")) return "المقنع للمفيد";
     if (lowerId.startsWith("add") || normTitle.includes("العدد القوية")) return "العدد القوية لدفع المخاوف اليومية";
@@ -390,11 +404,10 @@ function getBookCategory(book) {
     if (book.category && book.category.trim() !== "") return book.category.trim();
     let title = (book.title || "").toLowerCase();
 
-    // 📜 تصنيف المخطوطات والوثائق التراثية
     if (book.pdf_url || title.includes("مخطوط") || title.includes("مخطوطة") || title.includes("نسخة خطية") || title.includes("وثيقة")) return "المخطوطات والوثائق التراثية";
 
     if (title.includes("تفسير") || title.includes("القرآن") || title.includes("قرآن") || title.includes("بيان") || title.includes("برهان") || title.includes("عياشي") || title.includes("كنز")) return "التفسير وعلوم القرآن";
-    if (title.includes("حديث") || title.includes("الكافي") || title.includes("بحار") || title.includes("استبصار") || title.includes("تهذیب") || title.includes("وافي") || title.includes("من لا يحضره") || title.includes("وسائل") || title.includes("إحتجاج") || title.includes("احتجاج") || title.includes("العقول") || title.includes("فضائل") || title.includes("فضايل")) return "الحديث الشريف ومصادره";
+    if (title.includes("حديث") || title.includes("الكافي") || title.includes("بحار") || title.includes("استبصار") || title.includes("تهذیب") || title.includes("وافي") || title.includes("من لا يحضره") || title.includes("وسائل") || title.includes("إحتجاج") || title.includes("احتجاج") || title.includes("العقول") || title.includes("فضائل") || title.includes("فضايل") || title.includes("اختصاص") || title.includes("إختصاص")) return "الحديث الشريف ومصادره";
     if (title.includes("دعاء") || title.includes("صحيفة") || title.includes("زيارة") || title.includes("مناجات") || title.includes("مفاتيح") || title.includes("إقبال") || title.includes("اقبال") || title.includes("مصباح") || title.includes("مهج")) return "الأدعية والزيارات";
     if (title.includes("عقائد") || title.includes("توحيد") || title.includes("امامة") || title.includes("إمامة") || title.includes("عدل") || title.includes("اعتقادات") || title.includes("كمال الدين")) return "العقائد الكلامية";
     if (title.includes("فقه") || title.includes("احكام") || title.includes("أحكام") || title.includes("شرايع") || title.includes("رسالة") || title.includes("حدائق")) return "الفقه والأحكام";
@@ -495,17 +508,16 @@ function processAndRenderBooks(data) {
         const isSeries = booksInGroup.length > 1;
         const isPdfManuscript = !!mainBook.pdf_url;
 
-        // البحث عن أي غلاف مسجل في المجموعة بالكامل
         let coverSrc = "";
         for (let b of booksInGroup) {
             let candidate = (b.cover || "").trim();
             if (candidate !== "") { coverSrc = candidate; break; }
         }
 
-        let defaultIcon = isPdfManuscript ? "fa-file-pdf" : "fa-book-open";
+        let fallbackCoverHtml = createProceduralCover(groupTitle, isPdfManuscript).replace(/"/g, '&quot;');
         let coverHtml = coverSrc !== "" 
-            ? `<div class="book-cover-wrapper"><img src="${coverSrc}" class="book-cover-img" alt="${groupTitle}" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\\'fas ${defaultIcon} text-gold\\'></i>';"></div>`
-            : `<div class="book-cover-wrapper"><i class="fas ${defaultIcon} text-gold"></i></div>`;
+            ? `<div class="book-cover-wrapper"><img src="${coverSrc}" class="book-cover-img" alt="${groupTitle}" onerror="this.onerror=null; this.parentElement.innerHTML=createProceduralCover('${groupTitle}', ${isPdfManuscript});"></div>`
+            : `<div class="book-cover-wrapper">${createProceduralCover(groupTitle, isPdfManuscript)}</div>`;
 
         let subtitle = isPdfManuscript 
             ? `${mainBook.total_pages || 0} لوحة (مخطوط PDF)` 
@@ -606,10 +618,9 @@ function renderCatalogAccordion() {
                 if (candidate !== "") { coverSrc = candidate; break; }
             }
 
-            let defaultIcon = isPdfManuscript ? "fa-file-pdf" : "fa-book-open";
             let coverHtml = coverSrc !== "" 
-                ? `<div class="book-cover-wrapper"><img src="${coverSrc}" class="book-cover-img" alt="${groupTitle}" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\\'fas ${defaultIcon} text-gold\\'></i>';"></div>`
-                : `<div class="book-cover-wrapper"><i class="fas ${defaultIcon} text-gold"></i></div>`;
+                ? `<div class="book-cover-wrapper"><img src="${coverSrc}" class="book-cover-img" alt="${groupTitle}" onerror="this.onerror=null; this.parentElement.innerHTML=createProceduralCover('${groupTitle}', ${isPdfManuscript});"></div>`
+                : `<div class="book-cover-wrapper">${createProceduralCover(groupTitle, isPdfManuscript)}</div>`;
 
             let subtitle = isPdfManuscript 
                 ? `${mainBook.total_pages || 0} لوحة (مخطوط PDF)` 
