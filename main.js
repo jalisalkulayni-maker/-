@@ -5,7 +5,9 @@ const MANIFEST_FILES = [
     "./manifest_3.json",
     "./manifest_4.json",
     "./data/manifest.json",
+    "./data/manifest_2.json",
     "./data2/manifest.json",
+    "./data2/manifest_2.json",
     "./data3/manifest.json",
     "./data3/manifest_3.json",
     "./data4/manifest.json",
@@ -76,10 +78,10 @@ function closeConfirmModal(isConfirmed) {
     confirmCallback = null;
 }
 
-// ==================== مولّد الأغلفة الملكية والتراثية البديلة ====================
+// ==================== مولّد الأغلفة الملكية التراثية ====================
 function createProceduralCover(title, isPdf = false) {
     let clean = (title || "").replace(/[\u064B-\u065F\u0670ـ]/g, "").trim();
-    if (clean.length > 30) clean = clean.substring(0, 28) + '...';
+    if (clean.length > 32) clean = clean.substring(0, 30) + '...';
     let icon = isPdf ? 'fa-file-pdf' : 'fa-book-quran';
     return `
         <div class="procedural-book-cover" style="
@@ -211,7 +213,7 @@ window.addEventListener('popstate', (event) => {
     }
 });
 
-// ==================== محرك البحث الدقيق ومطابقة الكلمات المنفصلة ====================
+// ==================== معالجة وتوحيد النصوص العربية ====================
 function normalizeArabicText(text) {
     if (!text) return "";
     return text
@@ -332,13 +334,31 @@ function getGroupName(book, bookId) {
     let rawTitle = (book.title || "").trim();
     let normTitle = normalizeArabicText(rawTitle);
 
-    // 📜 المخطوطات والوثائق تبقى بطاقات مستقلة باسمها الكامل دائماً
+    // 📜 1. المخطوطات والوثائق مستقلة دائماً
     if (book.pdf_url || lowerId.includes("mkh") || normTitle.includes("مخطوط") || normTitle.includes("مخطوطه") || normTitle.includes("نسخه خطيه") || normTitle.includes("وثيقه")) {
         return rawTitle;
     }
 
+    // 📚 2. فصل الأصول الستة عشر تماماً عن الكافي
+    if (normTitle.includes("الاصول السته عشر") || normTitle.includes("الاصول ١٦") || lowerId.includes("osol16") || lowerId.includes("usul16")) {
+        return "الأصول الستة عشر";
+    }
+
+    // 📚 3. توحيد ودمج جميع أجزاء مناقب الإمام أمير المؤمنين (ع) في بطاقة واحدة
+    if (normTitle.includes("مناقب الامام امير") || normTitle.includes("مناقب امير المومنين") || lowerId.startsWith("mnqb_amr") || lowerId.startsWith("mnqb_amir")) {
+        return "مناقب الإمام أمير المؤمنين (عليه السلام)";
+    }
+
+    // 📚 4. حصر الكافي الشريف بدقة بدون أخذ الأصول الأخرى
+    if (lowerId.startsWith("kafi") || 
+       (normTitle.includes("الكافي") && !normTitle.includes("مرآه") && !normTitle.includes("مراه")) || 
+       (normTitle.includes("الاصول من الكافي")) || 
+       (normTitle.includes("الفروع من الكافي")) || 
+       (normTitle.includes("الروضه من الكافي"))) {
+        return "الكافي الشريف";
+    }
+
     if (lowerId.startsWith("bhr") || normTitle.includes("بحار الانوار")) return "بحار الأنوار";
-    if (lowerId.startsWith("kafi") || normTitle.includes("الكافي") || normTitle.includes("الاصول") || normTitle.includes("الفروع") || normTitle.includes("الروضه")) return "الكافي الشريف";
     if (lowerId.startsWith("mrat") || lowerId.startsWith("mra") || normTitle.includes("العقول")) return "مرآة العقول في شرح أخبار آل الرسول";
     if (lowerId.startsWith("iqbal") || normTitle.includes("اقبال") || normTitle.includes("إقبال") || normTitle.includes("لاقبال")) return "الإقبال بالأعمال الحسنة";
     if (lowerId.startsWith("mtehjd") || normTitle.includes("المتهجد")) return "مصباح المتهجد وسلاح المتعبد";
@@ -372,9 +392,12 @@ function getGroupName(book, bookId) {
     if (lowerId.startsWith("jmal") || normTitle.includes("جمال الاسبوع") || normTitle.includes("جمال الأسبوع")) return "جمال الأسبوع بكمال العمل المشروع";
     if (lowerId.startsWith("mjtna") || normTitle.includes("المجتنى") || normTitle.includes("المجتني")) return "المجتنى من الدعاء المجتبى";
     if (lowerId.startsWith("slwh") || normTitle.includes("سلوه الحزين") || normTitle.includes("سلوة الحزين") || normTitle.includes("الدعوات للراوندي")) return "الدعوات (سلوة الحزين)";
+    
+    // فلاح السائل فقط (مفصول عن كتب الفضائل)
     if (lowerId.startsWith("flah") || lowerId.startsWith("falah") || normTitle.includes("فلاح السائل")) return "فلاح السائل ونجاح المسائل";
+    
     if (lowerId.startsWith("fth") || normTitle.includes("فتح الابواب") || normTitle.includes("فتح الأبواب")) return "فتح الأبواب في الاستخارات";
-    if (lowerId.startsWith("drwa") || normTitle.includes("الدر النظيم")) return "الدر النظيم";
+    if (lowerId.startsWith("drwa") || normTitle.includes("الدروع الواقية")) return "الدروع الواقية";
     if (lowerId.startsWith("aman") || normTitle.includes("الامان من اخطار") || normTitle.includes("الأمان من أخطار")) return "الأمان من أخطار الأسفار والأزمان";
     if (lowerId.startsWith("qny") || normTitle.includes("المقنع")) return "المقنع للمفيد";
     if (lowerId.startsWith("add") || normTitle.includes("العدد القوية")) return "العدد القوية لدفع المخاوف اليومية";
@@ -407,7 +430,7 @@ function getBookCategory(book) {
     if (book.pdf_url || title.includes("مخطوط") || title.includes("مخطوطة") || title.includes("نسخة خطية") || title.includes("وثيقة")) return "المخطوطات والوثائق التراثية";
 
     if (title.includes("تفسير") || title.includes("القرآن") || title.includes("قرآن") || title.includes("بيان") || title.includes("برهان") || title.includes("عياشي") || title.includes("كنز")) return "التفسير وعلوم القرآن";
-    if (title.includes("حديث") || title.includes("الكافي") || title.includes("بحار") || title.includes("استبصار") || title.includes("تهذیب") || title.includes("وافي") || title.includes("من لا يحضره") || title.includes("وسائل") || title.includes("إحتجاج") || title.includes("احتجاج") || title.includes("العقول") || title.includes("فضائل") || title.includes("فضايل") || title.includes("اختصاص") || title.includes("إختصاص")) return "الحديث الشريف ومصادره";
+    if (title.includes("حديث") || title.includes("الكافي") || title.includes("بحار") || title.includes("استبصار") || title.includes("تهذیب") || title.includes("وافي") || title.includes("من لا يحضره") || title.includes("وسائل") || title.includes("إحتجاج") || title.includes("احتجاج") || title.includes("العقول") || title.includes("فضائل") || title.includes("فضايل") || title.includes("اختصاص") || title.includes("إختصاص") || title.includes("مناقب") || title.includes("الاصول السته عشر")) return "الحديث الشريف ومصادره";
     if (title.includes("دعاء") || title.includes("صحيفة") || title.includes("زيارة") || title.includes("مناجات") || title.includes("مفاتيح") || title.includes("إقبال") || title.includes("اقبال") || title.includes("مصباح") || title.includes("مهج")) return "الأدعية والزيارات";
     if (title.includes("عقائد") || title.includes("توحيد") || title.includes("امامة") || title.includes("إمامة") || title.includes("عدل") || title.includes("اعتقادات") || title.includes("كمال الدين")) return "العقائد الكلامية";
     if (title.includes("فقه") || title.includes("احكام") || title.includes("أحكام") || title.includes("شرايع") || title.includes("رسالة") || title.includes("حدائق")) return "الفقه والأحكام";
@@ -514,7 +537,6 @@ function processAndRenderBooks(data) {
             if (candidate !== "") { coverSrc = candidate; break; }
         }
 
-        let fallbackCoverHtml = createProceduralCover(groupTitle, isPdfManuscript).replace(/"/g, '&quot;');
         let coverHtml = coverSrc !== "" 
             ? `<div class="book-cover-wrapper"><img src="${coverSrc}" class="book-cover-img" alt="${groupTitle}" onerror="this.onerror=null; this.parentElement.innerHTML=createProceduralCover('${groupTitle}', ${isPdfManuscript});"></div>`
             : `<div class="book-cover-wrapper">${createProceduralCover(groupTitle, isPdfManuscript)}</div>`;
