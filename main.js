@@ -1,23 +1,27 @@
-// ==================== إعدادات ومسارات النظام ====================
-// قائمة ملفات الفهرس المنفصلة (تشمل المجلدات السابقة والمستقبلية والمخطوطات)
+// ==================== إعدادات ومسارات النظام الشاملة حتى الرقم 20 ====================
+// توليد تلقائي شامل لمسارات الفهارس من 1 إلى 20
 const MANIFEST_FILES = [
     "./manifest.json",
-    "./manifest_2.json",
-    "./manifest_3.json",
-    "./manifest_4.json",
-    "./manifest_5.json",
-    "./data/manifest.json",
-    "./data/manifest_2.json",
-    "./data2/manifest.json",
-    "./data3/manifest.json",
-    "./data3/manifest_3.json",
-    "./data4/manifest.json",
-    "./data5/manifest.json",
     "./books/manifest.json"
 ];
 
-// قائمة المجلدات المعتمدة للبحث عن صفحات الكتب والمخطوطات تلقائياً
-const SEARCH_FOLDERS = ["./data3/", "./data2/", "./data/", "./data4/", "./data5/", "./books/", "./"];
+for (let i = 1; i <= 20; i++) {
+    MANIFEST_FILES.push(`./manifest_${i}.json`);
+    let folder = i === 1 ? "./data/" : `./data${i}/`;
+    MANIFEST_FILES.push(`${folder}manifest.json`);
+    MANIFEST_FILES.push(`${folder}manifest_${i}.json`);
+    if (i === 1) {
+        MANIFEST_FILES.push(`./data1/manifest.json`);
+        MANIFEST_FILES.push(`./data1/manifest_1.json`);
+    }
+}
+
+// قائمة مجلدات البحث التلقائي عن الكتب والمخطوطات من data إلى data20
+const SEARCH_FOLDERS = ["./data/", "./books/", "./"];
+for (let i = 1; i <= 20; i++) {
+    SEARCH_FOLDERS.push(`./data${i}/`);
+}
+
 const CLOUD_FALLBACK_URL = "https://cdn.jsdelivr.net/gh/jalisalkulayni-maker/-@main/";
 
 let allBooksManifest = {};
@@ -123,7 +127,6 @@ function attachTactilePhysics(btn) {
 
 // ==================== إدارة التبويبات والشاشات مع دعم الرجوع الذكي ====================
 function showView(viewId, pushHistory = true) {
-    // حفظ موضع التمرير إذا كنا نغادر الشاشة الرئيسية
     if (document.getElementById('homeView')?.classList.contains('active') && viewId !== 'homeView') {
         savedScrollPosition = window.scrollY || document.documentElement.scrollTop || 0;
     }
@@ -137,12 +140,10 @@ function showView(viewId, pushHistory = true) {
         bottomNav.style.display = (viewId === 'readerView') ? 'none' : 'block';
     }
 
-    // إضافة الحالة لتاريخ المتصفح لمنع إعادة تحميل الصفحة
     if (pushHistory) {
         history.pushState({ view: viewId }, '', '');
     }
 
-    // استعادة موضع التمرير عند الرجوع للرئيسية
     if (viewId === 'homeView') {
         setTimeout(() => {
             window.scrollTo({ top: savedScrollPosition, behavior: 'instant' });
@@ -172,7 +173,6 @@ function switchTab(tabKey) {
 
 // الاستماع لزر الرجوع في الهاتف للتعامل معه دون إعادة تحميل
 window.addEventListener('popstate', (event) => {
-    // 1. إغلاق النوافذ المنبثقة أولاً إن وجدت
     const openModals = [
         document.getElementById('volumesModal'),
         document.getElementById('tocModal'),
@@ -191,11 +191,9 @@ window.addEventListener('popstate', (event) => {
     }
     if (modalClosed) return;
 
-    // 2. التنقل للشاشة السابقة بسلاسة
     const targetView = event.state?.view || 'homeView';
     showView(targetView, false);
 
-    // تحديث أزرار شريط التنقل السفلي
     document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
     if (targetView === 'homeView') {
         document.getElementById('navHomeBtn')?.classList.add('active');
@@ -218,7 +216,6 @@ function normalizeArabicText(text) {
         .trim();
 }
 
-// بناء تعبير نمطي ذكي يطابق الكلمة العربية مع تجاهل التشكيل والهمزات في المتن
 function createArabicHighlightRegex(rawQuery) {
     if (!rawQuery) return null;
     let cleanQ = rawQuery.replace(/[\u064B-\u065F\u0670ـ]/g, "").trim();
@@ -251,7 +248,6 @@ function createArabicHighlightRegex(rawQuery) {
     }
 }
 
-// دالة تلوين وتظليل الكلمة المبحوث عنها في المتن
 function highlightArabicText(text, query) {
     if (!text || !query) return text || "";
     let reg = createArabicHighlightRegex(query);
@@ -674,7 +670,7 @@ function closeVolumesModal() {
 async function fetchBookData(bookId) {
     const encodedId = encodeURIComponent(bookId);
     
-    // فحص المجلدات المتاحة تلقائياً
+    // فحص المجلدات المتاحة تلقائياً (من data إلى data20)
     for (let folder of SEARCH_FOLDERS) {
         try {
             let res = await fetch(`${folder}${bookId}.json`);
@@ -1694,4 +1690,7 @@ function shareDailyHadith() {
     }
 }
 
-// ==================== التهيئة عند
+// ==================== التهيئة عند بدء التشغيل ====================
+document.querySelectorAll('.tactile-btn').forEach(btn => attachTactilePhysics(btn));
+loadLibraryManifest();
+initDailyHadithSystem();
