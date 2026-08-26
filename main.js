@@ -303,6 +303,14 @@ const compoundMap = {
 function getVolumeNumber(vol) {
     if (vol.pdf_url) return 1;
     let cleanTitle = (vol.title || "").replace(/[\u064B-\u065F\u0670ـ]/g, "");
+    let norm = normalizeArabicText(cleanTitle);
+    let lowerId = (vol.id || "").toLowerCase();
+
+    // 📖 الروضة هي الجزء الثامن من الكافي
+    if (norm.includes("الروضه") || lowerId.includes("rawda")) {
+        return 8;
+    }
+
     if (cleanTitle.includes("مخطوط") || cleanTitle.includes("نسخة")) return 1;
 
     if (vol.volume) {
@@ -349,12 +357,10 @@ function getGroupName(book, bookId) {
         return "مناقب الإمام أمير المؤمنين (عليه السلام)";
     }
 
-    // 📚 4. حصر الكافي الشريف بدقة بدون أخذ الأصول الأخرى
-    if (lowerId.startsWith("kafi") || 
+    // 📚 4. الكافي الشريف بجميع أجزائه الثمانية (الأصول والفروع والروضة)
+    if (lowerId.startsWith("kafi") || lowerId.startsWith("rawda") ||
        (normTitle.includes("الكافي") && !normTitle.includes("مرآه") && !normTitle.includes("مراه")) || 
-       (normTitle.includes("الاصول من الكافي")) || 
-       (normTitle.includes("الفروع من الكافي")) || 
-       (normTitle.includes("الروضه من الكافي"))) {
+       (normTitle.includes("الروضه") && !normTitle.includes("الواعظين") && !normTitle.includes("الجنان") && !normTitle.includes("الشهداء") && !normTitle.includes("الانوار"))) {
         return "الكافي الشريف";
     }
 
