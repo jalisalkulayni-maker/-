@@ -1,17 +1,19 @@
-// ==================== إعدادات ومسارات النظام (data إلى data3) ====================
+// ==================== إعدادات ومسارات النظام ====================
 const MANIFEST_FILES = [
     "./manifest.json",
     "./manifest_2.json",
     "./manifest_3.json",
+    "./manifest_4.json",
     "./data/manifest.json",
-    "./data/manifest_2.json",
     "./data2/manifest.json",
     "./data3/manifest.json",
     "./data3/manifest_3.json",
+    "./data4/manifest.json",
+    "./data4/manifest_4.json",
     "./books/manifest.json"
 ];
 
-const SEARCH_FOLDERS = ["./data3/", "./data2/", "./data/", "./books/", "./"];
+const SEARCH_FOLDERS = ["./data4/", "./data3/", "./data2/", "./data/", "./books/", "./"];
 const CLOUD_FALLBACK_URL = "https://cdn.jsdelivr.net/gh/jalisalkulayni-maker/-@main/";
 
 let allBooksManifest = {};
@@ -112,7 +114,7 @@ function attachTactilePhysics(btn) {
     btn.addEventListener('touchcancel', () => btn.classList.remove('pressed'), { passive: true });
 }
 
-// ==================== إدارة التبويبات والشاشات ====================
+// ==================== إدارة التبويبات والشاشات مع دعم الرجوع الذكي ====================
 function showView(viewId, pushHistory = true) {
     if (document.getElementById('homeView')?.classList.contains('active') && viewId !== 'homeView') {
         savedScrollPosition = window.scrollY || document.documentElement.scrollTop || 0;
@@ -190,7 +192,7 @@ window.addEventListener('popstate', (event) => {
     }
 });
 
-// ==================== معالجة وتوحيد وتلوين النصوص ====================
+// ==================== محرك البحث الدقيق ومطابقة الكلمات المنفصلة ====================
 function normalizeArabicText(text) {
     if (!text) return "";
     return text
@@ -278,6 +280,10 @@ const compoundMap = {
 };
 
 function getVolumeNumber(vol) {
+    if (vol.pdf_url) return 1;
+    let cleanTitle = (vol.title || "").replace(/[\u064B-\u065F\u0670ـ]/g, "");
+    if (cleanTitle.includes("مخطوط") || cleanTitle.includes("نسخة")) return 1;
+
     if (vol.volume) {
         let cleanVol = String(vol.volume).replace(/\D/g, '');
         if (cleanVol && !isNaN(parseInt(cleanVol, 10))) {
@@ -290,7 +296,6 @@ function getVolumeNumber(vol) {
         return parseInt(idMatch, 10);
     }
 
-    let cleanTitle = (vol.title || "").replace(/[\u064B-\u065F\u0670ـ]/g, "");
     for (let [word, num] of Object.entries(compoundMap)) {
         if (cleanTitle.includes(word)) return num;
     }
@@ -307,6 +312,11 @@ function getGroupName(book, bookId) {
     let lowerId = (bookId || "").toLowerCase();
     let rawTitle = (book.title || "").trim();
     let normTitle = normalizeArabicText(rawTitle);
+
+    // 📜 المخطوطات والوثائق تبقى بطاقات مستقلة باسمها الكامل دائماً
+    if (book.pdf_url || lowerId.includes("mkh") || normTitle.includes("مخطوط") || normTitle.includes("مخطوطه") || normTitle.includes("نسخه خطيه") || normTitle.includes("وثيقه")) {
+        return rawTitle;
+    }
 
     if (lowerId.startsWith("bhr") || normTitle.includes("بحار الانوار")) return "بحار الأنوار";
     if (lowerId.startsWith("kafi") || normTitle.includes("الكافي") || normTitle.includes("الاصول") || normTitle.includes("الفروع") || normTitle.includes("الروضه")) return "الكافي الشريف";
@@ -343,9 +353,12 @@ function getGroupName(book, bookId) {
     if (lowerId.startsWith("jmal") || normTitle.includes("جمال الاسبوع") || normTitle.includes("جمال الأسبوع")) return "جمال الأسبوع بكمال العمل المشروع";
     if (lowerId.startsWith("mjtna") || normTitle.includes("المجتنى") || normTitle.includes("المجتني")) return "المجتنى من الدعاء المجتبى";
     if (lowerId.startsWith("slwh") || normTitle.includes("سلوه الحزين") || normTitle.includes("سلوة الحزين") || normTitle.includes("الدعوات للراوندي")) return "الدعوات (سلوة الحزين)";
-    if (lowerId.startsWith("flah") || lowerId.startsWith("fdayl") || normTitle.includes("فلاح السائل")) return "فلاح السائل ونجاح المسائل";
+    
+    // فلاح السائل فقط (بدون التأثير على كتب الفضائل)
+    if (lowerId.startsWith("flah") || lowerId.startsWith("falah") || normTitle.includes("فلاح السائل")) return "فلاح السائل ونجاح المسائل";
+    
     if (lowerId.startsWith("fth") || normTitle.includes("فتح الابواب") || normTitle.includes("فتح الأبواب")) return "فتح الأبواب في الاستخارات";
-    if (lowerId.startsWith("drwa") || normTitle.includes("الدر النظيم")) return "الدر النظيم";
+    if (lowerId.startsWith("drwa") || normTitle.includes("الدروع الواقية")) return "الدروع الواقية";
     if (lowerId.startsWith("aman") || normTitle.includes("الامان من اخطار") || normTitle.includes("الأمان من أخطار")) return "الأمان من أخطار الأسفار والأزمان";
     if (lowerId.startsWith("qny") || normTitle.includes("المقنع")) return "المقنع للمفيد";
     if (lowerId.startsWith("add") || normTitle.includes("العدد القوية")) return "العدد القوية لدفع المخاوف اليومية";
@@ -374,6 +387,9 @@ function getGroupName(book, bookId) {
 function getBookCategory(book) {
     if (book.category && book.category.trim() !== "") return book.category.trim();
     let title = (book.title || "").toLowerCase();
+
+    // 📜 تصنيف المخطوطات والوثائق التراثية
+    if (book.pdf_url || title.includes("مخطوط") || title.includes("مخطوطة") || title.includes("نسخة خطية") || title.includes("وثيقة")) return "المخطوطات والوثائق التراثية";
 
     if (title.includes("تفسير") || title.includes("القرآن") || title.includes("قرآن") || title.includes("بيان") || title.includes("برهان") || title.includes("عياشي") || title.includes("كنز")) return "التفسير وعلوم القرآن";
     if (title.includes("حديث") || title.includes("الكافي") || title.includes("بحار") || title.includes("استبصار") || title.includes("تهذیب") || title.includes("وافي") || title.includes("من لا يحضره") || title.includes("وسائل") || title.includes("إحتجاج") || title.includes("احتجاج") || title.includes("العقول")) return "الحديث الشريف ومصادره";
@@ -431,7 +447,11 @@ async function loadLibraryManifest() {
         const targetBookId = urlParams.get('book');
         if (targetBookId && allBooksManifest[targetBookId]) {
             const b = allBooksManifest[targetBookId];
-            loadAndOpenBook(targetBookId, b.title, b.toc, b.total_pages);
+            if (b.pdf_url) {
+                window.open(b.pdf_url, '_blank');
+            } else {
+                loadAndOpenBook(targetBookId, b.title, b.toc, b.total_pages);
+            }
         }
 
     } catch (err) {
@@ -471,6 +491,7 @@ function processAndRenderBooks(data) {
 
         const mainBook = booksInGroup[0];
         const isSeries = booksInGroup.length > 1;
+        const isPdfManuscript = !!mainBook.pdf_url;
 
         let coverSrc = "";
         for (let b of booksInGroup) {
@@ -478,11 +499,14 @@ function processAndRenderBooks(data) {
             if (candidate !== "") { coverSrc = candidate; break; }
         }
 
+        let defaultIcon = isPdfManuscript ? "fa-file-pdf" : "fa-book-open";
         let coverHtml = coverSrc !== "" 
-            ? `<div class="book-cover-wrapper"><img src="${coverSrc}" class="book-cover-img" alt="${groupTitle}" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\\'fas fa-book-open text-gold\\'></i>';"></div>`
-            : `<div class="book-cover-wrapper"><i class="fas fa-book-open text-gold"></i></div>`;
+            ? `<div class="book-cover-wrapper"><img src="${coverSrc}" class="book-cover-img" alt="${groupTitle}" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\\'fas ${defaultIcon} text-gold\\'></i>';"></div>`
+            : `<div class="book-cover-wrapper"><i class="fas ${defaultIcon} text-gold"></i></div>`;
 
-        let subtitle = isSeries ? `${booksInGroup.length} أجزاء / مجلدات` : `${mainBook.total_pages || 0} صفحة`;
+        let subtitle = isPdfManuscript 
+            ? `${mainBook.total_pages || 0} لوحة (مخطوط PDF)` 
+            : (isSeries ? `${booksInGroup.length} أجزاء / مجلدات` : `${mainBook.total_pages || 0} صفحة`);
 
         const card = document.createElement("div");
         card.className = "book-card tactile-btn";
@@ -496,7 +520,9 @@ function processAndRenderBooks(data) {
         `;
 
         attachTactilePhysics(card);
-        if (isSeries) {
+        if (isPdfManuscript) {
+            card.onclick = () => window.open(mainBook.pdf_url, '_blank');
+        } else if (isSeries) {
             card.onclick = () => openVolumesModal(groupTitle, booksInGroup);
         } else {
             card.onclick = () => loadAndOpenBook(mainBook.id, mainBook.title, mainBook.toc, mainBook.total_pages);
@@ -569,6 +595,7 @@ function renderCatalogAccordion() {
         items.forEach(item => {
             const { groupTitle, booksInGroup, mainBook } = item;
             const isSeries = booksInGroup.length > 1;
+            const isPdfManuscript = !!mainBook.pdf_url;
 
             let coverSrc = "";
             for (let b of booksInGroup) {
@@ -576,11 +603,14 @@ function renderCatalogAccordion() {
                 if (candidate !== "") { coverSrc = candidate; break; }
             }
 
+            let defaultIcon = isPdfManuscript ? "fa-file-pdf" : "fa-book-open";
             let coverHtml = coverSrc !== "" 
-                ? `<div class="book-cover-wrapper"><img src="${coverSrc}" class="book-cover-img" alt="${groupTitle}" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\\'fas fa-book-open text-gold\\'></i>';"></div>`
-                : `<div class="book-cover-wrapper"><i class="fas fa-book-open text-gold"></i></div>`;
+                ? `<div class="book-cover-wrapper"><img src="${coverSrc}" class="book-cover-img" alt="${groupTitle}" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\\'fas ${defaultIcon} text-gold\\'></i>';"></div>`
+                : `<div class="book-cover-wrapper"><i class="fas ${defaultIcon} text-gold"></i></div>`;
 
-            let subtitle = isSeries ? `${booksInGroup.length} أجزاء` : `${mainBook.total_pages || 0} صفحة`;
+            let subtitle = isPdfManuscript 
+                ? `${mainBook.total_pages || 0} لوحة (مخطوط PDF)` 
+                : (isSeries ? `${booksInGroup.length} أجزاء` : `${mainBook.total_pages || 0} صفحة`);
 
             const card = document.createElement("div");
             card.className = "book-card tactile-btn";
@@ -594,7 +624,9 @@ function renderCatalogAccordion() {
             `;
 
             attachTactilePhysics(card);
-            if (isSeries) {
+            if (isPdfManuscript) {
+                card.onclick = () => window.open(mainBook.pdf_url, '_blank');
+            } else if (isSeries) {
                 card.onclick = () => openVolumesModal(groupTitle, booksInGroup);
             } else {
                 card.onclick = () => loadAndOpenBook(mainBook.id, mainBook.title, mainBook.toc, mainBook.total_pages);
@@ -645,7 +677,11 @@ function openVolumesModal(seriesTitle, volumesList) {
         attachTactilePhysics(item);
         item.onclick = () => {
             closeVolumesModal();
-            loadAndOpenBook(vol.id, vol.title, vol.toc, vol.total_pages);
+            if (vol.pdf_url) {
+                window.open(vol.pdf_url, '_blank');
+            } else {
+                loadAndOpenBook(vol.id, vol.title, vol.toc, vol.total_pages);
+            }
         };
         container.appendChild(item);
     });
@@ -1076,6 +1112,10 @@ function renderTagsView(filterTag = 'all') {
 
 async function jumpToTaggedSnippet(bookId, bookTitle, pageIndexOrNum) {
     const book = allBooksManifest[bookId] || {};
+    if (book.pdf_url) {
+        window.open(book.pdf_url, '_blank');
+        return;
+    }
     await loadAndOpenBook(bookId, bookTitle || book.title, book.toc, book.total_pages);
     currentPageIndex = parseInt(pageIndexOrNum) || 1;
     renderCurrentPage();
@@ -1520,12 +1560,18 @@ async function executeGlobalSearch() {
                 bookCard.innerHTML = `
                     <div class="search-card-header">
                         <h4><i class="fas fa-book-open text-gold"></i> ${highlightedHeader}</h4>
-                        <span class="search-page-badge">كتاب كامل</span>
+                        <span class="search-page-badge">${book.pdf_url ? 'مخطوط PDF' : 'كتاب كامل'}</span>
                     </div>
                     <p class="search-snippet" style="color: var(--text-gold);">اضغط لفتح هذا المجلد مباشرة.</p>
                 `;
                 attachTactilePhysics(bookCard);
-                bookCard.onclick = () => loadAndOpenBook(book.id, book.title, book.toc, book.total_pages, null, query);
+                bookCard.onclick = () => {
+                    if (book.pdf_url) {
+                        window.open(book.pdf_url, '_blank');
+                    } else {
+                        loadAndOpenBook(book.id, book.title, book.toc, book.total_pages, null, query);
+                    }
+                };
                 container.appendChild(bookCard);
             }
 
@@ -1588,8 +1634,9 @@ async function executeGlobalSearch() {
 
             try {
                 const bookMeta = allBooksManifest[bookId];
-                let bookData = null;
+                if (bookMeta.pdf_url) continue;
 
+                let bookData = null;
                 const cached = localStorage.getItem(`book_pages_${bookId}`);
                 if (cached) {
                     bookData = { pages: JSON.parse(cached) };
