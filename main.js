@@ -1,19 +1,6 @@
 // ==================== إعدادات ومسارات النظام ====================
-const MANIFEST_FILES = [
-    "./manifest.json",
-    "./manifest_2.json",
-    "./manifest_3.json",
-    "./manifest_4.json",
-    "./data/manifest.json",
-    "./data2/manifest.json",
-    "./data3/manifest.json",
-    "./data3/manifest_3.json",
-    "./data4/manifest.json",
-    "./data4/manifest_4.json",
-    "./books/manifest.json"
-];
-
-const SEARCH_FOLDERS = ["./data4/", "./data3/", "./data2/", "./data/", "./books/", "./"];
+const DATA_MANIFEST_URL = "./manifest.json";
+const BOOKS_FOLDER_PATH = "./";
 const CLOUD_FALLBACK_URL = "https://cdn.jsdelivr.net/gh/jalisalkulayni-maker/-@main/";
 
 let allBooksManifest = {};
@@ -24,8 +11,8 @@ let currentBookTotalPages = 0;
 let currentBookId = "";
 let currentBookTitle = "";
 
-let currentSearchScope = 'all';
-let currentSearchTarget = 'toc';
+let currentSearchScope = 'all';        // نطاق البحث: كل المكتبة / سلسلة معينة / جزء
+let currentSearchTarget = 'toc';       // نوع البحث: 'toc' (أبواب وفصول) أو 'fulltext' (نصوص وصفحات)
 let searchDebounceTimer = null;
 let savedSelectionRange = null;
 let savedSelectionText = "";
@@ -35,9 +22,6 @@ let dailyHadithCollection = [];
 let currentDailyHadith = null;
 let hadithIntervalTimer = null;
 let isDeepSearching = false;
-
-let savedScrollPosition = 0;
-let currentActiveSearchHighlight = "";
 
 // ==================== نظام التنبيهات والإشعارات ====================
 let toastTimeout = null;
@@ -114,12 +98,8 @@ function attachTactilePhysics(btn) {
     btn.addEventListener('touchcancel', () => btn.classList.remove('pressed'), { passive: true });
 }
 
-// ==================== إدارة التبويبات والشاشات مع دعم الرجوع الذكي ====================
-function showView(viewId, pushHistory = true) {
-    if (document.getElementById('homeView')?.classList.contains('active') && viewId !== 'homeView') {
-        savedScrollPosition = window.scrollY || document.documentElement.scrollTop || 0;
-    }
-
+// ==================== إدارة التبويبات والشاشات ====================
+function showView(viewId) {
     document.querySelectorAll('.stage-view').forEach(v => v.classList.remove('active'));
     const target = document.getElementById(viewId);
     if (target) target.classList.add('active');
@@ -127,16 +107,6 @@ function showView(viewId, pushHistory = true) {
     const bottomNav = document.querySelector('.glass-bottom-nav');
     if (bottomNav) {
         bottomNav.style.display = (viewId === 'readerView') ? 'none' : 'block';
-    }
-
-    if (pushHistory) {
-        history.pushState({ view: viewId }, '', '');
-    }
-
-    if (viewId === 'homeView') {
-        setTimeout(() => {
-            window.scrollTo({ top: savedScrollPosition, behavior: 'instant' });
-        }, 40);
     }
 }
 
@@ -160,205 +130,81 @@ function switchTab(tabKey) {
     }
 }
 
-window.addEventListener('popstate', (event) => {
-    const openModals = [
-        document.getElementById('volumesModal'),
-        document.getElementById('tocModal'),
-        document.getElementById('settingsModal'),
-        document.getElementById('inBookSearchModal'),
-        document.getElementById('addTagModal'),
-        document.getElementById('customConfirmModal')
-    ];
-
-    let modalClosed = false;
-    for (let modal of openModals) {
-        if (modal && (modal.style.display === 'flex' || modal.style.display === 'block')) {
-            modal.style.display = 'none';
-            modalClosed = true;
-        }
-    }
-    if (modalClosed) return;
-
-    const targetView = event.state?.view || 'homeView';
-    showView(targetView, false);
-
-    document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
-    if (targetView === 'homeView') {
-        document.getElementById('navHomeBtn')?.classList.add('active');
-    } else if (targetView === 'catalogView') {
-        document.getElementById('navCatalogBtn')?.classList.add('active');
-    } else if (targetView === 'tagsView') {
-        document.getElementById('navTagsBtn')?.classList.add('active');
-    }
-});
-
-// ==================== محرك البحث الدقيق ومطابقة الكلمات المنفصلة ====================
+// ==================== معالجة وتوحيد النصوص العربية واستخراج الأرقام ====================
 function normalizeArabicText(text) {
     if (!text) return "";
     return text
         .replace(/[\u064B-\u065F\u0670ـ]/g, "")
         .replace(/[أإآ]/g, "ا")
         .replace(/ة/g, "ه")
+        .replace(/ى/g, "ي")
         .toLowerCase()
         .trim();
 }
 
-function createArabicSearchRegex(rawQuery) {
-    if (!rawQuery) return null;
-    let cleanQ = rawQuery.replace(/[\u064B-\u065F\u0670ـ]/g, "").trim();
-    if (!cleanQ) return null;
-
-    const tashkeel = "[\\u064B-\\u065F\\u0670ـ]*";
-    let words = cleanQ.split(/\s+/).filter(w => w.length > 0);
-    if (words.length === 0) return null;
-
-    let wordPatterns = words.map(w => {
-        let p = "";
-        for (let i = 0; i < w.length; i++) {
-            let c = w[i];
-            if (c === "ا" || c === "أ" || c === "إ" || c === "آ") {
-                p += "[اأإآ]" + tashkeel;
-            } else if (c === "ه" || c === "ة") {
-                p += "[هة]" + tashkeel;
-            } else if (c === "ي") {
-                p += "ي" + tashkeel;
-            } else if (c === "ى") {
-                p += "ى" + tashkeel;
-            } else if (/[a-zA-Z0-9\u0621-\u064A]/.test(c)) {
-                p += c + tashkeel;
-            } else {
-                p += "\\" + c;
-            }
-        }
-        return p;
-    });
-
-    let fullPattern = "(?:^|[^\\u0621-\\u064A0-9])(" + wordPatterns.join("\\s+") + ")(?=[^\\u0621-\\u064A0-9]|$)";
-    try {
-        return new RegExp(fullPattern, "gim");
-    } catch(e) {
-        return null;
-    }
-}
-
-function highlightArabicText(text, query) {
-    if (!text || !query) return text || "";
-    let reg = createArabicSearchRegex(query);
-    if (!reg) return text;
-    return text.replace(reg, (match, p1) => {
-        let prefix = match.substring(0, match.indexOf(p1));
-        return prefix + '<mark class="search-highlight" style="background-color: #ffd54f; color: #111; padding: 1px 4px; border-radius: 3px; font-weight: bold; box-shadow: 0 0 4px rgba(212,175,55,0.6);">' + p1 + '</mark>';
-    });
-}
-
-const compoundMap = {
-    "الحادي والتسعون": 91, "الثاني والتسعون": 92, "الثالث والتسعون": 93, "الرابع والتسعون": 94,
-    "الخامس والتسعون": 95, "السادس والتسعون": 96, "السابع والتسعون": 97, "الثامن والتسعون": 98, "التاسع والتسعون": 99,
-    "الحادي والثمانون": 81, "الثاني والثمانون": 82, "الثالث والثمانون": 83, "الرابع والثمانون": 84,
-    "الخامس والثمانون": 85, "السادس والثمانون": 86, "السابع والثمانون": 87, "الثامن والثمانون": 88, "التاسع والثمانون": 89,
-    "الحادي والسبعون": 71, "الثاني والسبعون": 72, "الثالث والسبعون": 73, "الرابع والسبعون": 74,
-    "الخامس والسبعون": 75, "السادس والسبعون": 76, "السابع والسبعون": 77, "الثامن والسبعون": 78, "التاسع والسبعون": 79,
-    "الحادي والستون": 61, "الثاني والستون": 62, "الثالث والستون": 63, "الرابع والستون": 64,
-    "الخامس والستون": 65, "السادس والستون": 66, "السابع والستون": 67, "الثامن والستون": 68, "التاسع والستون": 69,
-    "الحادي والخمسون": 51, "الثاني والخمسون": 52, "الثالث والخمسون": 53, "الرابع والخمسون": 54,
-    "الخامس والخمسون": 55, "السادس والخمسون": 56, "السابع والخمسون": 57, "الثامن والخمسون": 58, "التاسع والخمسون": 59,
-    "الحادي والاربعون": 41, "الحادي والأربعون": 41, "الثاني والاربعون": 42, "الثاني والأربعون": 42,
-    "الثالث والاربعون": 43, "الثالث والأربعون": 43, "الرابع والاربعون": 44, "الرابع والأربعون": 44,
-    "الخامس والاربعون": 45, "الخامس والأربعون": 45, "السادس والاربعون": 46, "السادس والأربعون": 46,
-    "السابع والاربعون": 47, "السابع والأربعون": 47, "الثامن والاربعون": 48, "الثامن والأربعون": 48,
-    "التاسع والاربعون": 49, "التاسع والأربعون": 49,
-    "الحادي والثلاثون": 31, "الثاني والثلاثون": 32, "الثالث والثلاثون": 33, "الرابع والثلاثون": 34,
-    "الخامس والثلاثون": 35, "السادس والثلاثون": 36, "السابع والثلاثون": 37, "الثامن والثلاثون": 38, "التاسع والثلاثون": 39,
-    "الحادي والعشرون": 21, "الثاني والعشرون": 22, "الثالث والعشرون": 23, "الرابع والعشرون": 24,
-    "الخامس والعشرون": 25, "السادس والعشرون": 26, "السابع والعشرون": 27, "الثامن والعشرون": 28, "التاسع والعشرون": 29,
-    "الحادي عشر": 11, "الثاني عشر": 12, "الثالث عشر": 13, "الرابع عشر": 14, "الخامس عشر": 15,
-    "السادس عشر": 16, "السابع عشر": 17, "الثامن عشر": 18, "التاسع عشر": 19,
-    "المائة": 100, "المئة": 100, "التسعون": 90, "الثمانون": 80, "السبعون": 70,
-    "الستون": 60, "الخمسون": 50, "الأربعون": 40, "الاربعون": 40, "الثلاثون": 30, "العشرون": 20,
-    "العاشر": 10, "التاسع": 9, "الثامن": 8, "السابع": 7, "السادس": 6,
-    "الخامس": 5, "الرابع": 4, "الثالث": 3, "الثاني": 2, "الأول": 1, "الاول": 1
-};
-
 function getVolumeNumber(vol) {
-    if (vol.pdf_url) return 1;
-    let cleanTitle = (vol.title || "").replace(/[\u064B-\u065F\u0670ـ]/g, "");
-    if (cleanTitle.includes("مخطوط") || cleanTitle.includes("نسخة")) return 1;
-
-    if (vol.volume) {
-        let cleanVol = String(vol.volume).replace(/\D/g, '');
-        if (cleanVol && !isNaN(parseInt(cleanVol, 10))) {
-            return parseInt(cleanVol, 10);
-        }
-    }
-
     let idMatch = (vol.id || "").match(/_(\d+)/);
-    if (idMatch && idMatch && !isNaN(parseInt(idMatch, 10))) {
-        return parseInt(idMatch, 10);
-    }
+    if (idMatch) return parseInt(idMatch[1], 10);
 
+    let textMatch = (vol.title || "").match(/\d+/);
+    if (textMatch) return parseInt(textMatch[0], 10);
+
+    const compoundMap = {
+        "الحادي والتسعون": 91, "الثاني والتسعون": 92, "الثالث والتسعون": 93, "الرابع والتسعون": 94,
+        "الخامس والتسعون": 95, "السادس والتسعون": 96, "السابع والتسعون": 97, "الثامن والتسعون": 98, "التاسع والتسعون": 99,
+        "الحادي والثمانون": 81, "الثاني والثمانون": 82, "الثالث والثمانون": 83, "الرابع والثمانون": 84,
+        "الخامس والثمانون": 85, "السادس والثمانون": 86, "السابع والثمانون": 87, "الثامن والثمانون": 88, "التاسع والثمانون": 89,
+        "الحادي والسبعون": 71, "الثاني والسبعون": 72, "الثالث والسبعون": 73, "الرابع والسبعون": 74,
+        "الخامس والسبعون": 75, "السادس والسبعون": 76, "السابع والسبعون": 77, "الثامن والسبعون": 78, "التاسع والسبعون": 79,
+        "الحادي والستون": 61, "الثاني والستون": 62, "الثالث والستون": 63, "الرابع والستون": 64,
+        "الخامس والستون": 65, "السادس والستون": 66, "السابع والستون": 67, "الثامن والستون": 68, "التاسع والستون": 69,
+        "الحادي والخمسون": 51, "الثاني والخمسون": 52, "الثالث والخمسون": 53, "الرابع والخمسون": 54,
+        "الخامس والخمسون": 55, "السادس والخمسون": 56, "السابع والخمسون": 57, "الثامن والخمسون": 58, "التاسع والخمسون": 59,
+        "الحادي والاربعون": 41, "الحادي والأربعون": 41, "الثاني والاربعون": 42, "الثاني والأربعون": 42,
+        "الثالث والاربعون": 43, "الثالث والأربعون": 43, "الرابع والاربعون": 44, "الرابع والأربعون": 44,
+        "الخامس والاربعون": 45, "الخامس والأربعون": 45, "السادس والاربعون": 46, "السادس والأربعون": 46,
+        "السابع والاربعون": 47, "السابع والأربعون": 47, "الثامن والاربعون": 48, "الثامن والأربعون": 48,
+        "التاسع والاربعون": 49, "التاسع والأربعون": 49,
+        "الحادي والثلاثون": 31, "الثاني والثلاثون": 32, "الثالث والثلاثون": 33, "الرابع والثلاثون": 34,
+        "الخامس والثلاثون": 35, "السادس والثلاثون": 36, "السابع والثلاثون": 37, "الثامن والثلاثون": 38, "التاسع والثلاثون": 39,
+        "الحادي والعشرون": 21, "الثاني والعشرون": 22, "الثالث والعشرون": 23, "الرابع والعشرون": 24,
+        "الخامس والعشرون": 25, "السادس والعشرون": 26, "السابع والعشرون": 27, "الثامن والعشرون": 28, "التاسع والعشرون": 29,
+        "الحادي عشر": 11, "الثاني عشر": 12, "الثالث عشر": 13, "الرابع عشر": 14, "الخامس عشر": 15,
+        "السادس عشر": 16, "السابع عشر": 17, "الثامن عشر": 18, "التاسع عشر": 19,
+        "المائة": 100, "المئة": 100, "التسعون": 90, "الثمانون": 80, "السبعون": 70,
+        "الستون": 60, "الخمسون": 50, "الأربعون": 40, "الاربعون": 40, "الثلاثون": 30, "العشرون": 20,
+        "العاشر": 10, "التاسع": 9, "الثامن": 8, "السابع": 7, "السادس": 6,
+        "الخامس": 5, "الرابع": 4, "الثالث": 3, "الثاني": 2, "الأول": 1, "الاول": 1
+    };
+
+    let cleanTitle = (vol.title || "").replace(/[\u064B-\u065F\u0670ـ]/g, "");
     for (let [word, num] of Object.entries(compoundMap)) {
         if (cleanTitle.includes(word)) return num;
     }
-
-    let textMatch = cleanTitle.match(/\d+/);
-    if (textMatch && !isNaN(parseInt(textMatch[0], 10))) {
-        return parseInt(textMatch[0], 10);
-    }
-
     return 999;
 }
 
+// دالة التجميع الذكية والموسعة لجميع السلاسل
 function getGroupName(book, bookId) {
     let lowerId = (bookId || "").toLowerCase();
     let rawTitle = (book.title || "").trim();
     let normTitle = normalizeArabicText(rawTitle);
 
-    // 📜 المخطوطات والوثائق تبقى بطاقات مستقلة باسمها الكامل دائماً
-    if (book.pdf_url || lowerId.includes("mkh") || normTitle.includes("مخطوط") || normTitle.includes("مخطوطه") || normTitle.includes("نسخه خطيه") || normTitle.includes("وثيقه")) {
-        return rawTitle;
-    }
-
-    if (lowerId.startsWith("bhr") || normTitle.includes("بحار الانوار")) return "بحار الأنوار";
+    if (lowerId.startsWith("bhr") || lowerId.startsWith("bihar") || normTitle.includes("بحار الانوار")) return "بحار الأنوار";
     if (lowerId.startsWith("kafi") || normTitle.includes("الكافي") || normTitle.includes("الاصول") || normTitle.includes("الفروع") || normTitle.includes("الروضه")) return "الكافي الشريف";
-    if (lowerId.startsWith("mrat") || lowerId.startsWith("mra") || normTitle.includes("العقول")) return "مرآة العقول في شرح أخبار آل الرسول";
-    if (lowerId.startsWith("iqbal") || normTitle.includes("اقبال") || normTitle.includes("إقبال") || normTitle.includes("لاقبال")) return "الإقبال بالأعمال الحسنة";
-    if (lowerId.startsWith("mtehjd") || normTitle.includes("المتهجد")) return "مصباح المتهجد وسلاح المتعبد";
-    if (lowerId.startsWith("mhj") || normTitle.includes("مهج الدعوات")) return "مهج الدعوات ومنهج العبادات";
-    if (lowerId.startsWith("hdyq") || normTitle.includes("الحدائق")) return "الحدائق الناضرة";
-    if (lowerId.startsWith("brh") || normTitle.includes("البرهان")) return "تفسير البرهان";
-    if (lowerId.startsWith("knz") || normTitle.includes("كنز الدقائق")) return "تفسير كنز الدقائق وبحر الغرائب";
-    if (lowerId.startsWith("nwr") || normTitle.includes("نور الثقلين")) return "تفسير نور الثقلين";
-    if (lowerId.startsWith("kml") || normTitle.includes("كمال الدين")) return "كمال الدين وتمام النعمة";
-    if (lowerId.startsWith("wsl") || normTitle.includes("وسائل الشيعه") || normTitle.includes("وسائل الشيعة")) return "وسائل الشيعة";
-    if (lowerId.startsWith("mstdrk") || normTitle.includes("مستدرك الوسائل")) return "مستدرك الوسائل";
-    if (lowerId.startsWith("mzn") || normTitle.includes("الميزان")) return "تفسير الميزان";
-    if (lowerId.startsWith("shf") || normTitle.includes("الصحيفه السجاديه") || normTitle.includes("الصحيفة السجادية")) return "الصحيفة السجادية";
-    if (lowerId.startsWith("nahj") || normTitle.includes("نهج البلاغه") || normTitle.includes("نهج البلاغة")) return "نهج البلاغة";
-    if (lowerId.startsWith("stb") || normTitle.includes("الاستبصار")) return "الاستبصار";
-    if (lowerId.startsWith("thb") || normTitle.includes("تهذيب الاحكام") || normTitle.includes("تهذيب الأحكام")) return "تهذيب الأحكام";
-    if (lowerId.startsWith("faqih") || normTitle.includes("من لا يحضره")) return "من لا يحضره الفقيه";
+    if (lowerId.startsWith("hdyq") || lowerId.startsWith("hadaiq") || normTitle.includes("الحدائق")) return "الحدائق الناضرة";
+    if (lowerId.startsWith("brh") || lowerId.startsWith("burhan") || normTitle.includes("البرهان")) return "تفسير البرهان";
     if (lowerId.startsWith("ayash") || lowerId.startsWith("aysh") || normTitle.includes("العياشي")) return "تفسير العياشي";
-    if (lowerId.startsWith("htj") || normTitle.includes("الاحتجاج") || normTitle.includes("الإحتجاج")) return "الإحتجاج للطبرسي";
-    if (lowerId.startsWith("irshad") || normTitle.includes("الارشاد") || normTitle.includes("الإرشاد")) return "الإرشاد في معرفة حجج الله على العباد";
-    if (lowerId.startsWith("amli") || normTitle.includes("امالي") || normTitle.includes("الأمالي")) return "الأمالي";
-    if (lowerId.startsWith("ilzam") || normTitle.includes("الزام الناصب") || normTitle.includes("إلزام الناصب")) return "إلزام الناصب في إثبات الحجة الغائب";
-    if (lowerId.startsWith("bsayr") || normTitle.includes("بصائر الدرجات")) return "بصائر الدرجات";
-    if (lowerId.startsWith("thwab") || normTitle.includes("ثواب الاعمال") || normTitle.includes("ثواب الأعمال")) return "ثواب الأعمال وعقاب الأعمال";
-    if (lowerId.startsWith("zad") || normTitle.includes("زاد المعاد")) return "زاد المعاد";
-    if (lowerId.startsWith("bld") || normTitle.includes("البلد الامين") || normTitle.includes("البلد الأمين")) return "البلد الأمين والدرع الحصين";
-    if (lowerId.startsWith("msb_kfc") || (normTitle.includes("مصباح") && normTitle.includes("كفعمي"))) return "مصباح الكفعمي";
-    if (lowerId.startsWith("mzr_shd") || (normTitle.includes("مزار") && normTitle.includes("شهيد"))) return "المزار للشهيد الأول";
-    if (lowerId.startsWith("mzr_mshd") || (normTitle.includes("مزار") && normTitle.includes("مشهدي"))) return "المزار الكبير للمشهدي";
-    if (lowerId.startsWith("mzr_bk") || normTitle.includes("المزار")) return "المزار";
-    if (lowerId.startsWith("jmal") || normTitle.includes("جمال الاسبوع") || normTitle.includes("جمال الأسبوع")) return "جمال الأسبوع بكمال العمل المشروع";
-    if (lowerId.startsWith("mjtna") || normTitle.includes("المجتنى") || normTitle.includes("المجتني")) return "المجتنى من الدعاء المجتبى";
-    if (lowerId.startsWith("slwh") || normTitle.includes("سلوه الحزين") || normTitle.includes("سلوة الحزين") || normTitle.includes("الدعوات للراوندي")) return "الدعوات (سلوة الحزين)";
-    if (lowerId.startsWith("flah") || lowerId.startsWith("fdayl") || normTitle.includes("فلاح السائل")) return "فلاح السائل ونجاح المسائل";
-    if (lowerId.startsWith("fth") || normTitle.includes("فتح الابواب") || normTitle.includes("فتح الأبواب")) return "فتح الأبواب في الاستخارات";
-    if (lowerId.startsWith("drwa") || normTitle.includes("الدر النظيم")) return "الدر النظيم";
-    if (lowerId.startsWith("aman") || normTitle.includes("الامان من اخطار") || normTitle.includes("الأمان من أخطار")) return "الأمان من أخطار الأسفار والأزمان";
-    if (lowerId.startsWith("qny") || normTitle.includes("المقنع")) return "المقنع للمفيد";
-    if (lowerId.startsWith("add") || normTitle.includes("العدد القوية")) return "العدد القوية لدفع المخاوف اليومية";
+    if (lowerId.startsWith("htj") || lowerId.startsWith("iht") || normTitle.includes("الاحتجاج") || normTitle.includes("الاحتجاء")) return "الإحتجاج للطبرسي";
+    if (lowerId.startsWith("wsl") || lowerId.startsWith("wasail") || normTitle.includes("وسائل الشيعه")) return "وسائل الشيعة";
+    if (lowerId.startsWith("mzn") || lowerId.startsWith("mizan") || normTitle.includes("الميزان")) return "تفسير الميزان";
+    if (lowerId.startsWith("shf") || lowerId.startsWith("sahifa") || normTitle.includes("الصحيفه السجاديه")) return "الصحيفة السجادية";
+    if (lowerId.startsWith("nahj") || normTitle.includes("نهج البلاغه")) return "نهج البلاغة";
+    if (lowerId.startsWith("stb") || lowerId.startsWith("istibsar") || normTitle.includes("الاستبصار")) return "الاستبصار";
+    if (lowerId.startsWith("thb") || lowerId.startsWith("tahdhib") || normTitle.includes("تهذيب الاحكام")) return "تهذيب الأحكام";
+    if (normTitle.includes("من لا يحضره")) return "من لا يحضره الفقيه";
+    if (normTitle.includes("مستدرك الوسائل")) return "مستدرك الوسائل";
+    if (normTitle.includes("نور الثقلين")) return "تفسير نور الثقلين";
 
     if (book.series && book.series.trim() !== "") {
         return book.series.trim();
@@ -366,94 +212,52 @@ function getGroupName(book, bookId) {
 
     let clean = rawTitle
         .replace(/[\u064B-\u065F\u0670ـ]/g, "")
-        .replace(/[-–—_:\/,\.،؛\(\)]/g, ' ');
-
-    for (let w of Object.keys(compoundMap).sort((a, b) => b.length - a.length)) {
-        clean = clean.replace(new RegExp(`\\b${w}\\b`, 'gi'), '');
-    }
-
-    clean = clean
-        .replace(/\b(?:الجزء|المجلد|جزء|مجلد|ج|م|vol|v)\b\s*\d*/gi, '')
-        .replace(/\s+\d+\s*$/g, '')
+        .replace(/[-–—_:\/]/g, ' ')
+        .replace(/(?:الجزء|المجلد|ج|م|vol|v)?\s*(?:الأول|الاول|الثاني|الثالث|الرابع|الخامس|السادس|السابع|الثامن|التاسع|العاشر|الحادي\s*عشر|الثاني\s*عشر|الثالث\s*عشر|الرابع\s*عشر|الخامس\s*عشر|السادس\s*عشر|السابع\s*عشر|الثامن\s*عشر|التاسع\s*عشر|العشرون|[ا-ي\s]+العشرون|[ا-ي\s]+الثلاثون|[ا-ي\s]+الأربعون|[ا-ي\s]+الخمسون|[ا-ي\s]+الستون|[ا-ي\s]+السبعون|[ا-ي\s]+الثمانون|[ا-ي\s]+التسعون|\d+)/gi, '')
         .replace(/\s+/g, ' ')
         .trim();
 
+    clean = clean.replace(/^[-–—_:\s]+|[-–—_:\s]+$/g, '');
     return clean || rawTitle;
 }
 
 function getBookCategory(book) {
     if (book.category && book.category.trim() !== "") return book.category.trim();
     let title = (book.title || "").toLowerCase();
-
-    // 📜 تصنيف المخطوطات والوثائق التراثية
-    if (book.pdf_url || title.includes("مخطوط") || title.includes("مخطوطة") || title.includes("نسخة خطية") || title.includes("وثيقة")) return "المخطوطات والوثائق التراثية";
-
-    if (title.includes("تفسير") || title.includes("القرآن") || title.includes("قرآن") || title.includes("بيان") || title.includes("برهان") || title.includes("عياشي") || title.includes("كنز")) return "التفسير وعلوم القرآن";
-    if (title.includes("حديث") || title.includes("الكافي") || title.includes("بحار") || title.includes("استبصار") || title.includes("تهذیب") || title.includes("وافي") || title.includes("من لا يحضره") || title.includes("وسائل") || title.includes("إحتجاج") || title.includes("احتجاج") || title.includes("العقول")) return "الحديث الشريف ومصادره";
-    if (title.includes("دعاء") || title.includes("صحيفة") || title.includes("زيارة") || title.includes("مناجات") || title.includes("مفاتيح") || title.includes("إقبال") || title.includes("اقبال") || title.includes("مصباح") || title.includes("مهج")) return "الأدعية والزيارات";
-    if (title.includes("عقائد") || title.includes("توحيد") || title.includes("امامة") || title.includes("إمامة") || title.includes("عدل") || title.includes("اعتقادات") || title.includes("كمال الدين")) return "العقائد الكلامية";
-    if (title.includes("فقه") || title.includes("احكام") || title.includes("أحكام") || title.includes("شرايع") || title.includes("رسالة") || title.includes("حدائق")) return "الفقه والأحكام";
-    if (title.includes("تاريخ") || title.includes("سيرة") || title.includes("مقتل") || title.includes("إرشاد") || title.includes("هجوم") || title.includes("فاطمة")) return "السيرة والتاريخ";
+    if (title.includes("تفسير") || title.includes("القرآن") || title.includes("قرآن") || title.includes("بيان") || title.includes("برهان") || title.includes("عياشي")) return "التفسير وعلوم القرآن";
+    if (title.includes("حديث") || title.includes("الكافي") || title.includes("بحار") || title.includes("استبصار") || title.includes("تهذیب") || title.includes("وافي") || title.includes("من لا يحضره") || title.includes("وسائل") || title.includes("إحتجاج") || title.includes("احتجاج")) return "الحديث الشريف ومصادره";
+    if (title.includes("دعاء") || title.includes("صحيفة") || title.includes("زيارة") || title.includes("مناجات") || title.includes("مفاتيح")) return "الأدعية والزيارات";
+    if (title.includes("عقائد") || title.includes("توحيد") || title.includes("امامة") || title.includes("عدل") || title.includes("اعتقادات")) return "العقائد";
+    if (title.includes("فقه") || title.includes("احكام") || title.includes("شرايع") || title.includes("رسالة") || title.includes("حدائق")) return "الفقه والأحكام";
+    if (title.includes("تاريخ") || title.includes("سيرة") || title.includes("مقتل") || title.includes("إرشاد")) return "السيرة والتاريخ";
     return "المتون العامة";
 }
 
-// ==================== تحميل ودمج الفهارس الذكي ====================
+// ==================== تحميل ومعالجة الفهرس ====================
 async function loadLibraryManifest() {
     const container = document.getElementById('dynamicBooksContainer');
     if (!container) return;
 
-    allBooksManifest = {};
-
     try {
-        const fetchPromises = MANIFEST_FILES.map(async (fileUrl) => {
-            try {
-                let res = await fetch(fileUrl + '?v=' + Date.now());
-                if (res.ok) {
-                    const data = await res.json();
-                    return data.books || data;
-                }
-            } catch (err) {}
-            return {};
-        });
+        let res = await fetch(DATA_MANIFEST_URL + '?v=' + Date.now());
+        if (!res.ok) {
+            res = await fetch(`${CLOUD_FALLBACK_URL}manifest.json?v=` + Date.now());
+        }
+        if (!res.ok) throw new Error("تعذر قراءة ملف manifest.json");
+        const data = await res.json();
 
-        const results = await Promise.all(fetchPromises);
-
-        results.forEach(booksObj => {
-            for (let [id, bookData] of Object.entries(booksObj)) {
-                if (!bookData) continue;
-                if (allBooksManifest[id]) {
-                    const existingCover = (allBooksManifest[id].cover || "").trim();
-                    const newCover = (bookData.cover || "").trim();
-                    allBooksManifest[id] = { ...allBooksManifest[id], ...bookData };
-                    if (existingCover !== "" && newCover === "") {
-                        allBooksManifest[id].cover = existingCover;
-                    }
-                } else {
-                    allBooksManifest[id] = bookData;
-                }
-            }
-        });
-
-        if (Object.keys(allBooksManifest).length === 0) {
-            throw new Error("لم يتم العثور على أي بيانات في ملفات manifest");
+        if (data.books && typeof data.books === 'object' && Object.keys(data.books).length > 0) {
+            allBooksManifest = data.books;
+        } else if (typeof data === 'object' && !data.version) {
+            allBooksManifest = data;
+        } else {
+            allBooksManifest = data.books || {};
         }
 
         processAndRenderBooks(allBooksManifest);
-
-        const urlParams = new URLSearchParams(window.location.search);
-        const targetBookId = urlParams.get('book');
-        if (targetBookId && allBooksManifest[targetBookId]) {
-            const b = allBooksManifest[targetBookId];
-            if (b.pdf_url) {
-                window.open(b.pdf_url, '_blank');
-            } else {
-                loadAndOpenBook(targetBookId, b.title, b.toc, b.total_pages);
-            }
-        }
-
     } catch (err) {
         console.error(err);
-        container.innerHTML = `<div style="color:#ff6b6b; grid-column: span 2; text-align: center; font-size: 13px; padding: 20px;">تعذر تحميل الفهارس: تأكد من رفع ملفات manifest.</div>`;
+        container.innerHTML = `<div style="color:#ff6b6b; grid-column: span 2; text-align: center; font-size: 13px; padding: 20px;">تعذر تحميل الفهرس: تأكد من رفع ملف manifest.json بشكل صحيح.</div>`;
     }
 }
 
@@ -488,7 +292,6 @@ function processAndRenderBooks(data) {
 
         const mainBook = booksInGroup[0];
         const isSeries = booksInGroup.length > 1;
-        const isPdfManuscript = !!mainBook.pdf_url;
 
         let coverSrc = "";
         for (let b of booksInGroup) {
@@ -496,14 +299,11 @@ function processAndRenderBooks(data) {
             if (candidate !== "") { coverSrc = candidate; break; }
         }
 
-        let defaultIcon = isPdfManuscript ? "fa-file-pdf" : "fa-book-open";
         let coverHtml = coverSrc !== "" 
-            ? `<div class="book-cover-wrapper"><img src="${coverSrc}" class="book-cover-img" alt="${groupTitle}" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\\'fas ${defaultIcon} text-gold\\'></i>';"></div>`
-            : `<div class="book-cover-wrapper"><i class="fas ${defaultIcon} text-gold"></i></div>`;
+            ? `<div class="book-cover-wrapper"><img src="${coverSrc}" class="book-cover-img" alt="${groupTitle}" onerror="this.parentElement.innerHTML='<i class=\\'fas fa-book-open text-gold\\'></i>'"></div>`
+            : `<div class="book-cover-wrapper"><i class="fas fa-book-open text-gold"></i></div>`;
 
-        let subtitle = isPdfManuscript 
-            ? `${mainBook.total_pages || 0} لوحة (مخطوط PDF)` 
-            : (isSeries ? `${booksInGroup.length} أجزاء / مجلدات` : `${mainBook.total_pages || 0} صفحة`);
+        let subtitle = isSeries ? `${booksInGroup.length} أجزاء / مجلدات` : `${mainBook.total_pages || 0} صفحة`;
 
         const card = document.createElement("div");
         card.className = "book-card tactile-btn";
@@ -517,9 +317,7 @@ function processAndRenderBooks(data) {
         `;
 
         attachTactilePhysics(card);
-        if (isPdfManuscript) {
-            card.onclick = () => window.open(mainBook.pdf_url, '_blank');
-        } else if (isSeries) {
+        if (isSeries) {
             card.onclick = () => openVolumesModal(groupTitle, booksInGroup);
         } else {
             card.onclick = () => loadAndOpenBook(mainBook.id, mainBook.title, mainBook.toc, mainBook.total_pages);
@@ -592,7 +390,6 @@ function renderCatalogAccordion() {
         items.forEach(item => {
             const { groupTitle, booksInGroup, mainBook } = item;
             const isSeries = booksInGroup.length > 1;
-            const isPdfManuscript = !!mainBook.pdf_url;
 
             let coverSrc = "";
             for (let b of booksInGroup) {
@@ -600,14 +397,11 @@ function renderCatalogAccordion() {
                 if (candidate !== "") { coverSrc = candidate; break; }
             }
 
-            let defaultIcon = isPdfManuscript ? "fa-file-pdf" : "fa-book-open";
             let coverHtml = coverSrc !== "" 
-                ? `<div class="book-cover-wrapper"><img src="${coverSrc}" class="book-cover-img" alt="${groupTitle}" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\\'fas ${defaultIcon} text-gold\\'></i>';"></div>`
-                : `<div class="book-cover-wrapper"><i class="fas ${defaultIcon} text-gold"></i></div>`;
+                ? `<div class="book-cover-wrapper"><img src="${coverSrc}" class="book-cover-img" alt="${groupTitle}" onerror="this.parentElement.innerHTML='<i class=\\'fas fa-book-open text-gold\\'></i>'"></div>`
+                : `<div class="book-cover-wrapper"><i class="fas fa-book-open text-gold"></i></div>`;
 
-            let subtitle = isPdfManuscript 
-                ? `${mainBook.total_pages || 0} لوحة (مخطوط PDF)` 
-                : (isSeries ? `${booksInGroup.length} أجزاء` : `${mainBook.total_pages || 0} صفحة`);
+            let subtitle = isSeries ? `${booksInGroup.length} أجزاء` : `${mainBook.total_pages || 0} صفحة`;
 
             const card = document.createElement("div");
             card.className = "book-card tactile-btn";
@@ -621,9 +415,7 @@ function renderCatalogAccordion() {
             `;
 
             attachTactilePhysics(card);
-            if (isPdfManuscript) {
-                card.onclick = () => window.open(mainBook.pdf_url, '_blank');
-            } else if (isSeries) {
+            if (isSeries) {
                 card.onclick = () => openVolumesModal(groupTitle, booksInGroup);
             } else {
                 card.onclick = () => loadAndOpenBook(mainBook.id, mainBook.title, mainBook.toc, mainBook.total_pages);
@@ -648,19 +440,20 @@ function toggleAccordionBody(accId) {
     }
 }
 
-// ==================== قائمة اختيار الأجزاء ====================
+// ==================== قائمة اختيار الأجزاء (الترتيب والتنسيق الرقمي الذكي) ====================
 function openVolumesModal(seriesTitle, volumesList) {
     const modalTitle = document.getElementById('volumesModalTitle');
     const container = document.getElementById('volumesListContainer');
     if (modalTitle) modalTitle.innerText = seriesTitle;
     if (!container) return;
 
+    // ترتيب الأجزاء تصاعدياً بدقة
     volumesList.sort((a, b) => getVolumeNumber(a) - getVolumeNumber(b));
 
     container.innerHTML = '';
     volumesList.forEach(vol => {
         let volNum = getVolumeNumber(vol);
-        let volLabel = (volNum !== 999 && !isNaN(volNum)) ? `الجزء ${volNum}` : (vol.title || seriesTitle);
+        let volLabel = (volNum !== 999) ? `الجزء ${volNum}` : (vol.title || seriesTitle);
 
         const item = document.createElement('div');
         item.className = 'toc-item tactile-btn';
@@ -674,11 +467,7 @@ function openVolumesModal(seriesTitle, volumesList) {
         attachTactilePhysics(item);
         item.onclick = () => {
             closeVolumesModal();
-            if (vol.pdf_url) {
-                window.open(vol.pdf_url, '_blank');
-            } else {
-                loadAndOpenBook(vol.id, vol.title, vol.toc, vol.total_pages);
-            }
+            loadAndOpenBook(vol.id, vol.title, vol.toc, vol.total_pages);
         };
         container.appendChild(item);
     });
@@ -692,43 +481,20 @@ function closeVolumesModal() {
     if (modal) modal.style.display = 'none';
 }
 
-// ==================== محرك القارئ وجلب البيانات ====================
+// ==================== محرك القارئ وعرض الصفحات ====================
 async function fetchBookData(bookId) {
-    const cleanId = (bookId || "").trim();
-    const encodedId = encodeURIComponent(cleanId);
-    
-    for (let folder of SEARCH_FOLDERS) {
-        try {
-            let res = await fetch(`${folder}${cleanId}.json`);
-            if (!res.ok) res = await fetch(`${folder}${encodedId}.json`);
-            if (res.ok) return await res.json();
-        } catch (e) {}
-    }
-
-    let fallbackId = cleanId.replace(/_[0-9]+$/, '').replace(/_ج[0-9]+$/, '');
-    if (fallbackId && fallbackId !== cleanId) {
-        for (let folder of SEARCH_FOLDERS) {
-            try {
-                let res = await fetch(`${folder}${fallbackId}.json`);
-                if (!res.ok) res = await fetch(`${folder}${encodeURIComponent(fallbackId)}.json`);
-                if (res.ok) return await res.json();
-            } catch (e) {}
-        }
-    }
-
-    try {
-        let res = await fetch(`${CLOUD_FALLBACK_URL}${encodedId}.json`);
-        if (res.ok) return await res.json();
-    } catch (e) {}
-
-    throw new Error("تعذر جلب ملف الكتاب");
+    let res = await fetch(`${BOOKS_FOLDER_PATH}${bookId}.json`);
+    if (!res.ok) res = await fetch(`./${bookId}.json`);
+    if (!res.ok) res = await fetch(`./books/${bookId}.json`);
+    if (!res.ok) res = await fetch(`${CLOUD_FALLBACK_URL}${bookId}.json`);
+    if (!res.ok) throw new Error("تعذر جلب ملف الكتاب");
+    return await res.json();
 }
 
-async function loadAndOpenBook(bookId, bookTitle, bookToc, totalPages, targetPageNumber = null, highlightQuery = "") {
+async function loadAndOpenBook(bookId, bookTitle, bookToc, totalPages, targetPageNumber = null) {
     showView('readerView');
     currentBookId = bookId;
     currentBookTitle = bookTitle;
-    currentActiveSearchHighlight = highlightQuery || "";
     document.getElementById('readerTitle').innerText = bookTitle;
 
     const contentDiv = document.getElementById('pageContent');
@@ -794,14 +560,7 @@ function renderCurrentPage() {
     }
 
     const pageData = currentBookPages[currentPageIndex - 1];
-    let rawHtml = pageData ? (pageData.content || "صفحة فارغة") : "صفحة فارغة";
-
-    if (currentActiveSearchHighlight) {
-        contentDiv.innerHTML = highlightArabicText(rawHtml, currentActiveSearchHighlight);
-    } else {
-        contentDiv.innerHTML = rawHtml;
-    }
-
+    contentDiv.innerHTML = pageData ? (pageData.content || "صفحة فارغة") : "صفحة فارغة";
     contentDiv.parentElement.scrollTop = 0;
 
     let displayPage = pageData ? (pageData.page_number || currentPageIndex) : currentPageIndex;
@@ -1109,10 +868,6 @@ function renderTagsView(filterTag = 'all') {
 
 async function jumpToTaggedSnippet(bookId, bookTitle, pageIndexOrNum) {
     const book = allBooksManifest[bookId] || {};
-    if (book.pdf_url) {
-        window.open(book.pdf_url, '_blank');
-        return;
-    }
     await loadAndOpenBook(bookId, bookTitle || book.title, book.toc, book.total_pages);
     currentPageIndex = parseInt(pageIndexOrNum) || 1;
     renderCurrentPage();
@@ -1298,15 +1053,15 @@ function executeInBookSearch(val) {
 
     container.innerHTML = '';
     let found = 0;
-    const searchRegex = createArabicSearchRegex(query);
-    if (!searchRegex) return;
+    const cleanQ = normalizeArabicText(query);
 
     currentBookPages.forEach((page, idx) => {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = page.content || '';
         const rawText = tempDiv.textContent || '';
+        const cleanText = normalizeArabicText(rawText);
 
-        if (searchRegex.test(rawText)) {
+        if (cleanText.includes(cleanQ)) {
             found++;
             const snippet = generateSearchSnippet(rawText, query);
             const item = document.createElement('div');
@@ -1319,7 +1074,6 @@ function executeInBookSearch(val) {
             `;
             attachTactilePhysics(item);
             item.onclick = () => {
-                currentActiveSearchHighlight = query;
                 currentPageIndex = idx + 1;
                 renderCurrentPage();
                 closeInBookSearch();
@@ -1334,27 +1088,20 @@ function executeInBookSearch(val) {
 }
 
 function generateSearchSnippet(fullText, rawQuery) {
-    if (!fullText || !rawQuery) return fullText || "";
-    
-    let regex = createArabicSearchRegex(rawQuery);
-    if (!regex) return fullText.substring(0, 100) + '...';
+    const cleanText = normalizeArabicText(fullText);
+    const cleanQuery = normalizeArabicText(rawQuery);
+    const matchIndex = cleanText.indexOf(cleanQuery);
 
-    let match = regex.exec(fullText);
-    let snippet = "";
+    if (matchIndex === -1) return fullText.substring(0, 90) + '...';
 
-    if (match) {
-        let matchIdx = match.index;
-        let start = Math.max(0, matchIdx - 35);
-        let end = Math.min(fullText.length, matchIdx + match[0].length + 65);
-        snippet = fullText.substring(start, end);
+    const start = Math.max(0, matchIndex - 35);
+    const end = Math.min(fullText.length, matchIndex + cleanQuery.length + 55);
+    let snippet = fullText.substring(start, end);
 
-        if (start > 0) snippet = '...' + snippet;
-        if (end < fullText.length) snippet = snippet + '...';
-    } else {
-        snippet = fullText.substring(0, 100) + '...';
-    }
+    if (start > 0) snippet = '...' + snippet;
+    if (end < fullText.length) snippet = snippet + '...';
 
-    return highlightArabicText(snippet, rawQuery);
+    return snippet;
 }
 
 function renderTocList() {
@@ -1378,7 +1125,6 @@ function renderTocList() {
         div.onclick = () => {
             const targetIdx = currentBookPages.findIndex(p => Number(p.page_number) === Number(item.page_number));
             currentPageIndex = targetIdx !== -1 ? (targetIdx + 1) : 1;
-            currentActiveSearchHighlight = "";
             renderCurrentPage();
             closeTocModal();
         };
@@ -1411,14 +1157,7 @@ function slidePageChanged(val) {
     }
 }
 
-function closeReader() { 
-    currentActiveSearchHighlight = "";
-    if (history.state && history.state.view === 'readerView') {
-        history.back();
-    } else {
-        showView('homeView', false);
-    }
-}
+function closeReader() { showView('homeView'); }
 
 function openSettings() { const m = document.getElementById('settingsModal'); if (m) m.style.display = 'flex'; }
 function closeSettings() { const m = document.getElementById('settingsModal'); if (m) m.style.display = 'none'; }
@@ -1439,7 +1178,7 @@ function changeFontFamily(font) {
     if (content) content.style.fontFamily = font === 'Amiri' ? "'Amiri', serif" : "'Cairo', sans-serif";
 }
 
-// ==================== محرك البحث الشامل ====================
+// ==================== محرك البحث الشامل والمتقدم ====================
 function openSearch() { 
     showView('searchView');
     setTimeout(() => {
@@ -1450,11 +1189,7 @@ function openSearch() {
 
 function closeSearch() { 
     isDeepSearching = false;
-    if (history.state && history.state.view === 'searchView') {
-        history.back();
-    } else {
-        showView('homeView', false);
-    }
+    showView('homeView'); 
 }
 
 function setSearchTargetMode(mode) {
@@ -1539,56 +1274,49 @@ async function executeGlobalSearch() {
 
     container.innerHTML = "";
     let foundCount = 0;
-    const searchRegex = createArabicSearchRegex(query);
-    if (!searchRegex) return;
+    const cleanQuery = normalizeArabicText(query);
 
+    // 1. الوضع الأول: البحث في الأبواب والفهارس والعناوين
     if (currentSearchTarget === 'toc') {
         targetBookIds.forEach(bookId => {
             let book = allBooksManifest[bookId];
             let groupName = getGroupName(book, bookId);
-            let rawTitle = book.title || "";
+            let cleanTitle = normalizeArabicText(book.title || "");
+            let cleanGroup = normalizeArabicText(groupName);
 
-            if (searchRegex.test(rawTitle) || searchRegex.test(groupName)) {
+            if (cleanTitle.includes(cleanQuery) || cleanGroup.includes(cleanQuery)) {
                 foundCount++;
                 const bookCard = document.createElement('div');
                 bookCard.className = "search-result-card tactile-btn";
                 bookCard.style.borderRight = "3px solid #D4AF37";
-                const highlightedHeader = highlightArabicText(rawTitle || groupName, query);
                 bookCard.innerHTML = `
                     <div class="search-card-header">
-                        <h4><i class="fas fa-book-open text-gold"></i> ${highlightedHeader}</h4>
-                        <span class="search-page-badge">${book.pdf_url ? 'مخطوط PDF' : 'كتاب كامل'}</span>
+                        <h4><i class="fas fa-book-open text-gold"></i> ${book.title || groupName}</h4>
+                        <span class="search-page-badge">كتاب كامل</span>
                     </div>
                     <p class="search-snippet" style="color: var(--text-gold);">اضغط لفتح هذا المجلد مباشرة.</p>
                 `;
                 attachTactilePhysics(bookCard);
-                bookCard.onclick = () => {
-                    if (book.pdf_url) {
-                        window.open(book.pdf_url, '_blank');
-                    } else {
-                        loadAndOpenBook(book.id, book.title, book.toc, book.total_pages, null, query);
-                    }
-                };
+                bookCard.onclick = () => loadAndOpenBook(book.id, book.title, book.toc, book.total_pages);
                 container.appendChild(bookCard);
             }
 
             if (book.toc && Array.isArray(book.toc)) {
                 book.toc.forEach(tocItem => {
-                    let tocTitle = tocItem.title || "";
-                    if (searchRegex.test(tocTitle)) {
+                    let cleanTocTitle = normalizeArabicText(tocItem.title || "");
+                    if (cleanTocTitle.includes(cleanQuery)) {
                         foundCount++;
                         const tocCard = document.createElement('div');
                         tocCard.className = "search-result-card tactile-btn";
-                        const highlightedToc = highlightArabicText(tocItem.title, query);
                         tocCard.innerHTML = `
                             <div class="search-card-header">
-                                <h4 style="font-size: 13px;"><i class="fas fa-bookmark text-gold"></i> ${highlightedToc}</h4>
+                                <h4 style="font-size: 13px;"><i class="fas fa-bookmark text-gold"></i> ${tocItem.title}</h4>
                                 <span class="search-page-badge">صـ ${tocItem.page_number}</span>
                             </div>
-                            <p class="search-snippet">${rawTitle || groupName}</p>
+                            <p class="search-snippet">${book.title || groupName}</p>
                         `;
                         attachTactilePhysics(tocCard);
-                        tocCard.onclick = () => loadAndOpenBook(book.id, book.title, book.toc, book.total_pages, tocItem.page_number, query);
+                        tocCard.onclick = () => loadAndOpenBook(book.id, book.title, book.toc, book.total_pages, tocItem.page_number);
                         container.appendChild(tocCard);
                     }
                 });
@@ -1611,6 +1339,7 @@ async function executeGlobalSearch() {
             `;
         }
     } 
+    // 2. الوضع الثاني: البحث المعمق في نصوص وصفحات الكتب
     else if (currentSearchTarget === 'fulltext') {
         const progressIndicator = document.createElement('div');
         progressIndicator.className = "glass-box";
@@ -1631,9 +1360,8 @@ async function executeGlobalSearch() {
 
             try {
                 const bookMeta = allBooksManifest[bookId];
-                if (bookMeta.pdf_url) continue;
-
                 let bookData = null;
+
                 const cached = localStorage.getItem(`book_pages_${bookId}`);
                 if (cached) {
                     bookData = { pages: JSON.parse(cached) };
@@ -1646,8 +1374,9 @@ async function executeGlobalSearch() {
                         const temp = document.createElement('div');
                         temp.innerHTML = page.content || '';
                         const raw = temp.textContent || '';
+                        const clean = normalizeArabicText(raw);
 
-                        if (searchRegex.test(raw)) {
+                        if (clean.includes(cleanQuery)) {
                             foundCount++;
                             const snippet = generateSearchSnippet(raw, query);
                             const card = document.createElement('div');
@@ -1661,7 +1390,7 @@ async function executeGlobalSearch() {
                                 <p class="search-snippet" style="color: #fff;">${snippet}</p>
                             `;
                             attachTactilePhysics(card);
-                            card.onclick = () => loadAndOpenBook(bookId, bookMeta.title, bookMeta.toc, bookMeta.total_pages, page.page_number, query);
+                            card.onclick = () => loadAndOpenBook(bookId, bookMeta.title, bookMeta.toc, bookMeta.total_pages, page.page_number);
                             container.appendChild(card);
                         }
                     });
@@ -1715,12 +1444,12 @@ function loadRandomDailyHadith() {
     const randomIndex = Math.floor(Math.random() * dailyHadithCollection.length);
     currentDailyHadith = dailyHadithCollection[randomIndex];
 
-    textEl.style.opacity = '0';
+    textEl.style.opacity = 0;
     setTimeout(() => {
         textEl.innerText = currentDailyHadith.text || "";
         sourceEl.innerHTML = `<i class="fas fa-feather-pointed text-gold"></i> المصدر: ${currentDailyHadith.source || "غير محدد"}`;
         textEl.style.transition = 'opacity 0.3s ease';
-        textEl.style.opacity = '1';
+        textEl.style.opacity = 1;
     }, 150);
 }
 
