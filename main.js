@@ -3,16 +3,18 @@ const MANIFEST_FILES = [
     "./manifest.json",
     "./manifest_2.json",
     "./manifest_3.json",
+    "./manifest_4.json",
     "./data/manifest.json",
     "./data/manifest_2.json",
     "./data2/manifest.json",
     "./data3/manifest.json",
     "./data3/manifest_3.json",
+    "./data4/manifest.json",
+    "./data4/manifest_4.json",
     "./books/manifest.json"
 ];
 
-// قائمة المجلدات المعتمدة للبحث عن صفحات الكتب
-const SEARCH_FOLDERS = ["./data3/", "./data2/", "./data/", "./books/", "./"];
+const SEARCH_FOLDERS = ["./data4/", "./data3/", "./data2/", "./data/", "./books/", "./"];
 const CLOUD_FALLBACK_URL = "https://cdn.jsdelivr.net/gh/jalisalkulayni-maker/-@main/";
 
 let allBooksManifest = {};
@@ -376,6 +378,11 @@ function getBookCategory(book) {
     if (book.category && book.category.trim() !== "") return book.category.trim();
     let title = (book.title || "").toLowerCase();
 
+    // تصنيف المخطوطات والوثائق التراثية
+    if (book.pdf_url || title.includes("مخطوط") || title.includes("مخطوطة") || title.includes("نسخة خطية") || title.includes("وثيقة")) {
+        return "المخطوطات والوثائق التراثية";
+    }
+
     if (title.includes("تفسير") || title.includes("القرآن") || title.includes("قرآن") || title.includes("بيان") || title.includes("برهان") || title.includes("عياشي") || title.includes("كنز")) return "التفسير وعلوم القرآن";
     if (title.includes("حديث") || title.includes("الكافي") || title.includes("بحار") || title.includes("استبصار") || title.includes("تهذیب") || title.includes("وافي") || title.includes("من لا يحضره") || title.includes("وسائل") || title.includes("إحتجاج") || title.includes("احتجاج") || title.includes("العقول")) return "الحديث الشريف ومصادره";
     if (title.includes("دعاء") || title.includes("صحيفة") || title.includes("زيارة") || title.includes("مناجات") || title.includes("مفاتيح") || title.includes("إقبال") || title.includes("اقبال") || title.includes("مصباح") || title.includes("مهج")) return "الأدعية والزيارات";
@@ -484,7 +491,7 @@ function processAndRenderBooks(data) {
             ? `<div class="book-cover-wrapper"><img src="${coverSrc}" class="book-cover-img" alt="${groupTitle}" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\\'fas fa-book-open text-gold\\'></i>';"></div>`
             : `<div class="book-cover-wrapper"><i class="fas fa-book-open text-gold"></i></div>`;
 
-        let subtitle = isSeries ? `${booksInGroup.length} أجزاء / مجلدات` : `${mainBook.total_pages || 0} صفحة`;
+        let subtitle = isSeries ? `${booksInGroup.length} أجزاء / مجلدات` : (mainBook.pdf_url ? `مخطوطة PDF (${mainBook.total_pages || ''} لوحة)` : `${mainBook.total_pages || 0} صفحة`);
 
         const card = document.createElement("div");
         card.className = "book-card tactile-btn";
@@ -582,7 +589,7 @@ function renderCatalogAccordion() {
                 ? `<div class="book-cover-wrapper"><img src="${coverSrc}" class="book-cover-img" alt="${groupTitle}" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\\'fas fa-book-open text-gold\\'></i>';"></div>`
                 : `<div class="book-cover-wrapper"><i class="fas fa-book-open text-gold"></i></div>`;
 
-            let subtitle = isSeries ? `${booksInGroup.length} أجزاء` : `${mainBook.total_pages || 0} صفحة`;
+            let subtitle = isSeries ? `${booksInGroup.length} أجزاء` : (mainBook.pdf_url ? `مخطوطة PDF` : `${mainBook.total_pages || 0} صفحة`);
 
             const card = document.createElement("div");
             card.className = "book-card tactile-btn";
@@ -661,7 +668,7 @@ function closeVolumesModal() {
     if (modal) modal.style.display = 'none';
 }
 
-// ==================== محرك القارئ وجلب البيانات ====================
+// ==================== محرك القارئ وجلب البيانات (يدعم PDF الداخلي) ====================
 async function fetchBookData(bookId) {
     const cleanId = (bookId || "").trim();
     const encodedId = encodeURIComponent(cleanId);
@@ -694,13 +701,29 @@ async function fetchBookData(bookId) {
 }
 
 async function loadAndOpenBook(bookId, bookTitle, bookToc, totalPages, targetPageNumber = null, highlightQuery = "") {
+    const bookMeta = allBooksManifest[bookId] || {};
     showView('readerView');
     currentBookId = bookId;
-    currentBookTitle = bookTitle;
+    currentBookTitle = bookTitle || bookMeta.title;
     currentActiveSearchHighlight = highlightQuery || "";
-    document.getElementById('readerTitle').innerText = bookTitle;
+    document.getElementById('readerTitle').innerText = currentBookTitle;
 
     const contentDiv = document.getElementById('pageContent');
+    const bottomControlBar = document.querySelector('.reader-bottom-nav, .reader-footer-controls') || document.getElementById('pageRangeSlider')?.parentElement?.parentElement;
+
+    // 🌟 فتح المخطوطة مباشرة كـ PDF داخل شاشة القارئ في الموقع
+    if (bookMeta.pdf_url) {
+        if (bottomControlBar) bottomControlBar.style.display = 'none';
+        contentDiv.innerHTML = `
+            <div style="width:100%; height:calc(100vh - 65px); position:relative; overflow:hidden; background:#1a1a1a; display:flex; flex-direction:column;">
+                <iframe src="${bookMeta.pdf_url}#toolbar=0" style="width:100%; height:100%; border:none;" allowfullscreen></iframe>
+            </div>
+        `;
+        return;
+    } else {
+        if (bottomControlBar) bottomControlBar.style.display = '';
+    }
+
     contentDiv.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:50px;"><i class="fas fa-spinner fa-spin fa-2x text-gold"></i><p style="margin-top:10px;">جاري فتح المتن المبارك...</p></div>';
 
     const cachedPages = localStorage.getItem(`book_pages_${bookId}`);
@@ -805,7 +828,7 @@ function renderCurrentPage() {
 
 function handleScreenTap(e) {
     if (window.getSelection && window.getSelection().toString().length > 0) return;
-    if (e.target.closest('a, button, input, .glass-modal, .selection-toolbar')) return;
+    if (e.target.closest('a, button, input, .glass-modal, .selection-toolbar, iframe')) return;
 
     const screenWidth = window.innerWidth;
     const tapX = e.clientX;
@@ -1378,6 +1401,9 @@ function slidePageChanged(val) {
 
 function closeReader() { 
     currentActiveSearchHighlight = "";
+    const bottomControlBar = document.querySelector('.reader-bottom-nav, .reader-footer-controls') || document.getElementById('pageRangeSlider')?.parentElement?.parentElement;
+    if (bottomControlBar) bottomControlBar.style.display = '';
+
     if (history.state && history.state.view === 'readerView') {
         history.back();
     } else {
