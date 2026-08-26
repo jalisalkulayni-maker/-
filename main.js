@@ -1,23 +1,20 @@
-// ==================== إعدادات ومسارات النظام فائقة السرعة ====================
+// ==================== إعدادات ومسارات النظام للمجلدات الفعلية (1 إلى 4) ====================
 const MANIFEST_FILES = [
     "./manifest.json",
     "./manifest_2.json",
     "./manifest_3.json",
     "./manifest_4.json",
-    "./manifest_5.json",
     "./data/manifest.json",
-    "./data/manifest_2.json",
     "./data2/manifest.json",
     "./data3/manifest.json",
     "./data3/manifest_3.json",
     "./data4/manifest.json",
     "./data4/manifest_4.json",
-    "./data5/manifest.json",
     "./books/manifest.json"
 ];
 
-// قائمة المجلدات للبحث التلقائي عن صفحات الكتب والمخطوطات
-const SEARCH_FOLDERS = ["./data4/", "./data3/", "./data2/", "./data/", "./data5/", "./books/", "./"];
+// قائمة المجلدات المعتمدة فقط (من data إلى data4)
+const SEARCH_FOLDERS = ["./data4/", "./data3/", "./data2/", "./data/", "./books/", "./"];
 const CLOUD_FALLBACK_URL = "https://cdn.jsdelivr.net/gh/jalisalkulayni-maker/-@main/";
 
 let allBooksManifest = {};
@@ -656,7 +653,6 @@ function closeVolumesModal() {
 async function fetchBookData(bookId) {
     const encodedId = encodeURIComponent(bookId);
     
-    // فحص المجلدات المتاحة تلقائياً
     for (let folder of SEARCH_FOLDERS) {
         try {
             let res = await fetch(`${folder}${bookId}.json`);
