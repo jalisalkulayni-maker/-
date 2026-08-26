@@ -1,27 +1,23 @@
-// ==================== إعدادات ومسارات النظام الشاملة حتى الرقم 20 ====================
-// توليد تلقائي شامل لمسارات الفهارس من 1 إلى 20
+// ==================== إعدادات ومسارات النظام فائقة السرعة ====================
 const MANIFEST_FILES = [
     "./manifest.json",
+    "./manifest_2.json",
+    "./manifest_3.json",
+    "./manifest_4.json",
+    "./manifest_5.json",
+    "./data/manifest.json",
+    "./data/manifest_2.json",
+    "./data2/manifest.json",
+    "./data3/manifest.json",
+    "./data3/manifest_3.json",
+    "./data4/manifest.json",
+    "./data4/manifest_4.json",
+    "./data5/manifest.json",
     "./books/manifest.json"
 ];
 
-for (let i = 1; i <= 20; i++) {
-    MANIFEST_FILES.push(`./manifest_${i}.json`);
-    let folder = i === 1 ? "./data/" : `./data${i}/`;
-    MANIFEST_FILES.push(`${folder}manifest.json`);
-    MANIFEST_FILES.push(`${folder}manifest_${i}.json`);
-    if (i === 1) {
-        MANIFEST_FILES.push(`./data1/manifest.json`);
-        MANIFEST_FILES.push(`./data1/manifest_1.json`);
-    }
-}
-
-// قائمة مجلدات البحث التلقائي عن الكتب والمخطوطات من data إلى data20
-const SEARCH_FOLDERS = ["./data/", "./books/", "./"];
-for (let i = 1; i <= 20; i++) {
-    SEARCH_FOLDERS.push(`./data${i}/`);
-}
-
+// قائمة المجلدات للبحث التلقائي عن صفحات الكتب والمخطوطات
+const SEARCH_FOLDERS = ["./data4/", "./data3/", "./data2/", "./data/", "./data5/", "./books/", "./"];
 const CLOUD_FALLBACK_URL = "https://cdn.jsdelivr.net/gh/jalisalkulayni-maker/-@main/";
 
 let allBooksManifest = {};
@@ -32,8 +28,8 @@ let currentBookTotalPages = 0;
 let currentBookId = "";
 let currentBookTitle = "";
 
-let currentSearchScope = 'all';        // نطاق البحث: كل المكتبة / سلسلة معينة / جزء
-let currentSearchTarget = 'toc';       // نوع البحث: 'toc' (أبواب وفصول) أو 'fulltext' (نصوص وصفحات)
+let currentSearchScope = 'all';
+let currentSearchTarget = 'toc';
 let searchDebounceTimer = null;
 let savedSelectionRange = null;
 let savedSelectionText = "";
@@ -171,7 +167,6 @@ function switchTab(tabKey) {
     }
 }
 
-// الاستماع لزر الرجوع في الهاتف للتعامل معه دون إعادة تحميل
 window.addEventListener('popstate', (event) => {
     const openModals = [
         document.getElementById('volumesModal'),
@@ -309,13 +304,11 @@ function getVolumeNumber(vol) {
     return 999;
 }
 
-// دالة التجميع الشاملة والذكية لتوحيد جميع السلاسل والكتب
 function getGroupName(book, bookId) {
     let lowerId = (bookId || "").toLowerCase();
     let rawTitle = (book.title || "").trim();
     let normTitle = normalizeArabicText(rawTitle);
 
-    // 1. قاموس المطابقة الدقيقة لجميع المصادر والسلاسل الإسلامية
     if (lowerId.startsWith("bhr") || normTitle.includes("بحار الانوار")) return "بحار الأنوار";
     if (lowerId.startsWith("kafi") || normTitle.includes("الكافي") || normTitle.includes("الاصول") || normTitle.includes("الفروع") || normTitle.includes("الروضه")) return "الكافي الشريف";
     if (lowerId.startsWith("mrat") || lowerId.startsWith("mra") || normTitle.includes("العقول")) return "مرآة العقول في شرح أخبار آل الرسول";
@@ -358,12 +351,10 @@ function getGroupName(book, bookId) {
     if (lowerId.startsWith("qny") || normTitle.includes("المقنع")) return "المقنع للمفيد";
     if (lowerId.startsWith("add") || normTitle.includes("العدد القوية")) return "العدد القوية لدفع المخاوف اليومية";
 
-    // 2. إذا كان حقل السلسلة موجوداً صراحة
     if (book.series && book.series.trim() !== "") {
         return book.series.trim();
     }
 
-    // 3. التنظيف التلقائي الذكي لأي كتاب آخر خارج القائمة
     let clean = rawTitle
         .replace(/[\u064B-\u065F\u0670ـ]/g, "")
         .replace(/[-–—_:\/,\.،؛\(\)]/g, ' ');
@@ -381,7 +372,6 @@ function getGroupName(book, bookId) {
     return clean || rawTitle;
 }
 
-// دالة تحديد الأقسام والتصنيفات (تدعم المخطوطات والوثائق التراثية)
 function getBookCategory(book) {
     if (book.category && book.category.trim() !== "") return book.category.trim();
     let title = (book.title || "").toLowerCase();
@@ -398,7 +388,7 @@ function getBookCategory(book) {
     return "المتون العامة";
 }
 
-// ==================== تحميل ودمج الفهارس المتعددة مع دعم الروابط الخارجية ====================
+// ==================== تحميل ودمج الفهارس بسرعة فائقة ====================
 async function loadLibraryManifest() {
     const container = document.getElementById('dynamicBooksContainer');
     if (!container) return;
@@ -409,10 +399,6 @@ async function loadLibraryManifest() {
         const fetchPromises = MANIFEST_FILES.map(async (fileUrl) => {
             try {
                 let res = await fetch(fileUrl + '?v=' + Date.now());
-                if (!res.ok) {
-                    const fileName = fileUrl.replace('./', '').replace(/data\d?\//, '');
-                    res = await fetch(`${CLOUD_FALLBACK_URL}${fileName}?v=` + Date.now());
-                }
                 if (res.ok) {
                     const data = await res.json();
                     return data.books || data;
@@ -433,7 +419,7 @@ async function loadLibraryManifest() {
 
         processAndRenderBooks(allBooksManifest);
 
-        // 🌟 فتح الكتاب تلقائياً إذا دخل الزائر عبر رابط مباشر من Google أو غيره (?book=...)
+        // فتح الكتاب تلقائياً إذا دخل الزائر عبر رابط مباشر (?book=...)
         const urlParams = new URLSearchParams(window.location.search);
         const targetBookId = urlParams.get('book');
         if (targetBookId && allBooksManifest[targetBookId]) {
@@ -443,7 +429,7 @@ async function loadLibraryManifest() {
 
     } catch (err) {
         console.error(err);
-        container.innerHTML = `<div style="color:#ff6b6b; grid-column: span 2; text-align: center; font-size: 13px; padding: 20px;">تعذر تحميل الفهارس: تأكد من مسارات ملفات manifest.</div>`;
+        container.innerHTML = `<div style="color:#ff6b6b; grid-column: span 2; text-align: center; font-size: 13px; padding: 20px;">تعذر تحميل الفهارس: تأكد من رفع ملفات manifest.</div>`;
     }
 }
 
@@ -670,7 +656,7 @@ function closeVolumesModal() {
 async function fetchBookData(bookId) {
     const encodedId = encodeURIComponent(bookId);
     
-    // فحص المجلدات المتاحة تلقائياً (من data إلى data20)
+    // فحص المجلدات المتاحة تلقائياً
     for (let folder of SEARCH_FOLDERS) {
         try {
             let res = await fetch(`${folder}${bookId}.json`);
@@ -759,7 +745,6 @@ function renderCurrentPage() {
     const pageData = currentBookPages[currentPageIndex - 1];
     let rawHtml = pageData ? (pageData.content || "صفحة فارغة") : "صفحة فارغة";
 
-    // تلوين وتظليل الكلمة المبحوث عنها في المتن إن وُجدت
     if (currentActiveSearchHighlight) {
         contentDiv.innerHTML = highlightArabicText(rawHtml, currentActiveSearchHighlight);
     } else {
@@ -1246,7 +1231,6 @@ function closeInBookSearch() {
     if (modal) modal.style.display = 'none';
 }
 
-// البحث داخل الكتاب مع تلوين وتظليل الكلمة في النتائج وفي المتن
 function executeInBookSearch(val) {
     const query = val.trim();
     const container = document.getElementById('inBookSearchResults');
@@ -1294,7 +1278,6 @@ function executeInBookSearch(val) {
     }
 }
 
-// دالة استخراج المقتطف مع تلوين وتظليل الكلمة المبحوث عنها وتجاهل التشكيل
 function generateSearchSnippet(fullText, rawQuery) {
     const cleanText = normalizeArabicText(fullText);
     const cleanQuery = normalizeArabicText(rawQuery);
@@ -1499,7 +1482,6 @@ async function executeGlobalSearch() {
     let foundCount = 0;
     const cleanQuery = normalizeArabicText(query);
 
-    // 1. الوضع الأول: البحث في الأبواب والفهارس والعناوين مع التظليل
     if (currentSearchTarget === 'toc') {
         targetBookIds.forEach(bookId => {
             let book = allBooksManifest[bookId];
@@ -1564,7 +1546,6 @@ async function executeGlobalSearch() {
             `;
         }
     } 
-    // 2. الوضع الثاني: البحث المعمق في نصوص وصفحات الكتب مع التظليل
     else if (currentSearchTarget === 'fulltext') {
         const progressIndicator = document.createElement('div');
         progressIndicator.className = "glass-box";
@@ -1669,12 +1650,12 @@ function loadRandomDailyHadith() {
     const randomIndex = Math.floor(Math.random() * dailyHadithCollection.length);
     currentDailyHadith = dailyHadithCollection[randomIndex];
 
-    textEl.style.opacity = 0;
+    textEl.style.opacity = '0';
     setTimeout(() => {
         textEl.innerText = currentDailyHadith.text || "";
         sourceEl.innerHTML = `<i class="fas fa-feather-pointed text-gold"></i> المصدر: ${currentDailyHadith.source || "غير محدد"}`;
         textEl.style.transition = 'opacity 0.3s ease';
-        textEl.style.opacity = 1;
+        textEl.style.opacity = '1';
     }, 150);
 }
 
