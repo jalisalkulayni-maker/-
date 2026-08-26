@@ -1,11 +1,13 @@
-// ==================== إعدادات ومسارات النظام ====================
+// ==================== إعدادات ومسارات النظام الشاملة ====================
 const MANIFEST_FILES = [
     "./manifest.json",
     "./manifest_2.json",
     "./manifest_3.json",
     "./manifest_4.json",
     "./data/manifest.json",
+    "./data/manifest_2.json",
     "./data2/manifest.json",
+    "./data2/manifest_2.json",
     "./data3/manifest.json",
     "./data3/manifest_3.json",
     "./data4/manifest.json",
@@ -192,7 +194,7 @@ window.addEventListener('popstate', (event) => {
     }
 });
 
-// ==================== محرك البحث الدقيق ومطابقة الكلمات المنفصلة ====================
+// ==================== معالجة وتوحيد النصوص العربية ====================
 function normalizeArabicText(text) {
     if (!text) return "";
     return text
@@ -354,7 +356,7 @@ function getGroupName(book, bookId) {
     if (lowerId.startsWith("mjtna") || normTitle.includes("المجتنى") || normTitle.includes("المجتني")) return "المجتنى من الدعاء المجتبى";
     if (lowerId.startsWith("slwh") || normTitle.includes("سلوه الحزين") || normTitle.includes("سلوة الحزين") || normTitle.includes("الدعوات للراوندي")) return "الدعوات (سلوة الحزين)";
     
-    // فلاح السائل فقط (بدون التأثير على كتب الفضائل)
+    // فلاح السائل فقط (مفصول عن كتب الفضائل)
     if (lowerId.startsWith("flah") || lowerId.startsWith("falah") || normTitle.includes("فلاح السائل")) return "فلاح السائل ونجاح المسائل";
     
     if (lowerId.startsWith("fth") || normTitle.includes("فتح الابواب") || normTitle.includes("فتح الأبواب")) return "فتح الأبواب في الاستخارات";
@@ -392,7 +394,7 @@ function getBookCategory(book) {
     if (book.pdf_url || title.includes("مخطوط") || title.includes("مخطوطة") || title.includes("نسخة خطية") || title.includes("وثيقة")) return "المخطوطات والوثائق التراثية";
 
     if (title.includes("تفسير") || title.includes("القرآن") || title.includes("قرآن") || title.includes("بيان") || title.includes("برهان") || title.includes("عياشي") || title.includes("كنز")) return "التفسير وعلوم القرآن";
-    if (title.includes("حديث") || title.includes("الكافي") || title.includes("بحار") || title.includes("استبصار") || title.includes("تهذیب") || title.includes("وافي") || title.includes("من لا يحضره") || title.includes("وسائل") || title.includes("إحتجاج") || title.includes("احتجاج") || title.includes("العقول")) return "الحديث الشريف ومصادره";
+    if (title.includes("حديث") || title.includes("الكافي") || title.includes("بحار") || title.includes("استبصار") || title.includes("تهذیب") || title.includes("وافي") || title.includes("من لا يحضره") || title.includes("وسائل") || title.includes("إحتجاج") || title.includes("احتجاج") || title.includes("العقول") || title.includes("فضائل") || title.includes("فضايل")) return "الحديث الشريف ومصادره";
     if (title.includes("دعاء") || title.includes("صحيفة") || title.includes("زيارة") || title.includes("مناجات") || title.includes("مفاتيح") || title.includes("إقبال") || title.includes("اقبال") || title.includes("مصباح") || title.includes("مهج")) return "الأدعية والزيارات";
     if (title.includes("عقائد") || title.includes("توحيد") || title.includes("امامة") || title.includes("إمامة") || title.includes("عدل") || title.includes("اعتقادات") || title.includes("كمال الدين")) return "العقائد الكلامية";
     if (title.includes("فقه") || title.includes("احكام") || title.includes("أحكام") || title.includes("شرايع") || title.includes("رسالة") || title.includes("حدائق")) return "الفقه والأحكام";
@@ -493,6 +495,7 @@ function processAndRenderBooks(data) {
         const isSeries = booksInGroup.length > 1;
         const isPdfManuscript = !!mainBook.pdf_url;
 
+        // البحث عن أي غلاف مسجل في المجموعة بالكامل
         let coverSrc = "";
         for (let b of booksInGroup) {
             let candidate = (b.cover || "").trim();
