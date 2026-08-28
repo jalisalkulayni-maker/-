@@ -310,23 +310,33 @@ function getVolumeNumber(vol) {
     let norm = normalizeArabicText(cleanTitle);
     let lowerId = (vol.id || "").toLowerCase();
 
-    if (norm.includes("الروضه") || lowerId.includes("rawda")) return 8;
+    // 📖 الروضة هي الجزء الثامن من الكافي
+    if (norm.includes("الروضه") || lowerId.includes("rawda")) {
+        return 8;
+    }
+
     if (cleanTitle.includes("مخطوط") || cleanTitle.includes("نسخة")) return 1;
 
     if (vol.volume) {
         let cleanVol = String(vol.volume).replace(/\D/g, '');
-        if (cleanVol && !isNaN(parseInt(cleanVol, 10))) return parseInt(cleanVol, 10);
+        if (cleanVol && !isNaN(parseInt(cleanVol, 10))) {
+            return parseInt(cleanVol, 10);
+        }
     }
 
     let idMatch = (vol.id || "").match(/_(\d+)/);
-    if (idMatch && idMatch && !isNaN(parseInt(idMatch, 10))) return parseInt(idMatch, 10);
+    if (idMatch && idMatch && !isNaN(parseInt(idMatch, 10))) {
+        return parseInt(idMatch, 10);
+    }
 
     for (let [word, num] of Object.entries(compoundMap)) {
         if (cleanTitle.includes(word)) return num;
     }
 
     let textMatch = cleanTitle.match(/\d+/);
-    if (textMatch && !isNaN(parseInt(textMatch[0], 10))) return parseInt(textMatch[0], 10);
+    if (textMatch && !isNaN(parseInt(textMatch[0], 10))) {
+        return parseInt(textMatch[0], 10);
+    }
 
     return 999;
 }
@@ -336,10 +346,28 @@ function getGroupName(book, bookId) {
     let rawTitle = (book.title || "").trim();
     let normTitle = normalizeArabicText(rawTitle);
 
-    if (book.pdf_url || lowerId.includes("mkh") || normTitle.includes("مخطوط") || normTitle.includes("مخطوطه") || normTitle.includes("نسخه خطيه") || normTitle.includes("وثيقه")) return rawTitle;
-    if (normTitle.includes("الاصول السته عشر") || normTitle.includes("الاصول ١٦") || lowerId.includes("osol16") || lowerId.includes("usul16")) return "الأصول الستة عشر";
-    if (normTitle.includes("مناقب الامام امير") || normTitle.includes("مناقب امير المومنين") || lowerId.startsWith("mnqb_amr") || lowerId.startsWith("mnqb_amir")) return "مناقب الإمام أمير المؤمنين (عليه السلام)";
-    if (lowerId.startsWith("kafi") || lowerId.startsWith("rawda") || (normTitle.includes("الكافي") && !normTitle.includes("مرآه") && !normTitle.includes("مراه")) || (normTitle.includes("الروضه") && !normTitle.includes("الواعظين") && !normTitle.includes("الجنان") && !normTitle.includes("الشهداء") && !normTitle.includes("الانوار"))) return "الكافي الشريف";
+    // 📜 1. المخطوطات والوثائق مستقلة دائماً
+    if (book.pdf_url || lowerId.includes("mkh") || normTitle.includes("مخطوط") || normTitle.includes("مخطوطه") || normTitle.includes("نسخه خطيه") || normTitle.includes("وثيقه")) {
+        return rawTitle;
+    }
+
+    // 📚 2. فصل الأصول الستة عشر تماماً عن الكافي
+    if (normTitle.includes("الاصول السته عشر") || normTitle.includes("الاصول ١٦") || lowerId.includes("osol16") || lowerId.includes("usul16")) {
+        return "الأصول الستة عشر";
+    }
+
+    // 📚 3. توحيد ودمج جميع أجزاء مناقب الإمام أمير المؤمنين (ع) في بطاقة واحدة
+    if (normTitle.includes("مناقب الامام امير") || normTitle.includes("مناقب امير المومنين") || lowerId.startsWith("mnqb_amr") || lowerId.startsWith("mnqb_amir")) {
+        return "مناقب الإمام أمير المؤمنين (عليه السلام)";
+    }
+
+    // 📚 4. الكافي الشريف بجميع أجزائه الثمانية (الأصول والفروع والروضة)
+    if (lowerId.startsWith("kafi") || lowerId.startsWith("rawda") ||
+       (normTitle.includes("الكافي") && !normTitle.includes("مرآه") && !normTitle.includes("مراه")) || 
+       (normTitle.includes("الروضه") && !normTitle.includes("الواعظين") && !normTitle.includes("الجنان") && !normTitle.includes("الشهداء") && !normTitle.includes("الانوار"))) {
+        return "الكافي الشريف";
+    }
+
     if (lowerId.startsWith("bhr") || normTitle.includes("بحار الانوار")) return "بحار الأنوار";
     if (lowerId.startsWith("mrat") || lowerId.startsWith("mra") || normTitle.includes("العقول")) return "مرآة العقول في شرح أخبار آل الرسول";
     if (lowerId.startsWith("iqbal") || normTitle.includes("اقبال") || normTitle.includes("إقبال") || normTitle.includes("لاقبال")) return "الإقبال بالأعمال الحسنة";
@@ -1798,4 +1826,3 @@ async function loadDictionaryData() {
     }
     isDictionaryLoaded = true;
 }
-]
