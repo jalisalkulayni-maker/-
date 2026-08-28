@@ -149,6 +149,7 @@ body {
     place-items: center;
 }
 
+/* بطاقات وتصميم إطار صورة الغلاف */
 .books-grid-container {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -258,6 +259,7 @@ body {
     display: block;
 }
 
+/* شريط القارئ العلوي */
 .reader-top-bar {
     position: fixed;
     top: 0; left: 0; right: 0;
@@ -292,6 +294,7 @@ body {
     gap: 4px;
 }
 
+/* مساحة ورقة القراءة */
 .reader-paper-section {
     padding: 68px 16px 115px;
     min-height: 100vh;
@@ -306,6 +309,7 @@ body {
     line-height: 2.3;
 }
 
+/* تنسيق متون ونصوص وعناوين الكتاب */
 .book-heading,
 .reader-paper-box h1,
 .reader-paper-box h2,
@@ -344,6 +348,7 @@ body {
     font-weight: bold;
 }
 
+/* تنسيق تذييل الصفحة وروابط الكتاب */
 .page-footer {
     margin-top: 35px;
     padding-top: 14px;
@@ -370,6 +375,11 @@ body {
     opacity: 0.85;
 }
 
+/* ========================================================
+   ثيمات القراءة: مقتصرة فقط على خلفية ونصوص صفحة القراءة
+   ======================================================== */
+
+/* 1. الثيم الملكي (الافتراضي) */
 .theme-royal .reader-paper-section,
 .reader-paper-section.theme-royal {
     background: #030705;
@@ -380,6 +390,7 @@ body {
     color: var(--gold-bright);
 }
 
+/* 2. ثيم السبيا (ورق قديم) */
 .theme-sepia .reader-paper-section,
 .reader-paper-section.theme-sepia {
     background: #F4ECD8;
@@ -404,6 +415,7 @@ body {
     color: #8C6239 !important;
 }
 
+/* 3. ثيم داكن خالص */
 .theme-dark .reader-paper-section,
 .reader-paper-section.theme-dark {
     background: #000000;
@@ -414,6 +426,7 @@ body {
     color: var(--gold-main);
 }
 
+/* 4. ثيم فاتح */
 .theme-light .reader-paper-section,
 .reader-paper-section.theme-light {
     background: #FAF9F6;
@@ -438,6 +451,7 @@ body {
     color: #8B6508 !important;
 }
 
+/* شريط القارئ السفلي والأدوات */
 .reader-bottom-bar {
     position: fixed;
     bottom: 0; left: 0; right: 0;
@@ -532,12 +546,9 @@ body {
     cursor: pointer;
 }
 
-/* =========================================
-   شريط التحديد (تم رفعه ليظهر فوق أشرطة النظام)
-   ========================================= */
 .selection-toolbar {
     position: fixed;
-    bottom: 140px; 
+    bottom: 80px;
     left: 50%;
     transform: translateX(-50%);
     background: #111b15;
@@ -548,7 +559,7 @@ body {
     align-items: center;
     gap: 8px;
     box-shadow: 0 10px 25px rgba(0,0,0,0.6);
-    z-index: 9999;
+    z-index: 100;
 }
 .color-dot {
     width: 18px;
@@ -676,6 +687,7 @@ body {
     color: var(--gold-bright);
 }
 
+/* تصميم أدوات وعناصر البحث المتقدم */
 .search-bar-wrap {
     display: flex;
     align-items: center;
@@ -913,3 +925,4 @@ body {
 .text-white { color: #fff; }
 .text-muted { color: var(--text-muted); }
 .flex-1 { flex: 1; }
+ 
