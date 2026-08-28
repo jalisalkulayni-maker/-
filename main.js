@@ -4,6 +4,7 @@ const MANIFEST_FILES = [
     "./manifest_2.json",
     "./manifest_3.json",
     "./manifest_4.json",
+    "./manifest_5.json",
     "./data/manifest.json",
     "./data/manifest_2.json",
     "./data2/manifest.json",
@@ -12,10 +13,12 @@ const MANIFEST_FILES = [
     "./data3/manifest_3.json",
     "./data4/manifest.json",
     "./data4/manifest_4.json",
+    "./data5/manifest.json",
+    "./data5/manifest_5.json",
     "./books/manifest.json"
 ];
 
-const SEARCH_FOLDERS = ["./data4/", "./data3/", "./data2/", "./data/", "./books/", "./"];
+const SEARCH_FOLDERS = ["./data5/", "./data4/", "./data3/", "./data2/", "./data/", "./books/", "./"];
 const CLOUD_FALLBACK_URL = "https://cdn.jsdelivr.net/gh/jalisalkulayni-maker/-@main/";
 
 let allBooksManifest = {};
