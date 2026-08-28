@@ -138,7 +138,7 @@ function attachTactilePhysics(btn) {
     btn.addEventListener('touchcancel', () => btn.classList.remove('pressed'), { passive: true });
 }
 
-// ==================== إدارة التبويبات والشاشات مع دعم الرجوع الذكي ====================
+// ==================== إدارة التبويبات والشاشات ====================
 function showView(viewId, pushHistory = true) {
     if (document.getElementById('homeView')?.classList.contains('active') && viewId !== 'homeView') {
         savedScrollPosition = window.scrollY || document.documentElement.scrollTop || 0;
@@ -310,33 +310,23 @@ function getVolumeNumber(vol) {
     let norm = normalizeArabicText(cleanTitle);
     let lowerId = (vol.id || "").toLowerCase();
 
-    // 📖 الروضة هي الجزء الثامن من الكافي
-    if (norm.includes("الروضه") || lowerId.includes("rawda")) {
-        return 8;
-    }
-
+    if (norm.includes("الروضه") || lowerId.includes("rawda")) return 8;
     if (cleanTitle.includes("مخطوط") || cleanTitle.includes("نسخة")) return 1;
 
     if (vol.volume) {
         let cleanVol = String(vol.volume).replace(/\D/g, '');
-        if (cleanVol && !isNaN(parseInt(cleanVol, 10))) {
-            return parseInt(cleanVol, 10);
-        }
+        if (cleanVol && !isNaN(parseInt(cleanVol, 10))) return parseInt(cleanVol, 10);
     }
 
     let idMatch = (vol.id || "").match(/_(\d+)/);
-    if (idMatch && idMatch && !isNaN(parseInt(idMatch, 10))) {
-        return parseInt(idMatch, 10);
-    }
+    if (idMatch && idMatch && !isNaN(parseInt(idMatch, 10))) return parseInt(idMatch, 10);
 
     for (let [word, num] of Object.entries(compoundMap)) {
         if (cleanTitle.includes(word)) return num;
     }
 
     let textMatch = cleanTitle.match(/\d+/);
-    if (textMatch && !isNaN(parseInt(textMatch[0], 10))) {
-        return parseInt(textMatch[0], 10);
-    }
+    if (textMatch && !isNaN(parseInt(textMatch[0], 10))) return parseInt(textMatch[0], 10);
 
     return 999;
 }
@@ -346,28 +336,10 @@ function getGroupName(book, bookId) {
     let rawTitle = (book.title || "").trim();
     let normTitle = normalizeArabicText(rawTitle);
 
-    // 📜 1. المخطوطات والوثائق مستقلة دائماً
-    if (book.pdf_url || lowerId.includes("mkh") || normTitle.includes("مخطوط") || normTitle.includes("مخطوطه") || normTitle.includes("نسخه خطيه") || normTitle.includes("وثيقه")) {
-        return rawTitle;
-    }
-
-    // 📚 2. فصل الأصول الستة عشر تماماً عن الكافي
-    if (normTitle.includes("الاصول السته عشر") || normTitle.includes("الاصول ١٦") || lowerId.includes("osol16") || lowerId.includes("usul16")) {
-        return "الأصول الستة عشر";
-    }
-
-    // 📚 3. توحيد ودمج جميع أجزاء مناقب الإمام أمير المؤمنين (ع) في بطاقة واحدة
-    if (normTitle.includes("مناقب الامام امير") || normTitle.includes("مناقب امير المومنين") || lowerId.startsWith("mnqb_amr") || lowerId.startsWith("mnqb_amir")) {
-        return "مناقب الإمام أمير المؤمنين (عليه السلام)";
-    }
-
-    // 📚 4. الكافي الشريف بجميع أجزائه الثمانية (الأصول والفروع والروضة)
-    if (lowerId.startsWith("kafi") || lowerId.startsWith("rawda") ||
-       (normTitle.includes("الكافي") && !normTitle.includes("مرآه") && !normTitle.includes("مراه")) || 
-       (normTitle.includes("الروضه") && !normTitle.includes("الواعظين") && !normTitle.includes("الجنان") && !normTitle.includes("الشهداء") && !normTitle.includes("الانوار"))) {
-        return "الكافي الشريف";
-    }
-
+    if (book.pdf_url || lowerId.includes("mkh") || normTitle.includes("مخطوط") || normTitle.includes("مخطوطه") || normTitle.includes("نسخه خطيه") || normTitle.includes("وثيقه")) return rawTitle;
+    if (normTitle.includes("الاصول السته عشر") || normTitle.includes("الاصول ١٦") || lowerId.includes("osol16") || lowerId.includes("usul16")) return "الأصول الستة عشر";
+    if (normTitle.includes("مناقب الامام امير") || normTitle.includes("مناقب امير المومنين") || lowerId.startsWith("mnqb_amr") || lowerId.startsWith("mnqb_amir")) return "مناقب الإمام أمير المؤمنين (عليه السلام)";
+    if (lowerId.startsWith("kafi") || lowerId.startsWith("rawda") || (normTitle.includes("الكافي") && !normTitle.includes("مرآه") && !normTitle.includes("مراه")) || (normTitle.includes("الروضه") && !normTitle.includes("الواعظين") && !normTitle.includes("الجنان") && !normTitle.includes("الشهداء") && !normTitle.includes("الانوار"))) return "الكافي الشريف";
     if (lowerId.startsWith("bhr") || normTitle.includes("بحار الانوار")) return "بحار الأنوار";
     if (lowerId.startsWith("mrat") || lowerId.startsWith("mra") || normTitle.includes("العقول")) return "مرآة العقول في شرح أخبار آل الرسول";
     if (lowerId.startsWith("iqbal") || normTitle.includes("اقبال") || normTitle.includes("إقبال") || normTitle.includes("لاقبال")) return "الإقبال بالأعمال الحسنة";
@@ -402,10 +374,7 @@ function getGroupName(book, bookId) {
     if (lowerId.startsWith("jmal") || normTitle.includes("جمال الاسبوع") || normTitle.includes("جمال الأسبوع")) return "جمال الأسبوع بكمال العمل المشروع";
     if (lowerId.startsWith("mjtna") || normTitle.includes("المجتنى") || normTitle.includes("المجتني")) return "المجتنى من الدعاء المجتبى";
     if (lowerId.startsWith("slwh") || normTitle.includes("سلوه الحزين") || normTitle.includes("سلوة الحزين") || normTitle.includes("الدعوات للراوندي")) return "الدعوات (سلوة الحزين)";
-    
-    // فلاح السائل فقط (مفصول عن كتب الفضائل)
     if (lowerId.startsWith("flah") || lowerId.startsWith("falah") || normTitle.includes("فلاح السائل")) return "فلاح السائل ونجاح المسائل";
-    
     if (lowerId.startsWith("fth") || normTitle.includes("فتح الابواب") || normTitle.includes("فتح الأبواب")) return "فتح الأبواب في الاستخارات";
     if (lowerId.startsWith("drwa") || normTitle.includes("الدروع الواقية")) return "الدروع الواقية";
     if (lowerId.startsWith("aman") || normTitle.includes("الامان من اخطار") || normTitle.includes("الأمان من أخطار")) return "الأمان من أخطار الأسفار والأزمان";
@@ -438,7 +407,6 @@ function getBookCategory(book) {
     let title = (book.title || "").toLowerCase();
 
     if (book.pdf_url || title.includes("مخطوط") || title.includes("مخطوطة") || title.includes("نسخة خطية") || title.includes("وثيقة")) return "المخطوطات والوثائق التراثية";
-
     if (title.includes("تفسير") || title.includes("القرآن") || title.includes("قرآن") || title.includes("بيان") || title.includes("برهان") || title.includes("عياشي") || title.includes("كنز")) return "التفسير وعلوم القرآن";
     if (title.includes("حديث") || title.includes("الكافي") || title.includes("بحار") || title.includes("استبصار") || title.includes("تهذیب") || title.includes("وافي") || title.includes("من لا يحضره") || title.includes("وسائل") || title.includes("إحتجاج") || title.includes("احتجاج") || title.includes("العقول") || title.includes("فضائل") || title.includes("فضايل") || title.includes("اختصاص") || title.includes("إختصاص") || title.includes("مناقب") || title.includes("الاصول السته عشر")) return "الحديث الشريف ومصادره";
     if (title.includes("دعاء") || title.includes("صحيفة") || title.includes("زيارة") || title.includes("مناجات") || title.includes("مفاتيح") || title.includes("إقبال") || title.includes("اقبال") || title.includes("مصباح") || title.includes("مهج")) return "الأدعية والزيارات";
@@ -452,9 +420,7 @@ function getBookCategory(book) {
 async function loadLibraryManifest() {
     const container = document.getElementById('dynamicBooksContainer');
     if (!container) return;
-
     allBooksManifest = {};
-
     try {
         const fetchPromises = MANIFEST_FILES.map(async (fileUrl) => {
             try {
@@ -468,7 +434,6 @@ async function loadLibraryManifest() {
         });
 
         const results = await Promise.all(fetchPromises);
-
         results.forEach(booksObj => {
             for (let [id, bookData] of Object.entries(booksObj)) {
                 if (!bookData) continue;
@@ -485,12 +450,9 @@ async function loadLibraryManifest() {
             }
         });
 
-        if (Object.keys(allBooksManifest).length === 0) {
-            throw new Error("لم يتم العثور على أي بيانات في ملفات manifest");
-        }
+        if (Object.keys(allBooksManifest).length === 0) throw new Error("لم يتم العثور على أي بيانات في ملفات manifest");
 
         processAndRenderBooks(allBooksManifest);
-
         const urlParams = new URLSearchParams(window.location.search);
         const targetBookId = urlParams.get('book');
         if (targetBookId && allBooksManifest[targetBookId]) {
@@ -501,7 +463,6 @@ async function loadLibraryManifest() {
                 loadAndOpenBook(targetBookId, b.title, b.toc, b.total_pages);
             }
         }
-
     } catch (err) {
         console.error(err);
         container.innerHTML = `<div style="color:#ff6b6b; grid-column: span 2; text-align: center; font-size: 13px; padding: 20px;">تعذر تحميل الفهارس: تأكد من رفع ملفات manifest.</div>`;
@@ -512,7 +473,6 @@ function processAndRenderBooks(data) {
     const container = document.getElementById('dynamicBooksContainer');
     if (!container) return;
     container.innerHTML = "";
-
     const bookKeys = Object.keys(data);
     if (bookKeys.length === 0) {
         container.innerHTML = '<div style="color:var(--text-muted); grid-column: span 2; text-align: center;">قائمة الكتب فارغة.</div>';
@@ -520,7 +480,6 @@ function processAndRenderBooks(data) {
     }
 
     const groups = {};
-
     bookKeys.forEach(bookId => {
         let book = data[bookId];
         book.id = bookId;
@@ -529,18 +488,14 @@ function processAndRenderBooks(data) {
         groups[groupName].push(book);
     });
 
-    const sortedGroupTitles = Object.keys(groups).sort((a, b) => 
-        a.localeCompare(b, 'ar', { numeric: true, sensitivity: 'base' })
-    );
+    const sortedGroupTitles = Object.keys(groups).sort((a, b) => a.localeCompare(b, 'ar', { numeric: true, sensitivity: 'base' }));
 
     sortedGroupTitles.forEach(groupTitle => {
         const booksInGroup = groups[groupTitle];
         booksInGroup.sort((a, b) => getVolumeNumber(a) - getVolumeNumber(b));
-
         const mainBook = booksInGroup[0];
         const isSeries = booksInGroup.length > 1;
         const isPdfManuscript = !!mainBook.pdf_url;
-
         let coverSrc = "";
         for (let b of booksInGroup) {
             let candidate = (b.cover || "").trim();
@@ -565,7 +520,6 @@ function processAndRenderBooks(data) {
                 <div class="progress-bar" style="width: 100%;"><div class="progress-fill" style="width: 100%;"></div></div>
             </div>
         `;
-
         attachTactilePhysics(card);
         if (isPdfManuscript) {
             card.onclick = () => window.open(mainBook.pdf_url, '_blank');
@@ -576,14 +530,12 @@ function processAndRenderBooks(data) {
         }
         container.appendChild(card);
     });
-
     renderSearchFilterPills(groups);
 }
 
 function renderCatalogAccordion() {
     const catalogContainer = document.getElementById('catalogAccordionContainer');
     if (!catalogContainer) return;
-
     if (Object.keys(allBooksManifest).length === 0) {
         catalogContainer.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:30px;">جاري تحميل الفهرس...</div>';
         return;
@@ -606,21 +558,16 @@ function renderCatalogAccordion() {
         booksInGroup.sort((a, b) => getVolumeNumber(a) - getVolumeNumber(b));
         const mainBook = booksInGroup[0];
         const cat = getBookCategory(mainBook);
-
         if (!categoriesMap[cat]) categoriesMap[cat] = [];
         categoriesMap[cat].push({ groupTitle, booksInGroup, mainBook });
     });
 
     catalogContainer.innerHTML = '';
-
-    const sortedCategories = Object.keys(categoriesMap).sort((a, b) => 
-        a.localeCompare(b, 'ar', { numeric: true })
-    );
+    const sortedCategories = Object.keys(categoriesMap).sort((a, b) => a.localeCompare(b, 'ar', { numeric: true }));
 
     sortedCategories.forEach((catName, index) => {
         const items = categoriesMap[catName];
         if (!items || items.length === 0) return;
-
         items.sort((a, b) => a.groupTitle.localeCompare(b.groupTitle, 'ar', { numeric: true }));
 
         const accordionId = `acc_item_${index}`;
@@ -643,7 +590,6 @@ function renderCatalogAccordion() {
             const { groupTitle, booksInGroup, mainBook } = item;
             const isSeries = booksInGroup.length > 1;
             const isPdfManuscript = !!mainBook.pdf_url;
-
             let coverSrc = "";
             for (let b of booksInGroup) {
                 let candidate = (b.cover || "").trim();
@@ -668,7 +614,6 @@ function renderCatalogAccordion() {
                     <div class="progress-bar" style="width: 100%;"><div class="progress-fill" style="width: 100%;"></div></div>
                 </div>
             `;
-
             attachTactilePhysics(card);
             if (isPdfManuscript) {
                 card.onclick = () => window.open(mainBook.pdf_url, '_blank');
@@ -686,11 +631,9 @@ function toggleAccordionBody(accId) {
     const bodyEl = document.getElementById(accId);
     const iconEl = document.getElementById(`icon_${accId}`);
     if (!bodyEl) return;
-
     const isOpen = bodyEl.classList.contains('open');
     document.querySelectorAll('.catalog-accordion-body').forEach(b => b.classList.remove('open'));
     document.querySelectorAll('.catalog-accordion-header i.fa-chevron-up').forEach(i => i.className = 'fas fa-chevron-down text-gold');
-
     if (!isOpen) {
         bodyEl.classList.add('open');
         if (iconEl) iconEl.className = 'fas fa-chevron-up text-gold';
@@ -703,14 +646,11 @@ function openVolumesModal(seriesTitle, volumesList) {
     const container = document.getElementById('volumesListContainer');
     if (modalTitle) modalTitle.innerText = seriesTitle;
     if (!container) return;
-
     volumesList.sort((a, b) => getVolumeNumber(a) - getVolumeNumber(b));
-
     container.innerHTML = '';
     volumesList.forEach(vol => {
         let volNum = getVolumeNumber(vol);
         let volLabel = (volNum !== 999 && !isNaN(volNum)) ? `الجزء ${volNum}` : (vol.title || seriesTitle);
-
         const item = document.createElement('div');
         item.className = 'toc-item tactile-btn';
         item.innerHTML = `
@@ -731,7 +671,6 @@ function openVolumesModal(seriesTitle, volumesList) {
         };
         container.appendChild(item);
     });
-
     const modal = document.getElementById('volumesModal');
     if (modal) modal.style.display = 'flex';
 }
@@ -745,7 +684,6 @@ function closeVolumesModal() {
 async function fetchBookData(bookId) {
     const cleanId = (bookId || "").trim();
     const encodedId = encodeURIComponent(cleanId);
-    
     for (let folder of SEARCH_FOLDERS) {
         try {
             let res = await fetch(`${folder}${cleanId}.json`);
@@ -753,7 +691,6 @@ async function fetchBookData(bookId) {
             if (res.ok) return await res.json();
         } catch (e) {}
     }
-
     let fallbackId = cleanId.replace(/_[0-9]+$/, '').replace(/_ج[0-9]+$/, '');
     if (fallbackId && fallbackId !== cleanId) {
         for (let folder of SEARCH_FOLDERS) {
@@ -764,12 +701,10 @@ async function fetchBookData(bookId) {
             } catch (e) {}
         }
     }
-
     try {
         let res = await fetch(`${CLOUD_FALLBACK_URL}${encodedId}.json`);
         if (res.ok) return await res.json();
     } catch (e) {}
-
     throw new Error("تعذر جلب ملف الكتاب");
 }
 
@@ -779,7 +714,6 @@ async function loadAndOpenBook(bookId, bookTitle, bookToc, totalPages, targetPag
     currentBookTitle = bookTitle;
     currentActiveSearchHighlight = highlightQuery || "";
     document.getElementById('readerTitle').innerText = bookTitle;
-
     const contentDiv = document.getElementById('pageContent');
     contentDiv.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:50px;"><i class="fas fa-spinner fa-spin fa-2x text-gold"></i><p style="margin-top:10px;">جاري فتح المتن المبارك...</p></div>';
 
@@ -793,18 +727,12 @@ async function loadAndOpenBook(bookId, bookTitle, bookToc, totalPages, targetPag
             return;
         } catch (e) {}
     }
-
     try {
         const bookData = await fetchBookData(bookId);
-
         currentBookPages = bookData.pages || [];
         currentBookToc = bookData.toc || bookToc || [];
         currentBookTotalPages = bookData.total_pages || totalPages || currentBookPages.length;
-
-        try {
-            localStorage.setItem(`book_pages_${bookId}`, JSON.stringify(currentBookPages));
-        } catch (e) {}
-
+        try { localStorage.setItem(`book_pages_${bookId}`, JSON.stringify(currentBookPages)); } catch (e) {}
         initReaderEngine(targetPageNumber);
     } catch (err) {
         contentDiv.innerHTML = `<div style="text-align:center; color:#ff5252; padding:30px;">⚠️ تعذر فتح الكتاب (${bookId}.json). تأكد من اتصال الإنترنت أو رفع الأجزاء.</div>`;
@@ -813,7 +741,6 @@ async function loadAndOpenBook(bookId, bookTitle, bookToc, totalPages, targetPag
 
 function initReaderEngine(targetPageNumber = null) {
     currentBookPages.sort((a, b) => Number(a.page_number) - Number(b.page_number));
-
     if (targetPageNumber) {
         const targetIdx = currentBookPages.findIndex(p => Number(p.page_number) === Number(targetPageNumber));
         currentPageIndex = targetIdx !== -1 ? (targetIdx + 1) : 1;
@@ -825,7 +752,6 @@ function initReaderEngine(targetPageNumber = null) {
             currentPageIndex = 1;
         }
     }
-
     renderCurrentPage();
     renderTocList();
     renderBookmarksList();
@@ -850,7 +776,6 @@ function renderCurrentPage() {
     } else {
         contentDiv.innerHTML = rawHtml;
     }
-
     contentDiv.parentElement.scrollTop = 0;
 
     let displayPage = pageData ? (pageData.page_number || currentPageIndex) : currentPageIndex;
@@ -875,21 +800,16 @@ function renderCurrentPage() {
     if (totalLbl) totalLbl.innerText = currentBookTotalPages;
 
     if (currentBookId) {
-        try {
-            localStorage.setItem(`last_page_${currentBookId}`, currentPageIndex);
-        } catch (e) {}
+        try { localStorage.setItem(`last_page_${currentBookId}`, currentPageIndex); } catch (e) {}
     }
-
     updateBookmarkIconState();
 }
 
 function handleScreenTap(e) {
     if (window.getSelection && window.getSelection().toString().length > 0) return;
     if (e.target.closest('a, button, input, .glass-modal, .selection-toolbar')) return;
-
     const screenWidth = window.innerWidth;
     const tapX = e.clientX;
-
     if (tapX < screenWidth * 0.35) nextPage();
     else if (tapX > screenWidth * 0.65) prevPage();
 }
@@ -897,7 +817,6 @@ function handleScreenTap(e) {
 function executeInlineJump() {
     const input = document.getElementById('inlineJumpInput');
     if (!input || !input.value.trim()) return;
-
     let targetPage = parseInt(input.value.trim());
     if (isNaN(targetPage)) return;
 
@@ -914,7 +833,6 @@ function executeInlineJump() {
         });
         currentPageIndex = closestIndex + 1;
     }
-
     input.value = '';
     renderCurrentPage();
 }
@@ -963,7 +881,6 @@ function removeHighlight() {
 function shareSelectedQuote() {
     const selectedText = window.getSelection().toString().trim() || savedSelectionText;
     if (!selectedText) return;
-
     let pageData = currentBookPages[currentPageIndex - 1];
     let pageNum = pageData ? (pageData.page_number || currentPageIndex) : currentPageIndex;
     let quoteFormatted = `"${selectedText}"\n\n📖 المصدر: ${currentBookTitle} (صـ ${pageNum})\n✦ مكتبة سيد الساجدين: https://t.me/Jali4s`;
@@ -974,7 +891,6 @@ function shareSelectedQuote() {
         navigator.clipboard.writeText(quoteFormatted);
         showToast("تم نسخ الاقتباس مع التوثيق والمصدر", "fa-clipboard-check");
     }
-
     document.getElementById('selectionToolbar').style.display = 'none';
     window.getSelection().removeAllRanges();
 }
@@ -1005,7 +921,6 @@ function openAddTagModal() {
     }
     savedSelectionText = text;
     if (window.getSelection) window.getSelection().removeAllRanges();
-
     renderAvailableTagsSelection();
     const modal = document.getElementById('addTagModal');
     if (modal) modal.style.display = 'flex';
@@ -1021,10 +936,8 @@ function closeAddTagModal() {
 function renderAvailableTagsSelection() {
     const container = document.getElementById('availableTagsList');
     if (!container) return;
-
     const tags = getStoredTags();
     container.innerHTML = '';
-
     tags.forEach(t => {
         const btn = document.createElement('div');
         btn.className = 'tag-badge-select tactile-btn';
@@ -1041,28 +954,23 @@ function createNewCustomTag() {
     const colorInput = document.getElementById('newTagColorInput');
     const name = nameInput.value.trim();
     const color = colorInput.value;
-
     if (!name) {
         showToast("يرجى كتابة اسم للوسم أولاً", "fa-triangle-exclamation");
         return;
     }
-
     const tags = getStoredTags();
     if (!tags.some(t => t.name === name)) {
         tags.push({ name, color });
         saveStoredTags(tags);
     }
-
     nameInput.value = '';
     assignTagToSelection(name, color);
 }
 
 function assignTagToSelection(tagName, tagColor) {
     if (!savedSelectionText) return;
-
     let pageData = currentBookPages[currentPageIndex - 1];
     let pageNum = pageData ? (pageData.page_number || currentPageIndex) : currentPageIndex;
-
     const taggedItems = getStoredTaggedSnippets();
     taggedItems.unshift({
         id: 'tag_' + Date.now(),
@@ -1075,7 +983,6 @@ function assignTagToSelection(tagName, tagColor) {
         pageIndex: currentPageIndex,
         date: new Date().toLocaleDateString('ar-IQ')
     });
-
     saveStoredTaggedSnippets(taggedItems);
     closeAddTagModal();
     showToast(`تم تصنيف النص تحت وسم [${tagName}]`, "fa-tag");
@@ -1106,10 +1013,7 @@ function renderTagsView(filterTag = 'all') {
         pillsContainer.appendChild(btn);
     });
 
-    const filteredItems = (currentTagFilter === 'all') 
-        ? items 
-        : items.filter(i => i.tagName === currentTagFilter);
-
+    const filteredItems = (currentTagFilter === 'all') ? items : items.filter(i => i.tagName === currentTagFilter);
     listContainer.innerHTML = '';
 
     if (filteredItems.length === 0) {
@@ -1171,9 +1075,7 @@ function shareTaggedSnippet(itemId) {
     const items = getStoredTaggedSnippets();
     const target = items.find(i => i.id === itemId);
     if (!target) return;
-
     const shareContent = `✦ [${target.tagName}] من علوم آل محمد:\n\n«${target.text}»\n\n📖 المصدر: ${target.bookTitle} (صـ ${target.pageNum})\n✦ مكتبة سيد الساجدين: https://t.me/Jali4s`;
-
     if (navigator.share) {
         navigator.share({ title: target.bookTitle, text: shareContent }).catch(() => {});
     } else {
@@ -1200,11 +1102,9 @@ function getStoredBookmarks() {
 
 function toggleBookmark() {
     if (!currentBookId) return;
-
     let bookmarks = getStoredBookmarks();
     let curPageData = currentBookPages[currentPageIndex - 1];
     let curPageNum = curPageData ? (curPageData.page_number || currentPageIndex) : currentPageIndex;
-
     const existingIndex = bookmarks.findIndex(b => b.pageIndex === currentPageIndex);
 
     if (existingIndex !== -1) {
@@ -1214,7 +1114,6 @@ function toggleBookmark() {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = curPageData ? curPageData.content : '';
         const preview = (tempDiv.textContent || '').trim().substring(0, 50) + '...';
-
         bookmarks.push({
             pageIndex: currentPageIndex,
             pageNum: curPageNum,
@@ -1223,10 +1122,7 @@ function toggleBookmark() {
         });
         showToast(`تم حفظ الإشارة المرجعية (صـ ${curPageNum})`, "fa-bookmark");
     }
-
-    try {
-        localStorage.setItem(`bookmarks_${currentBookId}`, JSON.stringify(bookmarks));
-    } catch (e) {}
+    try { localStorage.setItem(`bookmarks_${currentBookId}`, JSON.stringify(bookmarks)); } catch (e) {}
     updateBookmarkIconState();
     renderBookmarksList();
 }
@@ -1242,10 +1138,8 @@ function updateBookmarkIconState() {
 function renderBookmarksList() {
     const container = document.getElementById('bookmarksListContainer');
     if (!container || !currentBookId) return;
-
     const bookmarks = getStoredBookmarks();
     container.innerHTML = '';
-
     if (bookmarks.length === 0) {
         container.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding: 25px; font-size:12px;">لا توجد إشارات مرجعية محفوظة في هذا الكتاب.</div>';
         return;
@@ -1278,9 +1172,7 @@ function deleteBookmark(idx, event) {
     event.stopPropagation();
     let bookmarks = getStoredBookmarks();
     bookmarks.splice(idx, 1);
-    try {
-        localStorage.setItem(`bookmarks_${currentBookId}`, JSON.stringify(bookmarks));
-    } catch (e) {}
+    try { localStorage.setItem(`bookmarks_${currentBookId}`, JSON.stringify(bookmarks)); } catch (e) {}
     updateBookmarkIconState();
     renderBookmarksList();
     showToast("تم حذف الإشارة المرجعية", "fa-trash-can");
@@ -1311,11 +1203,8 @@ function setReadingTheme(themeName) {
     if (!appBody) return;
     appBody.classList.remove('theme-royal', 'theme-sepia', 'theme-dark', 'theme-light');
     appBody.classList.add(themeName);
-    try {
-        localStorage.setItem('reading_theme', themeName);
-    } catch (e) {}
+    try { localStorage.setItem('reading_theme', themeName); } catch (e) {}
 }
-
 const savedTheme = localStorage.getItem('reading_theme');
 if (savedTheme) setReadingTheme(savedTheme);
 
@@ -1339,7 +1228,6 @@ function executeInBookSearch(val) {
     const query = val.trim();
     const container = document.getElementById('inBookSearchResults');
     if (!container) return;
-
     if (!query) {
         container.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:20px;">اكتب كلمة للبحث داخل هذا الكتاب...</p>';
         return;
@@ -1384,25 +1272,21 @@ function executeInBookSearch(val) {
 
 function generateSearchSnippet(fullText, rawQuery) {
     if (!fullText || !rawQuery) return fullText || "";
-    
     let regex = createArabicSearchRegex(rawQuery);
     if (!regex) return fullText.substring(0, 100) + '...';
 
     let match = regex.exec(fullText);
     let snippet = "";
-
     if (match) {
         let matchIdx = match.index;
         let start = Math.max(0, matchIdx - 35);
         let end = Math.min(fullText.length, matchIdx + match[0].length + 65);
         snippet = fullText.substring(start, end);
-
         if (start > 0) snippet = '...' + snippet;
         if (end < fullText.length) snippet = snippet + '...';
     } else {
         snippet = fullText.substring(0, 100) + '...';
     }
-
     return highlightArabicText(snippet, rawQuery);
 }
 
@@ -1410,7 +1294,6 @@ function renderTocList() {
     const tocContainer = document.getElementById('tocListContainer');
     if (!tocContainer) return;
     tocContainer.innerHTML = '';
-    
     if (currentBookToc.length === 0) {
         tocContainer.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding: 20px;">لا يوجد فهرس تفصيلي مسجل.</div>';
         return;
@@ -1444,7 +1327,6 @@ function nextPage() {
         renderCurrentPage();
     }
 }
-
 function prevPage() {
     if (currentPageIndex > 1) {
         currentPageIndex--;
@@ -1542,7 +1424,6 @@ function setSearchScope(scopeKey, element) {
 function handleSearchInput(val) {
     const clearBtn = document.getElementById('searchClearBtn');
     if (clearBtn) clearBtn.style.display = val.trim().length > 0 ? 'block' : 'none';
-
     isDeepSearching = false;
     clearTimeout(searchDebounceTimer);
     searchDebounceTimer = setTimeout(() => { executeGlobalSearch(); }, 250);
@@ -1562,7 +1443,6 @@ async function executeGlobalSearch() {
     const filterBadge = document.getElementById('searchFilterName');
 
     if (!container) return;
-
     if (!query) {
         if (statusInfo) statusInfo.style.display = 'none';
         container.innerHTML = `
@@ -1918,3 +1798,4 @@ async function loadDictionaryData() {
     }
     isDictionaryLoaded = true;
 }
+]
