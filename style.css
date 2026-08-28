@@ -532,9 +532,6 @@ body {
     cursor: pointer;
 }
 
-/* =========================================
-   شريط التحديد (تم رفعه ليظهر فوق أشرطة النظام)
-   ========================================= */
 .selection-toolbar {
     position: fixed;
     bottom: 140px; 
@@ -913,3 +910,44 @@ body {
 .text-white { color: #fff; }
 .text-muted { color: var(--text-muted); }
 .flex-1 { flex: 1; }
+
+/* =========================================
+   المرشد الافتراضي
+   ========================================= */
+.virtual-guide-container {
+    position: fixed;
+    bottom: 85px; 
+    right: 16px;
+    z-index: 50; 
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+}
+.guide-avatar {
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(135deg, var(--gold-main), #8B6508);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #111;
+    font-size: 18px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    border: 2px solid var(--gold-bright);
+}
+.guide-bubble {
+    max-width: 220px;
+    padding: 12px;
+    font-size: 11px;
+    color: #fff;
+    line-height: 1.6;
+    border-bottom-right-radius: 4px;
+    display: none;
+    animation: fadeInView 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transform-origin: bottom right;
+}
+.guide-bubble.show {
+    display: block;
+}
