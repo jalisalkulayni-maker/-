@@ -171,8 +171,14 @@
         <div class="color-dot" style="background: #4caf50;" onclick="applyHighlight('hl-green')" title="أخضر"></div>
         <div class="color-dot" style="background: #e91e63;" onclick="applyHighlight('hl-pink')" title="وردي"></div>
         <button class="toolbar-action-btn" onclick="removeHighlight()" title="مسح التلوين"><i class="fas fa-eraser" style="color: #ff5252;"></i></button>
+        
+        <div style="width: 1px; height: 16px; background: rgba(212,175,55,0.4); margin: 0 4px;"></div>
+        <!-- زر المعجم الجديد -->
+        <button class="toolbar-action-btn" onclick="openDictionaryLookup()" title="البحث في المعجم"><i class="fas fa-book-open text-gold"></i> المعنى</button>
+
         <div style="width: 1px; height: 16px; background: rgba(212,175,55,0.4); margin: 0 4px;"></div>
         <button class="toolbar-action-btn" onclick="openAddTagModal()" title="إضافة وسم دلالي"><i class="fas fa-tag text-gold"></i> وسم</button>
+        
         <div style="width: 1px; height: 16px; background: rgba(212,175,55,0.4); margin: 0 4px;"></div>
         <button class="toolbar-action-btn" onclick="shareSelectedQuote()" title="مشاركة واقتباس"><i class="fas fa-share-nodes"></i> اقتباس</button>
     </div>
@@ -354,6 +360,23 @@
             </button>
         </div>
     </nav>
+
+    <!-- نافذة المعجم المنبثقة (غريب الحديث) -->
+    <div id="dictionaryModal" class="glass-modal">
+        <div class="modal-content glass-box" style="max-height: 80vh; display: flex; flex-direction: column; width: 92%;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid rgba(212,175,55,0.3); padding-bottom: 8px;">
+                <h3 class="text-gold" style="font-size: 15px;"><i class="fas fa-book-journal-whills"></i> قاموس غريب الحديث</h3>
+                <i class="fas fa-times text-muted tactile-btn" onclick="closeDictionaryModal()" style="font-size: 18px; cursor: pointer;"></i>
+            </div>
+            
+            <div id="dictSearchStatus" style="text-align:center; padding: 15px; font-size: 13px; color: var(--gold-bright);"></div>
+            <div id="dictResultsContainer" class="toc-scroll-list" style="flex: 1;"></div>
+            
+            <div style="text-align: center; margin-top: 10px; font-size: 10px; color: var(--text-muted);">
+                المصدر: مجمع البحرين للشيخ فخر الدين الطريحي
+            </div>
+        </div>
+    </div>
 
     <script src="main.js"></script>
 </body>
