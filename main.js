@@ -44,6 +44,40 @@ let isDeepSearching = false;
 let savedScrollPosition = 0;
 let currentActiveSearchHighlight = "";
 
+// ==================== محرك الحفظ المحلي (IndexedDB) ====================
+const DB_NAME = "JalisLibraryDB";
+const STORE_NAME = "BooksCache";
+
+function initLibraryDB() {
+    return new Promise((resolve, reject) => {
+        let request = indexedDB.open(DB_NAME, 1);
+        request.onupgradeneeded = (e) => {
+            let db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME);
+            }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+async function saveBookToIndexedDB(bookId, pagesData) {
+    let db = await initLibraryDB();
+    let tx = db.transaction(STORE_NAME, "readwrite");
+    tx.objectStore(STORE_NAME).put(pagesData, bookId);
+}
+
+async function getBookFromIndexedDB(bookId) {
+    let db = await initLibraryDB();
+    return new Promise((resolve, reject) => {
+        let tx = db.transaction(STORE_NAME, "readonly");
+        let request = tx.objectStore(STORE_NAME).get(bookId);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => resolve(null);
+    });
+}
+
 // ==================== نظام التنبيهات والإشعارات ====================
 let toastTimeout = null;
 function showToast(message, iconClass = 'fa-circle-check') {
@@ -346,22 +380,18 @@ function getGroupName(book, bookId) {
     let rawTitle = (book.title || "").trim();
     let normTitle = normalizeArabicText(rawTitle);
 
-    // 📜 1. المخطوطات والوثائق مستقلة دائماً
     if (book.pdf_url || lowerId.includes("mkh") || normTitle.includes("مخطوط") || normTitle.includes("مخطوطه") || normTitle.includes("نسخه خطيه") || normTitle.includes("وثيقه")) {
         return rawTitle;
     }
 
-    // 📚 2. فصل الأصول الستة عشر تماماً عن الكافي
     if (normTitle.includes("الاصول السته عشر") || normTitle.includes("الاصول ١٦") || lowerId.includes("osol16") || lowerId.includes("usul16")) {
         return "الأصول الستة عشر";
     }
 
-    // 📚 3. توحيد ودمج جميع أجزاء مناقب الإمام أمير المؤمنين (ع) في بطاقة واحدة
     if (normTitle.includes("مناقب الامام امير") || normTitle.includes("مناقب امير المومنين") || lowerId.startsWith("mnqb_amr") || lowerId.startsWith("mnqb_amir")) {
         return "مناقب الإمام أمير المؤمنين (عليه السلام)";
     }
 
-    // 📚 4. الكافي الشريف بجميع أجزائه الثمانية (الأصول والفروع والروضة)
     if (lowerId.startsWith("kafi") || lowerId.startsWith("rawda") ||
        (normTitle.includes("الكافي") && !normTitle.includes("مرآه") && !normTitle.includes("مراه")) || 
        (normTitle.includes("الروضه") && !normTitle.includes("الواعظين") && !normTitle.includes("الجنان") && !normTitle.includes("الشهداء") && !normTitle.includes("الانوار"))) {
@@ -745,22 +775,27 @@ async function loadAndOpenBook(bookId, bookTitle, bookToc, totalPages, targetPag
     const contentDiv = document.getElementById('pageContent');
     contentDiv.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:50px;"><i class="fas fa-spinner fa-spin fa-2x text-gold"></i><p style="margin-top:10px;">جاري فتح المتن المبارك...</p></div>';
 
-    const cachedPages = localStorage.getItem(`book_pages_${bookId}`);
-    if (cachedPages) {
-        try {
-            currentBookPages = JSON.parse(cachedPages);
+    try {
+        // 1. فحص قاعدة البيانات المحلية أولاً لسرعة الفتح (IndexedDB)
+        let cachedPages = await getBookFromIndexedDB(bookId);
+        
+        if (cachedPages) {
+            currentBookPages = cachedPages;
             currentBookToc = bookToc || [];
             currentBookTotalPages = totalPages || currentBookPages.length;
             initReaderEngine(targetPageNumber);
             return;
-        } catch (e) {}
-    }
-    try {
+        }
+
+        // 2. إذا لم يكن محفوظاً، يتم الجلب من خوادم GitHub
         const bookData = await fetchBookData(bookId);
         currentBookPages = bookData.pages || [];
         currentBookToc = bookData.toc || bookToc || [];
         currentBookTotalPages = bookData.total_pages || totalPages || currentBookPages.length;
-        try { localStorage.setItem(`book_pages_${bookId}`, JSON.stringify(currentBookPages)); } catch (e) {}
+        
+        // 3. تخزين الكتاب بالكامل في هاتف المستخدم للعمل كأوفلاين مستقبلاً
+        await saveBookToIndexedDB(bookId, currentBookPages);
+        
         initReaderEngine(targetPageNumber);
     } catch (err) {
         contentDiv.innerHTML = `<div style="text-align:center; color:#ff5252; padding:30px;">⚠️ تعذر فتح الكتاب (${bookId}.json). تأكد من اتصال الإنترنت أو رفع الأجزاء.</div>`;
@@ -1591,11 +1626,16 @@ async function executeGlobalSearch() {
                 if (bookMeta.pdf_url) continue;
 
                 let bookData = null;
-                const cached = localStorage.getItem(`book_pages_${bookId}`);
-                if (cached) {
-                    bookData = { pages: JSON.parse(cached) };
+                // استخدام IndexedDB بدلاً من localStorage أثناء البحث العميق
+                let cachedPages = await getBookFromIndexedDB(bookId);
+                
+                if (cachedPages) {
+                    bookData = { pages: cachedPages };
                 } else {
                     bookData = await fetchBookData(bookId);
+                    if (bookData && bookData.pages) {
+                        await saveBookToIndexedDB(bookId, bookData.pages);
+                    }
                 }
 
                 if (bookData && bookData.pages) {
@@ -1699,14 +1739,11 @@ loadLibraryManifest();
 initDailyHadithSystem();
 
 // ==================== محرك المعجم (مجمع البحرين) ====================
-
-// أسماء ملفات مجمع البحرين كما هي في مستودعك تماماً
 const DICT_VOLUMES = [
     "mjma_albhryn_01", "mjma_albhryn_02", "mjma_albhryn_03",
     "mjma_albhryn_04", "mjma_albhryn_05", "mjma_albhryn_06"
 ];
 
-// ذاكرة تخزين مؤقتة للمعجم لكي يظل سريعاً ولا يحمل من الإنترنت كل مرة
 let cachedDictionaryPages = [];
 let isDictionaryLoaded = false;
 
@@ -1720,7 +1757,6 @@ function closeDictionaryModal() {
     if (m) m.style.display = 'none';
 }
 
-// الدالة التي يتم استدعاؤها عند الضغط على زر "المعنى"
 async function openDictionaryLookup() {
     let word = window.getSelection().toString().trim() || savedSelectionText;
     
@@ -1729,10 +1765,8 @@ async function openDictionaryLookup() {
         return;
     }
     
-    // تنظيف الكلمة (أخذ أول كلمة فقط إذا ظلل المستخدم جملة كاملة بالخطأ)
     word = word.split(' ')[0].trim();
     
-    // إخفاء شريط التظليل
     document.getElementById('selectionToolbar').style.display = 'none';
     if (window.getSelection) window.getSelection().removeAllRanges();
 
@@ -1743,7 +1777,6 @@ async function openDictionaryLookup() {
     resultsEl.innerHTML = '';
     statusEl.style.display = 'block';
     
-    // تحميل بيانات المعجم في الخلفية إذا لم تكن محملة
     if (!isDictionaryLoaded) {
         statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري فتح المجلدات من مجمع البحرين للمرة الأولى...';
         await loadDictionaryData();
@@ -1751,9 +1784,8 @@ async function openDictionaryLookup() {
     
     statusEl.innerHTML = `<i class="fas fa-search"></i> جاري البحث عن: <b>${word}</b> ...`;
     
-    // تجريد الكلمة بذكاء (إزالة ال، و، ف، ب، ك) للوصول للمعنى
     let cleanWord = normalizeArabicText(word).replace(/^(ال|وال|فال|بال|كال|و|ف|ب|ك)/, '');
-    if (cleanWord.length < 2) cleanWord = normalizeArabicText(word); // تراجع إذا كانت الكلمة أصلها حرفين
+    if (cleanWord.length < 2) cleanWord = normalizeArabicText(word); 
 
     let searchReg = createArabicSearchRegex(cleanWord);
     
@@ -1764,7 +1796,6 @@ async function openDictionaryLookup() {
 
     let foundCount = 0;
     
-    // البحث في الذاكرة المخبأة للمعجم
     for (let page of cachedDictionaryPages) {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = page.content || '';
@@ -1773,7 +1804,6 @@ async function openDictionaryLookup() {
         if (searchReg.test(rawText)) {
             foundCount++;
             
-            // اقتطاع الشرح (أخذ مساحة أوسع من النص حول الكلمة لتوضيح المعنى)
             let match = searchReg.exec(rawText);
             let start = Math.max(0, match.index - 80);
             let end = Math.min(rawText.length, match.index + match[0].length + 300);
@@ -1795,7 +1825,6 @@ async function openDictionaryLookup() {
             `;
             resultsEl.appendChild(item);
             
-            // نكتفي بأول 7 نتائج حتى لا تثقل النافذة المنبثقة
             if (foundCount >= 7) break; 
         }
     }
@@ -1803,22 +1832,28 @@ async function openDictionaryLookup() {
     if (foundCount === 0) {
         statusEl.innerHTML = `لم نجد معنى لكلمة "<b>${word}</b>" (الجذر: ${cleanWord}).<br><span style="font-size:11px;color:#aaa;">حاول تظليل أصل الكلمة بدون زوائد أو ضمائر (مثل: هُم، ها).</span>`;
     } else {
-        statusEl.style.display = 'none'; // إخفاء النص عند إيجاد نتائج
+        statusEl.style.display = 'none';
     }
 }
 
-// دالة جلب مجلدات المعجم باستخدام نظامك الحالي
 async function loadDictionaryData() {
     cachedDictionaryPages = [];
     for (let i = 0; i < DICT_VOLUMES.length; i++) {
         let volId = DICT_VOLUMES[i];
         try {
-            // نستخدم دالتك الأصلية fetchBookData المربوطة بمجلدات data
-            let bookData = await fetchBookData(volId);
-            if (bookData && bookData.pages) {
-                // حفظ الصفحات في الذاكرة مع وسم رقم المجلد الخاص بها
-                let volPages = bookData.pages.map(p => ({ ...p, vol: i + 1 }));
+            // التحقق من IndexedDB أولاً
+            let cachedPages = await getBookFromIndexedDB(volId);
+            if (cachedPages) {
+                let volPages = cachedPages.map(p => ({ ...p, vol: i + 1 }));
                 cachedDictionaryPages = cachedDictionaryPages.concat(volPages);
+            } else {
+                // إذا لم يكن موجوداً، قم بجلبه وحفظه للسرعة مستقبلاً
+                let bookData = await fetchBookData(volId);
+                if (bookData && bookData.pages) {
+                    await saveBookToIndexedDB(volId, bookData.pages);
+                    let volPages = bookData.pages.map(p => ({ ...p, vol: i + 1 }));
+                    cachedDictionaryPages = cachedDictionaryPages.concat(volPages);
+                }
             }
         } catch (e) {
             console.log("تخطي مجلد المعجم: " + volId);
