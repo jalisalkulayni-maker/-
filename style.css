@@ -532,6 +532,9 @@ body {
     cursor: pointer;
 }
 
+/* =========================================
+   شريط التحديد (معدل ليدعم التمرير الأفقي ويمنع القص)
+   ========================================= */
 .selection-toolbar {
     position: fixed;
     bottom: 140px; 
@@ -540,18 +543,29 @@ body {
     background: #111b15;
     border: 1px solid var(--gold-border);
     border-radius: 30px;
-    padding: 6px 14px;
+    padding: 8px 14px;
     display: none;
     align-items: center;
     gap: 8px;
     box-shadow: 0 10px 25px rgba(0,0,0,0.6);
     z-index: 9999;
+    max-width: 94vw; 
+    overflow-x: auto; 
+    white-space: nowrap; 
+    justify-content: flex-start;
+    -ms-overflow-style: none; /* إخفاء شريط التمرير في Edge */
+    scrollbar-width: none; /* إخفاء شريط التمرير في Firefox */
+}
+/* إخفاء شريط التمرير في متصفحات Chrome و Safari مع إبقاء وظيفة التمرير */
+.selection-toolbar::-webkit-scrollbar {
+    display: none; 
 }
 .color-dot {
     width: 18px;
     height: 18px;
     border-radius: 50%;
     cursor: pointer;
+    flex-shrink: 0;
 }
 .toolbar-action-btn {
     background: none;
@@ -563,6 +577,7 @@ body {
     align-items: center;
     gap: 4px;
     cursor: pointer;
+    flex-shrink: 0; /* منع انكماش الأزرار */
 }
 .hl-yellow { background-color: rgba(255, 235, 59, 0.4); }
 .hl-green { background-color: rgba(76, 175, 80, 0.4); }
