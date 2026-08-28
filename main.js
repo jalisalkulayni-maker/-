@@ -141,70 +141,6 @@ async function downloadEntireLibrary() {
     showToast("تم تنزيل جميع الكتب بنجاح!", "fa-check-circle");
 }
 
-// ==================== نظام الوِرد اليومي وإحصائيات القراءة ====================
-function initReadingStats() {
-    let stats = JSON.parse(localStorage.getItem('reading_stats')) || {
-        lastReadDate: '',
-        currentStreak: 0,
-        pagesToday: 0,
-        totalPages: 0
-    };
-    let today = new Date().toLocaleDateString('en-CA'); 
-    
-    if (stats.lastReadDate !== today) {
-        let yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        
-        if (stats.lastReadDate === yesterday.toLocaleDateString('en-CA')) {
-            stats.currentStreak += 1;
-        } else if (stats.lastReadDate !== '') {
-            stats.currentStreak = 1; 
-        } else {
-            stats.currentStreak = 1; 
-        }
-        stats.pagesToday = 0; 
-        stats.lastReadDate = today;
-    }
-    localStorage.setItem('reading_stats', JSON.stringify(stats));
-    renderReadingStats();
-}
-
-function trackPageRead() {
-    let stats = JSON.parse(localStorage.getItem('reading_stats'));
-    if(stats) {
-        stats.pagesToday += 1;
-        stats.totalPages += 1;
-        localStorage.setItem('reading_stats', JSON.stringify(stats));
-        renderReadingStats();
-    }
-}
-
-function renderReadingStats() {
-    let stats = JSON.parse(localStorage.getItem('reading_stats'));
-    const container = document.getElementById('readingStatsContainer');
-    if (container && stats) {
-        container.innerHTML = `
-            <div class="glass-box" style="display:flex; justify-content:space-between; align-items: center; padding: 12px 14px; border: 1px solid rgba(212,175,55,0.35); box-shadow: inset 0 0 10px rgba(0,0,0,0.2);">
-                <div style="text-align:center; flex: 1;">
-                    <i class="fas fa-fire text-gold" style="font-size:16px; margin-bottom:4px;"></i>
-                    <div style="font-size:13px; font-weight:bold; color:#fff;">${stats.currentStreak} أيام</div>
-                    <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">المواظبة</div>
-                </div>
-                <div style="text-align:center; flex: 1; border-right: 1px dashed rgba(212,175,55,0.25); border-left: 1px dashed rgba(212,175,55,0.25); padding: 0 8px;">
-                    <i class="fas fa-book-open text-gold" style="font-size:16px; margin-bottom:4px;"></i>
-                    <div style="font-size:13px; font-weight:bold; color:#fff;">${stats.pagesToday} ص</div>
-                    <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">وِرد اليوم</div>
-                </div>
-                <div style="text-align:center; flex: 1;">
-                    <i class="fas fa-layer-group text-gold" style="font-size:16px; margin-bottom:4px;"></i>
-                    <div style="font-size:13px; font-weight:bold; color:#fff;">${stats.totalPages} ص</div>
-                    <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">المجموع الكلي</div>
-                </div>
-            </div>
-        `;
-    }
-}
-
 // ==================== نظام التنبيهات والإشعارات ====================
 let toastTimeout = null;
 function showToast(message, iconClass = 'fa-circle-check') {
@@ -352,7 +288,6 @@ window.addEventListener('popstate', (event) => {
         document.getElementById('settingsModal'),
         document.getElementById('inBookSearchModal'),
         document.getElementById('addTagModal'),
-        document.getElementById('takhreejModal'),
         document.getElementById('customConfirmModal'),
         document.getElementById('dictionaryModal')
     ];
@@ -1482,7 +1417,6 @@ function nextPage() {
     if (currentPageIndex < currentBookPages.length) {
         currentPageIndex++;
         renderCurrentPage();
-        trackPageRead();
     }
 }
 function prevPage() {
@@ -1526,120 +1460,6 @@ function adjustFontSize(delta) {
 function changeFontFamily(font) {
     const content = document.getElementById('pageContent');
     if (content) content.style.fontFamily = font === 'Amiri' ? "'Amiri', serif" : "'Cairo', sans-serif";
-}
-
-// ==================== نظام التخريج والربط الآلي الشامل ====================
-function openTakhreej() {
-    let selectedText = window.getSelection().toString().trim() || savedSelectionText;
-    if (!selectedText) {
-        showToast("يرجى تظليل نص لتخريجه", "fa-triangle-exclamation");
-        return;
-    }
-    
-    let searchWords = selectedText.split(' ').slice(0, 6).join(' ');
-    
-    document.getElementById('selectionToolbar').style.display = 'none';
-    if (window.getSelection) window.getSelection().removeAllRanges();
-
-    const modal = document.getElementById('takhreejModal');
-    const resultsContainer = document.getElementById('takhreejResults');
-    if(modal) modal.style.display = 'flex';
-    
-    resultsContainer.innerHTML = '<div style="text-align:center; padding:30px;"><i class="fas fa-spinner fa-spin fa-2x text-gold"></i><p style="margin-top:10px; color:var(--text-muted); font-size:12px;">جاري التخريج من كافة مصادر المكتبة... (<span id="takhreejProgress">0%</span>)</p></div>';
-
-    setTimeout(() => executeTakhreejSearch(searchWords), 100);
-}
-
-async function executeTakhreejSearch(query) {
-    const resultsContainer = document.getElementById('takhreejResults');
-    let cleanQuery = normalizeArabicText(query);
-    let searchRegex = createArabicSearchRegex(cleanQuery);
-    
-    if(!searchRegex) {
-        resultsContainer.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:20px;">النص المظلل غير صالح للبحث.</p>';
-        return;
-    }
-
-    let foundItems = [];
-    let targetBookIds = Object.keys(allBooksManifest);
-    let total = targetBookIds.length;
-    let processed = 0;
-    
-    for(let bookId of targetBookIds) {
-        if (bookId === currentBookId) {
-            processed++;
-            continue; 
-        }
-        
-        try {
-            const bookMeta = allBooksManifest[bookId];
-            if (bookMeta.pdf_url) {
-                processed++;
-                continue; 
-            }
-
-            let bookData = null;
-            let cachedPages = await getBookFromIndexedDB(bookId);
-            
-            if (cachedPages) {
-                bookData = { pages: cachedPages }; 
-            } else {
-                bookData = await fetchBookData(bookId);
-                if (bookData && bookData.pages) {
-                    await saveBookToIndexedDB(bookId, bookData.pages);
-                }
-            }
-
-            if (bookData && bookData.pages) {
-                for(let page of bookData.pages) {
-                    let tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = page.content || '';
-                    let rawText = tempDiv.textContent || '';
-                    
-                    if(searchRegex.test(rawText)) {
-                        foundItems.push({
-                            bookId: bookId,
-                            title: bookMeta.title,
-                            pageNumber: page.page_number,
-                            snippet: generateSearchSnippet(rawText, query)
-                        });
-                        if(foundItems.filter(i => i.bookId === bookId).length >= 3) break; 
-                    }
-                }
-            }
-        } catch (e) {
-            console.log("تم تخطي كتاب أثناء التخريج بسبب عطل في الشبكة:", bookId);
-        }
-        
-        processed++;
-        const progEl = document.getElementById('takhreejProgress');
-        if (progEl) progEl.innerText = `${Math.round((processed / total) * 100)}%`;
-
-        if (foundItems.length >= 12) break;
-    }
-
-    if(foundItems.length === 0) {
-        resultsContainer.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:12px; line-height:1.6;">لم يتم العثور على المقطع في باقي مصادر المكتبة.</div>';
-        return;
-    }
-
-    resultsContainer.innerHTML = `<div style="font-size:11px; color:var(--gold-bright); margin-bottom:10px;">وجدنا هذا النص في المصادر التالية:</div>`;
-    foundItems.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'toc-item tactile-btn';
-        div.innerHTML = `
-            <div style="flex:1;">
-                <span style="color:#D4AF37; font-size:12px; font-weight:bold;"><i class="fas fa-book-journal-whills"></i> ${item.title} (صـ ${item.pageNumber})</span>
-                <p style="font-size:12px; color:#ddd; margin:6px 0 0 0; line-height:1.6; font-family:'Amiri', serif;">${item.snippet}</p>
-            </div>
-        `;
-        attachTactilePhysics(div);
-        div.onclick = () => {
-            document.getElementById('takhreejModal').style.display = 'none';
-            loadAndOpenBook(item.bookId, item.title, allBooksManifest[item.bookId].toc, allBooksManifest[item.bookId].total_pages, item.pageNumber, query);
-        };
-        resultsContainer.appendChild(div);
-    });
 }
 
 // ==================== محرك البحث الشامل ====================
@@ -1947,9 +1767,10 @@ function shareDailyHadith() {
 // ==================== المرشد الافتراضي (أنيس) ====================
 const guideTips = [
     "هل تعلم؟ يمكنك تظليل أي كلمة والضغط على (المعنى) للبحث في مجمع البحرين.",
-    "استخدم خيار البحث الشامل للعثور على أي كلمة في كامل المكتبة.",
+    "استخدم خيار البحث الشامل للعثور على أي كلمة أو باب في كامل المكتبة.",
     "اضغط على طرفي الشاشة الأيمن أو الأيسر لتقليب الصفحات بسرعة أثناء القراءة.",
-    "بإمكانك تغيير لون خلفية القراءة من أيقونة (المظهر والخط) في الأعلى لراحة عينيك."
+    "بإمكانك تغيير لون خلفية القراءة من أيقونة (المظهر والخط) في الأعلى لراحة عينيك.",
+    "يمكنك تحميل كامل المكتبة للعمل بدون إنترنت (Offline) من خلال الإعدادات."
 ];
 
 function toggleGuideBubble() {
@@ -2097,4 +1918,3 @@ async function loadDictionaryData() {
 document.querySelectorAll('.tactile-btn').forEach(btn => attachTactilePhysics(btn));
 loadLibraryManifest();
 initDailyHadithSystem();
-initReadingStats();
