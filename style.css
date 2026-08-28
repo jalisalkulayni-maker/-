@@ -548,7 +548,7 @@ body {
 
 .selection-toolbar {
     position: fixed;
-    bottom: 80px;
+    bottom: 140px; /* تم رفع الشريط هنا ليكون واضحاً للمستخدم */
     left: 50%;
     transform: translateX(-50%);
     background: #111b15;
@@ -559,7 +559,7 @@ body {
     align-items: center;
     gap: 8px;
     box-shadow: 0 10px 25px rgba(0,0,0,0.6);
-    z-index: 100;
+    z-index: 9999; /* لضمان عدم تغطيته بأي شيء */
 }
 .color-dot {
     width: 18px;
@@ -925,4 +925,3 @@ body {
 .text-white { color: #fff; }
 .text-muted { color: var(--text-muted); }
 .flex-1 { flex: 1; }
- 
