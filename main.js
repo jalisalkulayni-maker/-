@@ -877,9 +877,10 @@ function renderCurrentPage() {
         if (match) displayPage = match[0];
     }
 
-    contentDiv.querySelectorAll('.fnote, .footnote, .hawamish, .margin, .note').forEach(el => {
-        el.style.setProperty('font-size', '10px', 'important');
-        el.style.setProperty('line-height', '1.3', 'important');
+    // الإبقاء على الهوامش بحجم ثابت وصغير حتى لو كبر المتن الأساسي
+    contentDiv.querySelectorAll('.fnote, .footnote, .hawamish, .margin, .note, .footnote-item, .footnote-first').forEach(el => {
+        el.style.setProperty('font-size', '11px', 'important');
+        el.style.setProperty('line-height', '1.4', 'important');
     });
 
     if (rangeSlider) {
