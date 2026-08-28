@@ -78,6 +78,71 @@ async function getBookFromIndexedDB(bookId) {
     });
 }
 
+// ==================== نظام الوِرد اليومي وإحصائيات القراءة ====================
+function initReadingStats() {
+    let stats = JSON.parse(localStorage.getItem('reading_stats')) || {
+        lastReadDate: '',
+        currentStreak: 0,
+        pagesToday: 0,
+        totalPages: 0
+    };
+    
+    let today = new Date().toLocaleDateString('en-CA'); 
+    
+    if (stats.lastReadDate !== today) {
+        let yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        if (stats.lastReadDate === yesterday.toLocaleDateString('en-CA')) {
+            stats.currentStreak += 1;
+        } else if (stats.lastReadDate !== '') {
+            stats.currentStreak = 1; 
+        } else {
+            stats.currentStreak = 1; 
+        }
+        stats.pagesToday = 0; 
+        stats.lastReadDate = today;
+    }
+    localStorage.setItem('reading_stats', JSON.stringify(stats));
+    renderReadingStats();
+}
+
+function trackPageRead() {
+    let stats = JSON.parse(localStorage.getItem('reading_stats'));
+    if(stats) {
+        stats.pagesToday += 1;
+        stats.totalPages += 1;
+        localStorage.setItem('reading_stats', JSON.stringify(stats));
+        renderReadingStats();
+    }
+}
+
+function renderReadingStats() {
+    let stats = JSON.parse(localStorage.getItem('reading_stats'));
+    const container = document.getElementById('readingStatsContainer');
+    if (container && stats) {
+        container.innerHTML = `
+            <div class="glass-box" style="display:flex; justify-content:space-between; padding:12px 16px; border-color:var(--gold-border);">
+                <div style="text-align:center;">
+                    <i class="fas fa-fire text-gold" style="font-size:18px;"></i>
+                    <div style="font-size:14px; font-weight:bold; margin-top:4px; color:#fff;">${stats.currentStreak} أيام</div>
+                    <div style="font-size:10px; color:var(--text-muted);">المواظبة</div>
+                </div>
+                <div style="text-align:center; border-right: 1px solid var(--surface-border); border-left: 1px solid var(--surface-border); padding: 0 15px;">
+                    <i class="fas fa-book-open text-gold" style="font-size:18px;"></i>
+                    <div style="font-size:14px; font-weight:bold; margin-top:4px; color:#fff;">${stats.pagesToday} ص</div>
+                    <div style="font-size:10px; color:var(--text-muted);">وِرد اليوم</div>
+                </div>
+                <div style="text-align:center;">
+                    <i class="fas fa-layer-group text-gold" style="font-size:18px;"></i>
+                    <div style="font-size:14px; font-weight:bold; margin-top:4px; color:#fff;">${stats.totalPages} ص</div>
+                    <div style="font-size:10px; color:var(--text-muted);">المجموع الكلي</div>
+                </div>
+            </div>
+        `;
+    }
+}
+
 // ==================== نظام التنبيهات والإشعارات ====================
 let toastTimeout = null;
 function showToast(message, iconClass = 'fa-circle-check') {
@@ -225,6 +290,7 @@ window.addEventListener('popstate', (event) => {
         document.getElementById('settingsModal'),
         document.getElementById('inBookSearchModal'),
         document.getElementById('addTagModal'),
+        document.getElementById('takhreejModal'),
         document.getElementById('customConfirmModal'),
         document.getElementById('dictionaryModal')
     ];
@@ -344,33 +410,23 @@ function getVolumeNumber(vol) {
     let norm = normalizeArabicText(cleanTitle);
     let lowerId = (vol.id || "").toLowerCase();
 
-    // 📖 الروضة هي الجزء الثامن من الكافي
-    if (norm.includes("الروضه") || lowerId.includes("rawda")) {
-        return 8;
-    }
-
+    if (norm.includes("الروضه") || lowerId.includes("rawda")) return 8;
     if (cleanTitle.includes("مخطوط") || cleanTitle.includes("نسخة")) return 1;
 
     if (vol.volume) {
         let cleanVol = String(vol.volume).replace(/\D/g, '');
-        if (cleanVol && !isNaN(parseInt(cleanVol, 10))) {
-            return parseInt(cleanVol, 10);
-        }
+        if (cleanVol && !isNaN(parseInt(cleanVol, 10))) return parseInt(cleanVol, 10);
     }
 
     let idMatch = (vol.id || "").match(/_(\d+)/);
-    if (idMatch && idMatch && !isNaN(parseInt(idMatch, 10))) {
-        return parseInt(idMatch, 10);
-    }
+    if (idMatch && idMatch && !isNaN(parseInt(idMatch, 10))) return parseInt(idMatch, 10);
 
     for (let [word, num] of Object.entries(compoundMap)) {
         if (cleanTitle.includes(word)) return num;
     }
 
     let textMatch = cleanTitle.match(/\d+/);
-    if (textMatch && !isNaN(parseInt(textMatch[0], 10))) {
-        return parseInt(textMatch[0], 10);
-    }
+    if (textMatch && !isNaN(parseInt(textMatch[0], 10))) return parseInt(textMatch[0], 10);
 
     return 999;
 }
@@ -380,23 +436,12 @@ function getGroupName(book, bookId) {
     let rawTitle = (book.title || "").trim();
     let normTitle = normalizeArabicText(rawTitle);
 
-    if (book.pdf_url || lowerId.includes("mkh") || normTitle.includes("مخطوط") || normTitle.includes("مخطوطه") || normTitle.includes("نسخه خطيه") || normTitle.includes("وثيقه")) {
-        return rawTitle;
-    }
-
-    if (normTitle.includes("الاصول السته عشر") || normTitle.includes("الاصول ١٦") || lowerId.includes("osol16") || lowerId.includes("usul16")) {
-        return "الأصول الستة عشر";
-    }
-
-    if (normTitle.includes("مناقب الامام امير") || normTitle.includes("مناقب امير المومنين") || lowerId.startsWith("mnqb_amr") || lowerId.startsWith("mnqb_amir")) {
-        return "مناقب الإمام أمير المؤمنين (عليه السلام)";
-    }
-
+    if (book.pdf_url || lowerId.includes("mkh") || normTitle.includes("مخطوط") || normTitle.includes("مخطوطه") || normTitle.includes("نسخه خطيه") || normTitle.includes("وثيقه")) return rawTitle;
+    if (normTitle.includes("الاصول السته عشر") || normTitle.includes("الاصول ١٦") || lowerId.includes("osol16") || lowerId.includes("usul16")) return "الأصول الستة عشر";
+    if (normTitle.includes("مناقب الامام امير") || normTitle.includes("مناقب امير المومنين") || lowerId.startsWith("mnqb_amr") || lowerId.startsWith("mnqb_amir")) return "مناقب الإمام أمير المؤمنين (عليه السلام)";
     if (lowerId.startsWith("kafi") || lowerId.startsWith("rawda") ||
        (normTitle.includes("الكافي") && !normTitle.includes("مرآه") && !normTitle.includes("مراه")) || 
-       (normTitle.includes("الروضه") && !normTitle.includes("الواعظين") && !normTitle.includes("الجنان") && !normTitle.includes("الشهداء") && !normTitle.includes("الانوار"))) {
-        return "الكافي الشريف";
-    }
+       (normTitle.includes("الروضه") && !normTitle.includes("الواعظين") && !normTitle.includes("الجنان") && !normTitle.includes("الشهداء") && !normTitle.includes("الانوار"))) return "الكافي الشريف";
 
     if (lowerId.startsWith("bhr") || normTitle.includes("بحار الانوار")) return "بحار الأنوار";
     if (lowerId.startsWith("mrat") || lowerId.startsWith("mra") || normTitle.includes("العقول")) return "مرآة العقول في شرح أخبار آل الرسول";
@@ -439,23 +484,13 @@ function getGroupName(book, bookId) {
     if (lowerId.startsWith("qny") || normTitle.includes("المقنع")) return "المقنع للمفيد";
     if (lowerId.startsWith("add") || normTitle.includes("العدد القوية")) return "العدد القوية لدفع المخاوف اليومية";
 
-    if (book.series && book.series.trim() !== "") {
-        return book.series.trim();
-    }
+    if (book.series && book.series.trim() !== "") return book.series.trim();
 
-    let clean = rawTitle
-        .replace(/[\u064B-\u065F\u0670ـ]/g, "")
-        .replace(/[-–—_:\/,\.،؛\(\)]/g, ' ');
-
+    let clean = rawTitle.replace(/[\u064B-\u065F\u0670ـ]/g, "").replace(/[-–—_:\/,\.،؛\(\)]/g, ' ');
     for (let w of Object.keys(compoundMap).sort((a, b) => b.length - a.length)) {
         clean = clean.replace(new RegExp(`\\b${w}\\b`, 'gi'), '');
     }
-
-    clean = clean
-        .replace(/\b(?:الجزء|المجلد|جزء|مجلد|ج|م|vol|v)\b\s*\d*/gi, '')
-        .replace(/\s+\d+\s*$/g, '')
-        .replace(/\s+/g, ' ')
-        .trim();
+    clean = clean.replace(/\b(?:الجزء|المجلد|جزء|مجلد|ج|م|vol|v)\b\s*\d*/gi, '').replace(/\s+\d+\s*$/g, '').replace(/\s+/g, ' ').trim();
 
     return clean || rawTitle;
 }
@@ -776,7 +811,6 @@ async function loadAndOpenBook(bookId, bookTitle, bookToc, totalPages, targetPag
     contentDiv.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:50px;"><i class="fas fa-spinner fa-spin fa-2x text-gold"></i><p style="margin-top:10px;">جاري فتح المتن المبارك...</p></div>';
 
     try {
-        // 1. فحص قاعدة البيانات المحلية أولاً لسرعة الفتح (IndexedDB)
         let cachedPages = await getBookFromIndexedDB(bookId);
         
         if (cachedPages) {
@@ -787,13 +821,11 @@ async function loadAndOpenBook(bookId, bookTitle, bookToc, totalPages, targetPag
             return;
         }
 
-        // 2. إذا لم يكن محفوظاً، يتم الجلب من خوادم GitHub
         const bookData = await fetchBookData(bookId);
         currentBookPages = bookData.pages || [];
         currentBookToc = bookData.toc || bookToc || [];
         currentBookTotalPages = bookData.total_pages || totalPages || currentBookPages.length;
         
-        // 3. تخزين الكتاب بالكامل في هاتف المستخدم للعمل كأوفلاين مستقبلاً
         await saveBookToIndexedDB(bookId, currentBookPages);
         
         initReaderEngine(targetPageNumber);
@@ -1388,6 +1420,7 @@ function nextPage() {
     if (currentPageIndex < currentBookPages.length) {
         currentPageIndex++;
         renderCurrentPage();
+        trackPageRead(); // تسجيل الورد اليومي
     }
 }
 function prevPage() {
@@ -1431,6 +1464,90 @@ function adjustFontSize(delta) {
 function changeFontFamily(font) {
     const content = document.getElementById('pageContent');
     if (content) content.style.fontFamily = font === 'Amiri' ? "'Amiri', serif" : "'Cairo', sans-serif";
+}
+
+// ==================== نظام التخريج والربط الآلي ====================
+function openTakhreej() {
+    let selectedText = window.getSelection().toString().trim() || savedSelectionText;
+    if (!selectedText) {
+        showToast("يرجى تظليل نص لتخريجه", "fa-triangle-exclamation");
+        return;
+    }
+    
+    // أخذ أول 6 كلمات فقط لضمان دقة البحث وسرعته
+    let searchWords = selectedText.split(' ').slice(0, 6).join(' ');
+    
+    document.getElementById('selectionToolbar').style.display = 'none';
+    if (window.getSelection) window.getSelection().removeAllRanges();
+
+    const modal = document.getElementById('takhreejModal');
+    const resultsContainer = document.getElementById('takhreejResults');
+    if(modal) modal.style.display = 'flex';
+    
+    resultsContainer.innerHTML = '<div style="text-align:center; padding:30px;"><i class="fas fa-spinner fa-spin fa-2x text-gold"></i><p style="margin-top:10px; color:var(--text-muted); font-size:12px;">جاري البحث في مصادر المكتبة المحملة...</p></div>';
+
+    setTimeout(() => executeTakhreejSearch(searchWords), 100);
+}
+
+async function executeTakhreejSearch(query) {
+    const resultsContainer = document.getElementById('takhreejResults');
+    let cleanQuery = normalizeArabicText(query);
+    let searchRegex = createArabicSearchRegex(cleanQuery);
+    
+    if(!searchRegex) {
+        resultsContainer.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:20px;">النص المظلل غير صالح للبحث.</p>';
+        return;
+    }
+
+    let foundItems = [];
+    let targetBookIds = Object.keys(allBooksManifest);
+    
+    for(let bookId of targetBookIds) {
+        if (bookId === currentBookId) continue; // تخطي الكتاب الحالي المقروء
+        
+        // البحث في الكتب المحفوظة فقط للسرعة
+        let cachedPages = await getBookFromIndexedDB(bookId);
+        if(cachedPages) {
+            for(let page of cachedPages) {
+                let tempDiv = document.createElement('div');
+                tempDiv.innerHTML = page.content || '';
+                let rawText = tempDiv.textContent || '';
+                
+                if(searchRegex.test(rawText)) {
+                    foundItems.push({
+                        bookId: bookId,
+                        title: allBooksManifest[bookId].title,
+                        pageNumber: page.page_number,
+                        snippet: generateSearchSnippet(rawText, query)
+                    });
+                    if(foundItems.length >= 3) break; // أخذ 3 مواضع كحد أقصى لتخفيف الضغط
+                }
+            }
+        }
+    }
+
+    if(foundItems.length === 0) {
+        resultsContainer.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:12px; line-height:1.6;">لم يتم العثور على المقطع في الكتب المحملة.<br>تلميح: التخريج يبحث فقط في الأجزاء التي تم فتحها وتحميلها مسبقاً.</div>';
+        return;
+    }
+
+    resultsContainer.innerHTML = `<div style="font-size:11px; color:var(--gold-bright); margin-bottom:10px;">وجدنا هذا النص في المصادر التالية:</div>`;
+    foundItems.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'toc-item tactile-btn';
+        div.innerHTML = `
+            <div style="flex:1;">
+                <span style="color:#D4AF37; font-size:12px; font-weight:bold;"><i class="fas fa-book-journal-whills"></i> ${item.title} (صـ ${item.pageNumber})</span>
+                <p style="font-size:12px; color:#ddd; margin:6px 0 0 0; line-height:1.6; font-family:'Amiri', serif;">${item.snippet}</p>
+            </div>
+        `;
+        attachTactilePhysics(div);
+        div.onclick = () => {
+            document.getElementById('takhreejModal').style.display = 'none';
+            loadAndOpenBook(item.bookId, item.title, allBooksManifest[item.bookId].toc, allBooksManifest[item.bookId].total_pages, item.pageNumber, query);
+        };
+        resultsContainer.appendChild(div);
+    });
 }
 
 // ==================== محرك البحث الشامل ====================
@@ -1626,7 +1743,6 @@ async function executeGlobalSearch() {
                 if (bookMeta.pdf_url) continue;
 
                 let bookData = null;
-                // استخدام IndexedDB بدلاً من localStorage أثناء البحث العميق
                 let cachedPages = await getBookFromIndexedDB(bookId);
                 
                 if (cachedPages) {
@@ -1733,10 +1849,33 @@ function shareDailyHadith() {
     }
 }
 
-// ==================== التهيئة عند بدء التشغيل ====================
-document.querySelectorAll('.tactile-btn').forEach(btn => attachTactilePhysics(btn));
-loadLibraryManifest();
-initDailyHadithSystem();
+// ==================== المرشد الافتراضي (أنيس) ====================
+const guideTips = [
+    "هل تعلم؟ يمكنك تظليل أي كلمة والضغط على (المعنى) للبحث في مجمع البحرين.",
+    "للحفاظ على (وِردك اليومي)، اقرأ صفحة واحدة على الأقل كل يوم لزيادة المواظبة!",
+    "استخدم زر (التخريج) عند تظليل حديث لترى أين تم ذكره في باقي كتب المكتبة.",
+    "اضغط على طرفي الشاشة الأيمن أو الأيسر لتقليب الصفحات بسرعة أثناء القراءة.",
+    "بإمكانك تغيير لون خلفية القراءة من أيقونة (المظهر والخط) في الأعلى لراحة عينيك."
+];
+
+function toggleGuideBubble() {
+    const bubble = document.getElementById('guideBubble');
+    const textEl = document.getElementById('guideText');
+    if (bubble.classList.contains('show')) {
+        bubble.classList.remove('show');
+    } else {
+        let randomTip = guideTips[Math.floor(Math.random() * guideTips.length)];
+        textEl.innerText = randomTip;
+        bubble.classList.add('show');
+        
+        setTimeout(() => { hideGuideBubble(); }, 8000);
+    }
+}
+
+function hideGuideBubble() {
+    const bubble = document.getElementById('guideBubble');
+    if(bubble) bubble.classList.remove('show');
+}
 
 // ==================== محرك المعجم (مجمع البحرين) ====================
 const DICT_VOLUMES = [
@@ -1841,13 +1980,11 @@ async function loadDictionaryData() {
     for (let i = 0; i < DICT_VOLUMES.length; i++) {
         let volId = DICT_VOLUMES[i];
         try {
-            // التحقق من IndexedDB أولاً
             let cachedPages = await getBookFromIndexedDB(volId);
             if (cachedPages) {
                 let volPages = cachedPages.map(p => ({ ...p, vol: i + 1 }));
                 cachedDictionaryPages = cachedDictionaryPages.concat(volPages);
             } else {
-                // إذا لم يكن موجوداً، قم بجلبه وحفظه للسرعة مستقبلاً
                 let bookData = await fetchBookData(volId);
                 if (bookData && bookData.pages) {
                     await saveBookToIndexedDB(volId, bookData.pages);
@@ -1861,3 +1998,9 @@ async function loadDictionaryData() {
     }
     isDictionaryLoaded = true;
 }
+
+// ==================== التهيئة عند بدء التشغيل ====================
+document.querySelectorAll('.tactile-btn').forEach(btn => attachTactilePhysics(btn));
+loadLibraryManifest();
+initDailyHadithSystem();
+initReadingStats(); // تفعيل نظام الإحصائيات
