@@ -63,6 +63,12 @@
             </div>
         </section>
 
+        <!-- إحصائيات الوِرد اليومي -->
+        <section style="padding: 0 20px 10px;">
+            <h3 class="text-white" style="font-size: 14px; margin-bottom: 8px;">إحصائيات القراءة</h3>
+            <div id="readingStatsContainer"></div>
+        </section>
+
         <!-- شبكة رفوف الكتب -->
         <section class="books-section">
             <h3 class="text-white" style="margin: 0 20px 10px; font-size: 15px;">خزانة المتون والمؤلفات</h3>
@@ -173,8 +179,11 @@
         <button class="toolbar-action-btn" onclick="removeHighlight()" title="مسح التلوين"><i class="fas fa-eraser" style="color: #ff5252;"></i></button>
         
         <div style="width: 1px; height: 16px; background: rgba(212,175,55,0.4); margin: 0 4px;"></div>
-        <!-- زر المعجم الجديد -->
         <button class="toolbar-action-btn" onclick="openDictionaryLookup()" title="البحث في المعجم"><i class="fas fa-book-open text-gold"></i> المعنى</button>
+
+        <!-- التخريج الآلي -->
+        <div style="width: 1px; height: 16px; background: rgba(212,175,55,0.4); margin: 0 4px;"></div>
+        <button class="toolbar-action-btn" onclick="openTakhreej()" title="تخريج الحديث في باقي الكتب"><i class="fas fa-diagram-project text-gold"></i> تخريج</button>
 
         <div style="width: 1px; height: 16px; background: rgba(212,175,55,0.4); margin: 0 4px;"></div>
         <button class="toolbar-action-btn" onclick="openAddTagModal()" title="إضافة وسم دلالي"><i class="fas fa-tag text-gold"></i> وسم</button>
@@ -183,7 +192,7 @@
         <button class="toolbar-action-btn" onclick="shareSelectedQuote()" title="مشاركة واقتباس"><i class="fas fa-share-nodes"></i> اقتباس</button>
     </div>
 
-    <!-- نافذة إضافة وتصنيف الوسوم -->
+    <!-- نوافذ التطبيق المنبثقة -->
     <div id="addTagModal" class="glass-modal">
         <div class="modal-content glass-box" style="max-height: 85vh; display: flex; flex-direction: column; width: 92%;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(212,175,55,0.3); padding-bottom: 8px;">
@@ -203,7 +212,18 @@
         </div>
     </div>
 
-    <!-- نافذة التأكيد المخصصة -->
+    <!-- نافذة التخريج والربط -->
+    <div id="takhreejModal" class="glass-modal">
+        <div class="modal-content glass-box" style="max-height: 80vh; display: flex; flex-direction: column; width: 92%;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid rgba(212,175,55,0.3); padding-bottom: 8px;">
+                <h3 class="text-gold" style="font-size: 15px;"><i class="fas fa-diagram-project"></i> التخريج الآلي</h3>
+                <i class="fas fa-times text-muted tactile-btn" onclick="document.getElementById('takhreejModal').style.display='none'" style="font-size: 18px; cursor: pointer;"></i>
+            </div>
+            <div id="takhreejResults" class="toc-scroll-list" style="flex: 1;"></div>
+        </div>
+    </div>
+
+    <!-- باقي نوافذ التأكيد والبحث والإعدادات -->
     <div id="customConfirmModal" class="glass-modal">
         <div class="modal-content glass-box" style="max-width: 340px; text-align: center; padding: 22px;">
             <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(212,175,55,0.15); border: 1px solid rgba(212,175,55,0.4); display: grid; place-items: center; margin: 0 auto 12px;">
@@ -218,7 +238,6 @@
         </div>
     </div>
 
-    <!-- نافذة البحث داخل الكتاب -->
     <div id="inBookSearchModal" class="glass-modal">
         <div class="modal-content glass-box" style="max-height: 80vh; display: flex; flex-direction: column; width: 92%;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid rgba(212,175,55,0.3); padding-bottom: 8px;">
@@ -232,7 +251,6 @@
         </div>
     </div>
 
-    <!-- نافذة اختيار المجلدات والأجزاء -->
     <div id="volumesModal" class="glass-modal">
         <div class="modal-content glass-box" style="max-height: 80vh; display: flex; flex-direction: column;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(212,175,55,0.3); padding-bottom: 8px;">
@@ -243,7 +261,6 @@
         </div>
     </div>
 
-    <!-- نافذة الفهرست والمفضلة -->
     <div id="tocModal" class="glass-modal">
         <div class="modal-content glass-box" style="max-height: 80vh; display: flex; flex-direction: column;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -259,7 +276,7 @@
         </div>
     </div>
 
-    <!-- 5. شاشة البحث الشامل مع عناصر التحكم التفاعلية المباشرة -->
+    <!-- شاشة البحث الشامل -->
     <main id="searchView" class="stage-view">
         <header class="royal-header">
             <button class="tactile-btn icon-btn" onclick="closeSearch()">
@@ -269,7 +286,6 @@
         </header>
 
         <section style="padding: 0 20px;">
-            <!-- شريط البحث -->
             <div class="search-bar-wrap glass-box">
                 <i class="fas fa-search search-bar-icon"></i>
                 <input type="text" id="searchInput" placeholder="اكتب عبارة البحث..." class="search-input" oninput="handleSearchInput(this.value)">
@@ -278,7 +294,6 @@
                 </button>
             </div>
 
-            <!-- صف أزرار تحديد نوع البحث (الأبواب vs النصوص) -->
             <div class="search-mode-selector">
                 <button id="searchTargetTocBtn" class="search-mode-btn active tactile-btn" onclick="setSearchTargetMode('toc')">
                     <i class="fas fa-list-ul"></i> الفصول والأبواب
@@ -288,22 +303,18 @@
                 </button>
             </div>
 
-            <!-- صف أزرار تحديد نطاق البحث (كل الكتب vs السلسلة vs الأجزاء) -->
             <div class="search-filters-scroll" id="searchFilterPills"></div>
 
-            <!-- شريط حالة ونتائج البحث -->
             <div id="searchStatusInfo" class="search-status-bar" style="display: none;">
                 <span id="searchResultCount" class="results-badge">0 نتائج</span>
                 <span id="searchFilterName" class="filter-badge">في كل المكتبة</span>
             </div>
 
-            <!-- نتائج البحث -->
             <div id="searchResultsContainer" class="search-results-grid"></div>
         </section>
         <div style="height: 100px;"></div>
     </main>
 
-    <!-- نافذة إعدادات المظهر والخط -->
     <div id="settingsModal" class="glass-modal">
         <div class="modal-content glass-box">
             <div style="display: flex; justify-content: space-between; margin-bottom: 14px;">
@@ -361,7 +372,7 @@
         </div>
     </nav>
 
-    <!-- نافذة المعجم المنبثقة (غريب الحديث) -->
+    <!-- نافذة المعجم -->
     <div id="dictionaryModal" class="glass-modal">
         <div class="modal-content glass-box" style="max-height: 80vh; display: flex; flex-direction: column; width: 92%;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid rgba(212,175,55,0.3); padding-bottom: 8px;">
@@ -375,6 +386,17 @@
             <div style="text-align: center; margin-top: 10px; font-size: 10px; color: var(--text-muted);">
                 المصدر: مجمع البحرين للشيخ فخر الدين الطريحي
             </div>
+        </div>
+    </div>
+
+    <!-- المرشد الافتراضي: أنيس -->
+    <div id="virtualGuideContainer" class="virtual-guide-container">
+        <div class="guide-bubble glass-box" id="guideBubble">
+            <p id="guideText">مرحباً! أنا أنيس، هل تعلم أنه يمكنك تقليب الصفحات بالنقر على حواف الشاشة؟</p>
+            <button class="tactile-btn" onclick="hideGuideBubble()" style="background:none; border:none; color:var(--gold-main); font-size:10px; font-weight:bold; float:left; margin-top:5px; padding:4px;">فهمت</button>
+        </div>
+        <div class="guide-avatar tactile-btn" onclick="toggleGuideBubble()">
+            <i class="fas fa-user-graduate"></i>
         </div>
     </div>
 
