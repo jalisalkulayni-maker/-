@@ -533,7 +533,7 @@ body {
 }
 
 /* =========================================
-   شريط التحديد (يدعم التمرير الأفقي ويمنع القص)
+   شريط التحديد (تم رفعه ليظهر فوق أشرطة النظام)
    ========================================= */
 .selection-toolbar {
     position: fixed;
@@ -543,28 +543,18 @@ body {
     background: #111b15;
     border: 1px solid var(--gold-border);
     border-radius: 30px;
-    padding: 8px 14px;
+    padding: 6px 14px;
     display: none;
     align-items: center;
     gap: 8px;
     box-shadow: 0 10px 25px rgba(0,0,0,0.6);
     z-index: 9999;
-    max-width: 94vw; 
-    overflow-x: auto; 
-    white-space: nowrap; 
-    justify-content: flex-start;
-    -ms-overflow-style: none; /* إخفاء شريط التمرير في Edge */
-    scrollbar-width: none; /* إخفاء شريط التمرير في Firefox */
-}
-.selection-toolbar::-webkit-scrollbar {
-    display: none; 
 }
 .color-dot {
     width: 18px;
     height: 18px;
     border-radius: 50%;
     cursor: pointer;
-    flex-shrink: 0;
 }
 .toolbar-action-btn {
     background: none;
@@ -576,7 +566,6 @@ body {
     align-items: center;
     gap: 4px;
     cursor: pointer;
-    flex-shrink: 0; 
 }
 .hl-yellow { background-color: rgba(255, 235, 59, 0.4); }
 .hl-green { background-color: rgba(76, 175, 80, 0.4); }
@@ -924,67 +913,3 @@ body {
 .text-white { color: #fff; }
 .text-muted { color: var(--text-muted); }
 .flex-1 { flex: 1; }
-
-/* =========================================
-   المرشد الافتراضي (أنيس)
-   ========================================= */
-.virtual-guide-container {
-    position: fixed;
-    bottom: 85px; 
-    right: 16px;
-    z-index: 50; 
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 8px;
-}
-.guide-avatar {
-    width: 44px;
-    height: 44px;
-    background: linear-gradient(135deg, var(--gold-main), #8B6508);
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: #111;
-    font-size: 18px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    border: 2px solid var(--gold-bright);
-}
-.guide-bubble {
-    max-width: 220px;
-    padding: 12px;
-    font-size: 11px;
-    color: #fff;
-    line-height: 1.6;
-    border-bottom-right-radius: 4px;
-    display: none;
-    animation: fadeInView 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    transform-origin: bottom right;
-}
-.guide-bubble.show {
-    display: block;
-}
-/* =========================================
-   تثبيت حجم الهوامش بقوة ومنع تأثرها بتكبير الخط
-   ========================================= */
-#pageContent [class*="foot"],
-#pageContent [class*="note"],
-#pageContent [class*="hawam"],
-#pageContent [class*="hashi"],
-#pageContent [class*="mar"],
-#pageContent sup {
-    font-size: 10px !important;
-    line-height: 1.6 !important;
-    font-family: var(--font-cairo), sans-serif !important;
-    opacity: 0.85 !important; /* تخفيف لون الهامش قليلاً لتمييزه عن المتن */
-}
-
-/* ضمان أن أي نص فرعي داخل الهامش يأخذ نفس الحجم الصغير */
-#pageContent [class*="foot"] *,
-#pageContent [class*="note"] *,
-#pageContent [class*="hawam"] *,
-#pageContent [class*="hashi"] * {
-    font-size: inherit !important;
-    line-height: inherit !important;
-}
