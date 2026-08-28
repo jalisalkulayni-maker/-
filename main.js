@@ -78,69 +78,6 @@ async function getBookFromIndexedDB(bookId) {
     });
 }
 
-// ==================== تنظيف الذاكرة ومزامنة التحديثات ====================
-async function clearLocalLibraryCache() {
-    showConfirm("هل أنت متأكد أنك تريد تفريغ الذاكرة المؤقتة للكتب؟ ستحتاج للاتصال بالإنترنت لإعادة تحميلها بآخر التحديثات والتصحيحات المضافة.", async () => {
-        let db = await initLibraryDB();
-        let tx = db.transaction(STORE_NAME, "readwrite");
-        tx.objectStore(STORE_NAME).clear();
-        
-        tx.oncomplete = () => {
-            showToast("تم تنظيف المكتبة! يمكنك الآن تحميل آخر التحديثات.", "fa-broom");
-            const dlBtn = document.getElementById('downloadAllBtn');
-            if(dlBtn) {
-                dlBtn.innerHTML = '<i class="fas fa-cloud-arrow-down"></i> تحميل كافة المتون (للعمل Offline)';
-                dlBtn.disabled = false;
-                dlBtn.style.opacity = '1';
-                dlBtn.style.color = 'var(--gold-bright)';
-                dlBtn.style.borderColor = 'var(--gold-main)';
-            }
-        };
-    });
-}
-
-// ==================== تحميل كامل المكتبة للعمل Offline ====================
-async function downloadEntireLibrary() {
-    const btn = document.getElementById('downloadAllBtn');
-    if (!btn) return;
-    
-    btn.disabled = true;
-    btn.style.opacity = '0.7';
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التحميل... (<span id="dlProgress">0%</span>)';
-
-    const bookIds = Object.keys(allBooksManifest);
-    const total = bookIds.length;
-    let downloaded = 0;
-
-    for (const bookId of bookIds) {
-        const bookMeta = allBooksManifest[bookId];
-        if (bookMeta.pdf_url) {
-            downloaded++;
-            continue; 
-        }
-
-        let cachedPages = await getBookFromIndexedDB(bookId);
-        if (!cachedPages) {
-            try {
-                let bookData = await fetchBookData(bookId);
-                if (bookData && bookData.pages) {
-                    await saveBookToIndexedDB(bookId, bookData.pages);
-                }
-            } catch (e) {
-                console.log("حدث خطأ أثناء تحميل الكتاب: " + bookId);
-            }
-        }
-        downloaded++;
-        const progEl = document.getElementById('dlProgress');
-        if (progEl) progEl.innerText = `${Math.round((downloaded / total) * 100)}%`;
-    }
-
-    btn.innerHTML = '<i class="fas fa-check-circle"></i> اكتمل التحميل وجاهز للعمل Offline';
-    btn.style.color = '#4caf50';
-    btn.style.borderColor = '#4caf50';
-    showToast("تم تنزيل جميع الكتب بنجاح!", "fa-check-circle");
-}
-
 // ==================== نظام التنبيهات والإشعارات ====================
 let toastTimeout = null;
 function showToast(message, iconClass = 'fa-circle-check') {
@@ -475,7 +412,7 @@ function getGroupName(book, bookId) {
     if (lowerId.startsWith("mjtna") || normTitle.includes("المجتنى") || normTitle.includes("المجتني")) return "المجتنى من الدعاء المجتبى";
     if (lowerId.startsWith("slwh") || normTitle.includes("سلوه الحزين") || normTitle.includes("سلوة الحزين") || normTitle.includes("الدعوات للراوندي")) return "الدعوات (سلوة الحزين)";
     if (lowerId.startsWith("flah") || lowerId.startsWith("falah") || normTitle.includes("فلاح السائل")) return "فلاح السائل ونجاح المسائل";
-    if (lowerId.startsWith("fth") || normTitle.includes("فتح الابواب") || normTitle.includes("فتح الأبواب")) return "فتح الأبواب في الاستخارات";
+    if (lowerId.startsWith("fth") || normTitle.includes("فتح الابواب") || normTitle.includes("فتح الأبواب")) return "فتح الابواب في الاستخارات";
     if (lowerId.startsWith("drwa") || normTitle.includes("الدروع الواقية")) return "الدروع الواقية";
     if (lowerId.startsWith("aman") || normTitle.includes("الامان من اخطار") || normTitle.includes("الأمان من أخطار")) return "الأمان من أخطار الأسفار والأزمان";
     if (lowerId.startsWith("qny") || normTitle.includes("المقنع")) return "المقنع للمفيد";
@@ -877,12 +814,9 @@ function renderCurrentPage() {
         if (match) displayPage = match[0];
     }
 
-    // --- إصلاح وتثبيت حجم الهوامش بقوة برمجية ---
-    // إضافة علامة sup و span لتشمل كل احتمالات ظهور الهوامش
-    contentDiv.querySelectorAll('.fnote, .footnote, .hawamish, .margin, .note, .footnote-item, .footnote-first, sup').forEach(el => {
-        el.style.setProperty('font-size', '11px', 'important');
-        el.style.setProperty('line-height', '1.4', 'important');
-        el.style.setProperty('font-family', 'var(--font-cairo)', 'important');
+    contentDiv.querySelectorAll('.fnote, .footnote, .hawamish, .margin, .note').forEach(el => {
+        el.style.setProperty('font-size', '10px', 'important');
+        el.style.setProperty('line-height', '1.3', 'important');
     });
 
     if (rangeSlider) {
@@ -1770,10 +1704,9 @@ function shareDailyHadith() {
 // ==================== المرشد الافتراضي (أنيس) ====================
 const guideTips = [
     "هل تعلم؟ يمكنك تظليل أي كلمة والضغط على (المعنى) للبحث في مجمع البحرين.",
-    "استخدم خيار البحث الشامل للعثور على أي كلمة أو باب في كامل المكتبة.",
+    "استخدم خيار البحث الشامل للعثور على أي كلمة في كامل المكتبة.",
     "اضغط على طرفي الشاشة الأيمن أو الأيسر لتقليب الصفحات بسرعة أثناء القراءة.",
-    "بإمكانك تغيير لون خلفية القراءة من أيقونة (المظهر والخط) في الأعلى لراحة عينيك.",
-    "يمكنك تحميل كامل المكتبة للعمل بدون إنترنت (Offline) من خلال الإعدادات."
+    "بإمكانك تغيير لون خلفية القراءة من أيقونة (المظهر والخط) في الأعلى لراحة عينيك."
 ];
 
 function toggleGuideBubble() {
