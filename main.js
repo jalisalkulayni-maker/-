@@ -122,21 +122,21 @@ function renderReadingStats() {
     const container = document.getElementById('readingStatsContainer');
     if (container && stats) {
         container.innerHTML = `
-            <div class="glass-box" style="display:flex; justify-content:space-between; padding:12px 16px; border-color:var(--gold-border);">
-                <div style="text-align:center;">
-                    <i class="fas fa-fire text-gold" style="font-size:18px;"></i>
-                    <div style="font-size:14px; font-weight:bold; margin-top:4px; color:#fff;">${stats.currentStreak} أيام</div>
-                    <div style="font-size:10px; color:var(--text-muted);">المواظبة</div>
+            <div class="glass-box" style="display:flex; justify-content:space-between; align-items: center; padding: 22px 16px; border: 1px solid rgba(212,175,55,0.35); min-height: 125px; box-shadow: inset 0 0 10px rgba(0,0,0,0.2);">
+                <div style="text-align:center; flex: 1;">
+                    <i class="fas fa-fire text-gold" style="font-size:22px; margin-bottom:8px;"></i>
+                    <div style="font-size:15px; font-weight:bold; color:#fff;">${stats.currentStreak} أيام</div>
+                    <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">المواظبة</div>
                 </div>
-                <div style="text-align:center; border-right: 1px solid var(--surface-border); border-left: 1px solid var(--surface-border); padding: 0 15px;">
-                    <i class="fas fa-book-open text-gold" style="font-size:18px;"></i>
-                    <div style="font-size:14px; font-weight:bold; margin-top:4px; color:#fff;">${stats.pagesToday} ص</div>
-                    <div style="font-size:10px; color:var(--text-muted);">وِرد اليوم</div>
+                <div style="text-align:center; flex: 1; border-right: 1px dashed rgba(212,175,55,0.25); border-left: 1px dashed rgba(212,175,55,0.25); padding: 0 10px;">
+                    <i class="fas fa-book-open text-gold" style="font-size:22px; margin-bottom:8px;"></i>
+                    <div style="font-size:15px; font-weight:bold; color:#fff;">${stats.pagesToday} ص</div>
+                    <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">وِرد اليوم</div>
                 </div>
-                <div style="text-align:center;">
-                    <i class="fas fa-layer-group text-gold" style="font-size:18px;"></i>
-                    <div style="font-size:14px; font-weight:bold; margin-top:4px; color:#fff;">${stats.totalPages} ص</div>
-                    <div style="font-size:10px; color:var(--text-muted);">المجموع الكلي</div>
+                <div style="text-align:center; flex: 1;">
+                    <i class="fas fa-layer-group text-gold" style="font-size:22px; margin-bottom:8px;"></i>
+                    <div style="font-size:15px; font-weight:bold; color:#fff;">${stats.totalPages} ص</div>
+                    <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">المجموع الكلي</div>
                 </div>
             </div>
         `;
@@ -1420,7 +1420,7 @@ function nextPage() {
     if (currentPageIndex < currentBookPages.length) {
         currentPageIndex++;
         renderCurrentPage();
-        trackPageRead(); // تسجيل الورد اليومي
+        trackPageRead(); // تسجيل الوِرد اليومي
     }
 }
 function prevPage() {
@@ -1466,7 +1466,7 @@ function changeFontFamily(font) {
     if (content) content.style.fontFamily = font === 'Amiri' ? "'Amiri', serif" : "'Cairo', sans-serif";
 }
 
-// ==================== نظام التخريج والربط الآلي ====================
+// ==================== نظام التخريج والربط الآلي الشامل ====================
 function openTakhreej() {
     let selectedText = window.getSelection().toString().trim() || savedSelectionText;
     if (!selectedText) {
@@ -1484,7 +1484,7 @@ function openTakhreej() {
     const resultsContainer = document.getElementById('takhreejResults');
     if(modal) modal.style.display = 'flex';
     
-    resultsContainer.innerHTML = '<div style="text-align:center; padding:30px;"><i class="fas fa-spinner fa-spin fa-2x text-gold"></i><p style="margin-top:10px; color:var(--text-muted); font-size:12px;">جاري البحث في مصادر المكتبة المحملة...</p></div>';
+    resultsContainer.innerHTML = '<div style="text-align:center; padding:30px;"><i class="fas fa-spinner fa-spin fa-2x text-gold"></i><p style="margin-top:10px; color:var(--text-muted); font-size:12px;">جاري التخريج من كافة مصادر المكتبة... (<span id="takhreejProgress">0%</span>)</p></div>';
 
     setTimeout(() => executeTakhreejSearch(searchWords), 100);
 }
@@ -1501,33 +1501,67 @@ async function executeTakhreejSearch(query) {
 
     let foundItems = [];
     let targetBookIds = Object.keys(allBooksManifest);
+    let total = targetBookIds.length;
+    let processed = 0;
     
     for(let bookId of targetBookIds) {
-        if (bookId === currentBookId) continue; // تخطي الكتاب الحالي المقروء
+        if (bookId === currentBookId) {
+            processed++;
+            continue; // تخطي الكتاب الحالي
+        }
         
-        // البحث في الكتب المحفوظة فقط للسرعة
-        let cachedPages = await getBookFromIndexedDB(bookId);
-        if(cachedPages) {
-            for(let page of cachedPages) {
-                let tempDiv = document.createElement('div');
-                tempDiv.innerHTML = page.content || '';
-                let rawText = tempDiv.textContent || '';
-                
-                if(searchRegex.test(rawText)) {
-                    foundItems.push({
-                        bookId: bookId,
-                        title: allBooksManifest[bookId].title,
-                        pageNumber: page.page_number,
-                        snippet: generateSearchSnippet(rawText, query)
-                    });
-                    if(foundItems.length >= 3) break; // أخذ 3 مواضع كحد أقصى لتخفيف الضغط
+        try {
+            const bookMeta = allBooksManifest[bookId];
+            if (bookMeta.pdf_url) {
+                processed++;
+                continue; // تخطي ملفات الـ PDF
+            }
+
+            let bookData = null;
+            let cachedPages = await getBookFromIndexedDB(bookId);
+            
+            if (cachedPages) {
+                bookData = { pages: cachedPages }; // الجلب السريع من الذاكرة
+            } else {
+                // الجلب الشامل من الإنترنت إذا لم يكن الكتاب مفتوحاً من قبل
+                bookData = await fetchBookData(bookId);
+                if (bookData && bookData.pages) {
+                    await saveBookToIndexedDB(bookId, bookData.pages);
                 }
             }
+
+            if (bookData && bookData.pages) {
+                for(let page of bookData.pages) {
+                    let tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = page.content || '';
+                    let rawText = tempDiv.textContent || '';
+                    
+                    if(searchRegex.test(rawText)) {
+                        foundItems.push({
+                            bookId: bookId,
+                            title: bookMeta.title,
+                            pageNumber: page.page_number,
+                            snippet: generateSearchSnippet(rawText, query)
+                        });
+                        // حد أقصى 3 نتائج من نفس الكتاب لمنع التكدس
+                        if(foundItems.filter(i => i.bookId === bookId).length >= 3) break; 
+                    }
+                }
+            }
+        } catch (e) {
+            console.log("تم تخطي كتاب أثناء التخريج بسبب عطل في الشبكة:", bookId);
         }
+        
+        processed++;
+        const progEl = document.getElementById('takhreejProgress');
+        if (progEl) progEl.innerText = `${Math.round((processed / total) * 100)}%`;
+
+        // إيقاف البحث إذا وجد 12 موضعاً للحفاظ على سرعة الاستجابة
+        if (foundItems.length >= 12) break;
     }
 
     if(foundItems.length === 0) {
-        resultsContainer.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:12px; line-height:1.6;">لم يتم العثور على المقطع في الكتب المحملة.<br>تلميح: التخريج يبحث فقط في الأجزاء التي تم فتحها وتحميلها مسبقاً.</div>';
+        resultsContainer.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:12px; line-height:1.6;">لم يتم العثور على المقطع في باقي مصادر المكتبة.</div>';
         return;
     }
 
@@ -1740,7 +1774,10 @@ async function executeGlobalSearch() {
 
             try {
                 const bookMeta = allBooksManifest[bookId];
-                if (bookMeta.pdf_url) continue;
+                if (bookMeta.pdf_url) {
+                    processed++;
+                    continue;
+                }
 
                 let bookData = null;
                 let cachedPages = await getBookFromIndexedDB(bookId);
@@ -2003,4 +2040,4 @@ async function loadDictionaryData() {
 document.querySelectorAll('.tactile-btn').forEach(btn => attachTactilePhysics(btn));
 loadLibraryManifest();
 initDailyHadithSystem();
-initReadingStats(); // تفعيل نظام الإحصائيات
+initReadingStats();
