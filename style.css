@@ -965,3 +965,26 @@ body {
 .guide-bubble.show {
     display: block;
 }
+/* =========================================
+   تثبيت حجم الهوامش بقوة ومنع تأثرها بتكبير الخط
+   ========================================= */
+#pageContent [class*="foot"],
+#pageContent [class*="note"],
+#pageContent [class*="hawam"],
+#pageContent [class*="hashi"],
+#pageContent [class*="mar"],
+#pageContent sup {
+    font-size: 10px !important;
+    line-height: 1.6 !important;
+    font-family: var(--font-cairo), sans-serif !important;
+    opacity: 0.85 !important; /* تخفيف لون الهامش قليلاً لتمييزه عن المتن */
+}
+
+/* ضمان أن أي نص فرعي داخل الهامش يأخذ نفس الحجم الصغير */
+#pageContent [class*="foot"] *,
+#pageContent [class*="note"] *,
+#pageContent [class*="hawam"] *,
+#pageContent [class*="hashi"] * {
+    font-size: inherit !important;
+    line-height: inherit !important;
+}
