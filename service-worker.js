@@ -1,4 +1,5 @@
-const CACHE_NAME = "jalis-library-v1";
+// تم تغيير الإصدار إلى v2 لإجبار الهواتف على مسح النسخة القديمة وتحميل التحديث
+const CACHE_NAME = "jalis-library-v2";
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",
@@ -24,7 +25,7 @@ self.addEventListener("activate", event => {
       return Promise.all(
         keys.map(key => {
           if (key !== CACHE_NAME) {
-            return caches.delete(key);
+            return caches.delete(key); // حذف الكاش القديم
           }
         })
       );
