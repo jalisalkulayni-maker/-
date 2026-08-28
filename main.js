@@ -191,7 +191,8 @@ window.addEventListener('popstate', (event) => {
         document.getElementById('settingsModal'),
         document.getElementById('inBookSearchModal'),
         document.getElementById('addTagModal'),
-        document.getElementById('customConfirmModal')
+        document.getElementById('customConfirmModal'),
+        document.getElementById('dictionaryModal')
     ];
 
     let modalClosed = false;
@@ -1788,3 +1789,132 @@ function shareDailyHadith() {
 document.querySelectorAll('.tactile-btn').forEach(btn => attachTactilePhysics(btn));
 loadLibraryManifest();
 initDailyHadithSystem();
+
+// ==================== محرك المعجم (مجمع البحرين) ====================
+
+// أسماء ملفات مجمع البحرين كما هي في مستودعك تماماً
+const DICT_VOLUMES = [
+    "mjma_albhryn_01", "mjma_albhryn_02", "mjma_albhryn_03",
+    "mjma_albhryn_04", "mjma_albhryn_05", "mjma_albhryn_06"
+];
+
+// ذاكرة تخزين مؤقتة للمعجم لكي يظل سريعاً ولا يحمل من الإنترنت كل مرة
+let cachedDictionaryPages = [];
+let isDictionaryLoaded = false;
+
+function openDictionaryModal() {
+    const m = document.getElementById('dictionaryModal');
+    if (m) m.style.display = 'flex';
+}
+
+function closeDictionaryModal() {
+    const m = document.getElementById('dictionaryModal');
+    if (m) m.style.display = 'none';
+}
+
+// الدالة التي يتم استدعاؤها عند الضغط على زر "المعنى"
+async function openDictionaryLookup() {
+    let word = window.getSelection().toString().trim() || savedSelectionText;
+    
+    if (!word) {
+        showToast("يرجى تظليل كلمة للبحث عنها", "fa-triangle-exclamation");
+        return;
+    }
+    
+    // تنظيف الكلمة (أخذ أول كلمة فقط إذا ظلل المستخدم جملة كاملة بالخطأ)
+    word = word.split(' ')[0].trim();
+    
+    // إخفاء شريط التظليل
+    document.getElementById('selectionToolbar').style.display = 'none';
+    if (window.getSelection) window.getSelection().removeAllRanges();
+
+    openDictionaryModal();
+    const statusEl = document.getElementById('dictSearchStatus');
+    const resultsEl = document.getElementById('dictResultsContainer');
+    
+    resultsEl.innerHTML = '';
+    statusEl.style.display = 'block';
+    
+    // تحميل بيانات المعجم في الخلفية إذا لم تكن محملة
+    if (!isDictionaryLoaded) {
+        statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري فتح المجلدات من مجمع البحرين للمرة الأولى...';
+        await loadDictionaryData();
+    }
+    
+    statusEl.innerHTML = `<i class="fas fa-search"></i> جاري البحث عن: <b>${word}</b> ...`;
+    
+    // تجريد الكلمة بذكاء (إزالة ال، و، ف، ب، ك) للوصول للمعنى
+    let cleanWord = normalizeArabicText(word).replace(/^(ال|وال|فال|بال|كال|و|ف|ب|ك)/, '');
+    if (cleanWord.length < 2) cleanWord = normalizeArabicText(word); // تراجع إذا كانت الكلمة أصلها حرفين
+
+    let searchReg = createArabicSearchRegex(cleanWord);
+    
+    if (!searchReg) {
+        statusEl.innerHTML = "الكلمة المحددة غير صالحة للبحث.";
+        return;
+    }
+
+    let foundCount = 0;
+    
+    // البحث في الذاكرة المخبأة للمعجم
+    for (let page of cachedDictionaryPages) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = page.content || '';
+        const rawText = tempDiv.textContent || '';
+
+        if (searchReg.test(rawText)) {
+            foundCount++;
+            
+            // اقتطاع الشرح (أخذ مساحة أوسع من النص حول الكلمة لتوضيح المعنى)
+            let match = searchReg.exec(rawText);
+            let start = Math.max(0, match.index - 80);
+            let end = Math.min(rawText.length, match.index + match[0].length + 300);
+            let snippet = rawText.substring(start, end);
+            
+            if (start > 0) snippet = '...' + snippet;
+            if (end < rawText.length) snippet = snippet + '...';
+            
+            snippet = highlightArabicText(snippet, cleanWord);
+
+            const item = document.createElement('div');
+            item.className = 'toc-item tactile-btn';
+            item.style.cursor = 'default';
+            item.innerHTML = `
+                <div style="flex:1;">
+                    <span style="color:#D4AF37; font-size:11px; font-weight:bold;">الجزء ${page.vol} - صـ ${page.page_number}</span>
+                    <p style="font-size:14px; color:#f5f5f5; margin:6px 0 0 0; line-height:1.9; text-align:justify; font-family:'Amiri',serif;">${snippet}</p>
+                </div>
+            `;
+            resultsEl.appendChild(item);
+            
+            // نكتفي بأول 7 نتائج حتى لا تثقل النافذة المنبثقة
+            if (foundCount >= 7) break; 
+        }
+    }
+
+    if (foundCount === 0) {
+        statusEl.innerHTML = `لم نجد معنى لكلمة "<b>${word}</b>" (الجذر: ${cleanWord}).<br><span style="font-size:11px;color:#aaa;">حاول تظليل أصل الكلمة بدون زوائد أو ضمائر (مثل: هُم، ها).</span>`;
+    } else {
+        statusEl.style.display = 'none'; // إخفاء النص عند إيجاد نتائج
+    }
+}
+
+// دالة جلب مجلدات المعجم باستخدام نظامك الحالي
+async function loadDictionaryData() {
+    cachedDictionaryPages = [];
+    for (let i = 0; i < DICT_VOLUMES.length; i++) {
+        let volId = DICT_VOLUMES[i];
+        try {
+            // نستخدم دالتك الأصلية fetchBookData المربوطة بمجلدات data
+            let bookData = await fetchBookData(volId);
+            if (bookData && bookData.pages) {
+                // حفظ الصفحات في الذاكرة مع وسم رقم المجلد الخاص بها
+                let volPages = bookData.pages.map(p => ({ ...p, vol: i + 1 }));
+                cachedDictionaryPages = cachedDictionaryPages.concat(volPages);
+            }
+        } catch (e) {
+            console.log("تخطي مجلد المعجم: " + volId);
+        }
+    }
+    isDictionaryLoaded = true;
+}
