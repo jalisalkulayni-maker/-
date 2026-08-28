@@ -533,7 +533,7 @@ body {
 }
 
 /* =========================================
-   شريط التحديد (معدل ليدعم التمرير الأفقي ويمنع القص)
+   شريط التحديد (يدعم التمرير الأفقي ويمنع القص)
    ========================================= */
 .selection-toolbar {
     position: fixed;
@@ -556,7 +556,6 @@ body {
     -ms-overflow-style: none; /* إخفاء شريط التمرير في Edge */
     scrollbar-width: none; /* إخفاء شريط التمرير في Firefox */
 }
-/* إخفاء شريط التمرير في متصفحات Chrome و Safari مع إبقاء وظيفة التمرير */
 .selection-toolbar::-webkit-scrollbar {
     display: none; 
 }
@@ -577,7 +576,7 @@ body {
     align-items: center;
     gap: 4px;
     cursor: pointer;
-    flex-shrink: 0; /* منع انكماش الأزرار */
+    flex-shrink: 0; 
 }
 .hl-yellow { background-color: rgba(255, 235, 59, 0.4); }
 .hl-green { background-color: rgba(76, 175, 80, 0.4); }
@@ -927,7 +926,7 @@ body {
 .flex-1 { flex: 1; }
 
 /* =========================================
-   المرشد الافتراضي
+   المرشد الافتراضي (أنيس)
    ========================================= */
 .virtual-guide-container {
     position: fixed;
