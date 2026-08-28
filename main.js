@@ -877,10 +877,12 @@ function renderCurrentPage() {
         if (match) displayPage = match[0];
     }
 
-    // الإبقاء على الهوامش بحجم ثابت وصغير حتى لو كبر المتن الأساسي
-    contentDiv.querySelectorAll('.fnote, .footnote, .hawamish, .margin, .note, .footnote-item, .footnote-first').forEach(el => {
+    // --- إصلاح وتثبيت حجم الهوامش بقوة برمجية ---
+    // إضافة علامة sup و span لتشمل كل احتمالات ظهور الهوامش
+    contentDiv.querySelectorAll('.fnote, .footnote, .hawamish, .margin, .note, .footnote-item, .footnote-first, sup').forEach(el => {
         el.style.setProperty('font-size', '11px', 'important');
         el.style.setProperty('line-height', '1.4', 'important');
+        el.style.setProperty('font-family', 'var(--font-cairo)', 'important');
     });
 
     if (rangeSlider) {
