@@ -329,10 +329,11 @@ body {
     text-justify: inter-word;
 }
 
+/* هنا تم تعديل حجم الحواشي إلى 9 بكسل */
 .footnote-item {
-    font-size: 14px;
+    font-size: 9px;
     color: var(--text-muted);
-    line-height: 1.8;
+    line-height: 1.6;
     margin-top: 6px;
 }
 .footnote-first {
@@ -925,4 +926,3 @@ body {
 .text-white { color: #fff; }
 .text-muted { color: var(--text-muted); }
 .flex-1 { flex: 1; }
- 
