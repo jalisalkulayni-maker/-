@@ -329,9 +329,8 @@ body {
     text-justify: inter-word;
 }
 
-/* هنا تم تعديل حجم الحواشي إلى 9 بكسل */
 .footnote-item {
-    font-size: 9px;
+    font-size: 10px;
     color: var(--text-muted);
     line-height: 1.6;
     margin-top: 6px;
@@ -926,3 +925,14 @@ body {
 .text-white { color: #fff; }
 .text-muted { color: var(--text-muted); }
 .flex-1 { flex: 1; }
+
+/* إجبار المتصفح على تصغير الحواشي وجميع العناصر المتداخلة فيها */
+.fnote, .fnote *, 
+.footnote, .footnote *, 
+.hawamish, .hawamish *, 
+.margin, .margin *, 
+.note, .note *, 
+.footnote-item, .footnote-item * {
+    font-size: 10px !important;
+    line-height: 1.6 !important;
+}
