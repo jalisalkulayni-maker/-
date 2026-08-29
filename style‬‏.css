@@ -329,12 +329,6 @@ body {
     text-justify: inter-word;
 }
 
-.footnote-item {
-    font-size: 10px;
-    color: var(--text-muted);
-    line-height: 1.6;
-    margin-top: 6px;
-}
 .footnote-first {
     margin-top: 25px;
     border-top: 1px dashed var(--surface-border);
@@ -458,7 +452,7 @@ body {
     background: var(--surface-glass);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border-top: 1px solid var(--surface-border);
+    border-bottom: 1px solid var(--surface-border);
     padding: 10px 16px 14px;
     z-index: 10;
     display: flex;
@@ -935,4 +929,135 @@ body {
 .footnote-item, .footnote-item * {
     font-size: 10px !important;
     line-height: 1.6 !important;
+}
+
+/* ==================== بانر السلايدر التلقائي ==================== */
+.hero-slider-wrap {
+    width: 100%;
+    height: 140px;
+    border: 1px solid var(--gold-border);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    border-radius: 16px;
+}
+.hero-slider-track {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.hero-slider-track::-webkit-scrollbar {
+    display: none;
+}
+.hero-slide {
+    min-width: 100%;
+    box-sizing: border-box;
+    scroll-snap-align: center;
+    display: flex;
+    align-items: center;
+    padding: 14px;
+    gap: 14px;
+}
+.hero-slide .book-cover-wrapper {
+    width: 80px;
+    height: 110px;
+    margin-bottom: 0;
+    flex-shrink: 0;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+}
+.hero-slide-content {
+    flex: 1;
+    overflow: hidden;
+    text-align: right;
+}
+.hero-slide-tag {
+    display: inline-block;
+    font-size: 9px;
+    color: var(--bg-dark);
+    background: var(--gold-main);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 900;
+    margin-bottom: 6px;
+}
+.hero-slide-title {
+    font-size: 14px;
+    color: #fff;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.hero-slide-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+.hero-slide-btn {
+    background: rgba(212,175,55,0.15);
+    border: 1px solid var(--gold-border);
+    color: var(--gold-bright);
+    padding: 4px 14px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: bold;
+}
+.hero-indicators {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 5px;
+}
+.hero-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.25);
+    transition: all 0.3s ease;
+}
+.hero-dot.active {
+    background: var(--gold-main);
+    width: 14px;
+    border-radius: 3px;
+}
+/* ==================== نافذة الحاشية المنبثقة ==================== */
+.footnote-toast {
+    position: fixed;
+    bottom: 80px; /* ليكون فوق شريط القارئ السفلي */
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    width: 90%;
+    max-width: 450px;
+    max-height: 250px; /* لمنع النافذة من تغطية الشاشة لو كانت الحاشية طويلة */
+    overflow-y: auto;
+    background: rgba(12, 22, 18, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--gold-border);
+    border-radius: 14px;
+    padding: 14px 18px;
+    color: var(--text-white);
+    font-size: 14px;
+    font-family: var(--font-amiri);
+    line-height: 1.8;
+    text-align: justify;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    z-index: 3000;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.footnote-toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+/* تلوين رقم الحاشية داخل النافذة بالذهبي */
+.footnote-toast strong {
+    color: var(--gold-bright);
+    margin-left: 4px;
 }
