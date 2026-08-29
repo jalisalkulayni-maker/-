@@ -859,9 +859,10 @@ function renderCurrentPage() {
         if (match) displayPage = match[0];
     }
 
+    // هنا تم تعديل حجم الحواشي إلى 9 بكسل
     contentDiv.querySelectorAll('.fnote, .footnote, .hawamish, .margin, .note').forEach(el => {
-        el.style.setProperty('font-size', '10px', 'important');
-        el.style.setProperty('line-height', '1.3', 'important');
+        el.style.setProperty('font-size', '9px', 'important');
+        el.style.setProperty('line-height', '1.5', 'important');
     });
 
     if (rangeSlider) {
