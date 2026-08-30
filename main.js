@@ -309,6 +309,7 @@ function getVolumeNumber(vol) {
     let norm = normalizeArabicText(cleanTitle);
     let lowerId = (vol.id || "").toLowerCase();
 
+    // 📖 الروضة هي الجزء الثامن من الكافي
     if (norm.includes("الروضه") || lowerId.includes("rawda")) {
         return 8;
     }
@@ -344,18 +345,22 @@ function getGroupName(book, bookId) {
     let rawTitle = (book.title || "").trim();
     let normTitle = normalizeArabicText(rawTitle);
 
+    // 📜 1. المخطوطات والوثائق مستقلة دائماً
     if (book.pdf_url || lowerId.includes("mkh") || normTitle.includes("مخطوط") || normTitle.includes("مخطوطه") || normTitle.includes("نسخه خطيه") || normTitle.includes("وثيقه")) {
         return rawTitle;
     }
 
+    // 📚 2. فصل الأصول الستة عشر تماماً عن الكافي
     if (normTitle.includes("الاصول السته عشر") || normTitle.includes("الاصول ١٦") || lowerId.includes("osol16") || lowerId.includes("usul16")) {
         return "الأصول الستة عشر";
     }
 
+    // 📚 3. توحيد ودمج جميع أجزاء مناقب الإمام أمير المؤمنين (ع) في بطاقة واحدة
     if (normTitle.includes("مناقب الامام امير") || normTitle.includes("مناقب امير المومنين") || lowerId.startsWith("mnqb_amr") || lowerId.startsWith("mnqb_amir")) {
         return "مناقب الإمام أمير المؤمنين (عليه السلام)";
     }
 
+    // 📚 4. الكافي الشريف بجميع أجزائه الثمانية (الأصول والفروع والروضة)
     if (lowerId.startsWith("kafi") || lowerId.startsWith("rawda") ||
        (normTitle.includes("الكافي") && !normTitle.includes("مرآه") && !normTitle.includes("مراه")) || 
        (normTitle.includes("الروضه") && !normTitle.includes("الواعظين") && !normTitle.includes("الجنان") && !normTitle.includes("الشهداء") && !normTitle.includes("الانوار"))) {
@@ -396,12 +401,20 @@ function getGroupName(book, bookId) {
     if (lowerId.startsWith("jmal") || normTitle.includes("جمال الاسبوع") || normTitle.includes("جمال الأسبوع")) return "جمال الأسبوع بكمال العمل المشروع";
     if (lowerId.startsWith("mjtna") || normTitle.includes("المجتنى") || normTitle.includes("المجتني")) return "المجتنى من الدعاء المجتبى";
     if (lowerId.startsWith("slwh") || normTitle.includes("سلوه الحزين") || normTitle.includes("سلوة الحزين") || normTitle.includes("الدعوات للراوندي")) return "الدعوات (سلوة الحزين)";
+    
+    // فلاح السائل فقط (مفصول عن كتب الفضائل)
     if (lowerId.startsWith("flah") || lowerId.startsWith("falah") || normTitle.includes("فلاح السائل")) return "فلاح السائل ونجاح المسائل";
+    
     if (lowerId.startsWith("fth") || normTitle.includes("فتح الابواب") || normTitle.includes("فتح الأبواب")) return "فتح الأبواب في الاستخارات";
     if (lowerId.startsWith("drwa") || normTitle.includes("الدروع الواقية")) return "الدروع الواقية";
     if (lowerId.startsWith("aman") || normTitle.includes("الامان من اخطار") || normTitle.includes("الأمان من أخطار")) return "الأمان من أخطار الأسفار والأزمان";
     if (lowerId.startsWith("qny") || normTitle.includes("المقنع")) return "المقنع للمفيد";
     if (lowerId.startsWith("add") || normTitle.includes("العدد القوية")) return "العدد القوية لدفع المخاوف اليومية";
+
+    // ✅ تصنيفات المتون المطلوبة خصيصاً في السلايدر
+    if (normTitle.includes("الهجوم على بيت فاطمه") || normTitle.includes("الهجوم على بيت فاطمة")) return "الهجوم على بيت فاطمة (عليها السلام)";
+    if (normTitle.includes("الغيبه للنعماني") || normTitle.includes("الغيبة للنعماني")) return "الغيبة للنعماني";
+    if (normTitle.includes("توحيد المفضل")) return "توحيد المفضل";
 
     if (book.series && book.series.trim() !== "") {
         return book.series.trim();
@@ -433,7 +446,7 @@ function getBookCategory(book) {
     if (title.includes("تفسير") || title.includes("القرآن") || title.includes("قرآن") || title.includes("بيان") || title.includes("برهان") || title.includes("عياشي") || title.includes("كنز")) return "التفسير وعلوم القرآن";
     if (title.includes("حديث") || title.includes("الكافي") || title.includes("بحار") || title.includes("استبصار") || title.includes("تهذیب") || title.includes("وافي") || title.includes("من لا يحضره") || title.includes("وسائل") || title.includes("إحتجاج") || title.includes("احتجاج") || title.includes("العقول") || title.includes("فضائل") || title.includes("فضايل") || title.includes("اختصاص") || title.includes("إختصاص") || title.includes("مناقب") || title.includes("الاصول السته عشر")) return "الحديث الشريف ومصادره";
     if (title.includes("دعاء") || title.includes("صحيفة") || title.includes("زيارة") || title.includes("مناجات") || title.includes("مفاتيح") || title.includes("إقبال") || title.includes("اقبال") || title.includes("مصباح") || title.includes("مهج")) return "الأدعية والزيارات";
-    if (title.includes("عقائد") || title.includes("توحيد") || title.includes("امامة") || title.includes("إمامة") || title.includes("عدل") || title.includes("اعتقادات") || title.includes("كمال الدين")) return "العقائد الكلامية";
+    if (title.includes("عقائد") || title.includes("توحيد") || title.includes("امامة") || title.includes("إمامة") || title.includes("عدل") || title.includes("اعتقادات") || title.includes("كمال الدين") || title.includes("الغيبة")) return "العقائد الكلامية";
     if (title.includes("فقه") || title.includes("احكام") || title.includes("أحكام") || title.includes("شرايع") || title.includes("رسالة") || title.includes("حدائق")) return "الفقه والأحكام";
     if (title.includes("تاريخ") || title.includes("سيرة") || title.includes("مقتل") || title.includes("إرشاد") || title.includes("هجوم") || title.includes("فاطمة")) return "السيرة والتاريخ";
     return "المتون العامة";
@@ -499,7 +512,6 @@ async function loadLibraryManifest() {
     }
 }
 
-// ==================== بناء واجهة الكتب مع السلايدر التلقائي ====================
 function processAndRenderBooks(data) {
     const container = document.getElementById('dynamicBooksContainer');
     const track = document.getElementById('heroSliderTrack');
@@ -531,7 +543,15 @@ function processAndRenderBooks(data) {
     );
 
     let heroCount = 0;
-    const maxHeroSlides = 4;
+
+    // 🌟 مصفوفة الكتب المميزة التي ستظهر حصرياً في السلايدر العلوي
+    const featuredBooks = [
+        "الهجوم على بيت فاطمة (عليها السلام)",
+        "الغيبة للنعماني",
+        "الكافي الشريف",
+        "الصحيفة السجادية",
+        "توحيد المفضل"
+    ];
 
     sortedGroupTitles.forEach(groupTitle => {
         const booksInGroup = groups[groupTitle];
@@ -555,8 +575,8 @@ function processAndRenderBooks(data) {
             ? `${mainBook.total_pages || 0} لوحة (مخطوط PDF)` 
             : (isSeries ? `${booksInGroup.length} أجزاء / مجلدات` : `${mainBook.total_pages || 0} صفحة`);
 
-        // بناء السلايدر العلوي
-        if (track && heroCount < maxHeroSlides) {
+        // بناء السلايدر العلوي فقط للكتب الموجودة في مصفوفة featuredBooks
+        if (track && featuredBooks.includes(groupTitle)) {
             const slide = document.createElement('div');
             slide.className = 'hero-slide tactile-btn';
             slide.innerHTML = `
@@ -583,7 +603,7 @@ function processAndRenderBooks(data) {
             heroCount++;
         }
 
-        // بناء الشبكة السفلية
+        // بناء الشبكة السفلية لجميع الكتب بلا استثناء
         const card = document.createElement("div");
         card.className = "book-card tactile-btn";
         card.innerHTML = `
