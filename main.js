@@ -1649,6 +1649,85 @@ function generateSearchSnippet(fullText, rawQuery) {
     return highlightArabicText(snippet, rawQuery);
 }
 
+// ==================== محرك تصدير الكتاب كـ PDF ====================
+function downloadBookAsPDF() {
+    if (!currentBookPages || currentBookPages.length === 0) {
+        showToast("لا يوجد كتاب مفتوح لتحميله", "fa-triangle-exclamation");
+        return;
+    }
+
+    showToast("جاري تجهيز الكتاب وتنسيقه كـ PDF...", "fa-spinner");
+
+    // إنشاء نافذة طباعة مخفية
+    const printIframe = document.createElement('iframe');
+    printIframe.style.position = 'absolute';
+    printIframe.style.width = '0';
+    printIframe.style.height = '0';
+    printIframe.style.border = 'none';
+    document.body.appendChild(printIframe);
+
+    const doc = printIframe.contentWindow.document;
+
+    // تجميع الصفحات مع تنسيقات الطباعة
+    let fullContent = `
+        <html dir="rtl" lang="ar">
+        <head>
+            <title>${currentBookTitle}</title>
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap');
+                body { 
+                    font-family: 'Amiri', serif; 
+                    line-height: 1.8; 
+                    padding: 20px; 
+                    color: #000;
+                    background: #fff;
+                }
+                .page-break { page-break-after: always; }
+                .book-cover { 
+                    text-align: center; 
+                    margin-top: 30%; 
+                    page-break-after: always;
+                }
+                h1 { font-size: 32px; margin-bottom: 20px; }
+                .pagen { display: none; } /* إخفاء أرقام الصفحات الأصلية إن وجدت لمنع التكرار */
+            </style>
+        </head>
+        <body>
+            <div class="book-cover">
+                <h1>${currentBookTitle}</h1>
+                <p>تم التصدير من مكتبة سيد الساجدين</p>
+            </div>
+    `;
+
+    // دمج محتوى جميع الصفحات
+    currentBookPages.forEach((page, index) => {
+        fullContent += `
+            <div class="page-content">${page.content}</div>
+            <div style="text-align: center; font-size: 12px; margin-top: 20px;">- صـ ${page.page_number || (index + 1)} -</div>
+            <div class="page-break"></div>
+        `;
+    });
+
+    fullContent += `</body></html>`;
+
+    // كتابة المحتوى داخل نافذة الطباعة
+    doc.open();
+    doc.write(fullContent);
+    doc.close();
+
+    // الانتظار قليلاً حتى يتم تحميل الخطوط ثم استدعاء الطباعة
+    setTimeout(() => {
+        printIframe.contentWindow.focus();
+        printIframe.contentWindow.print();
+        
+        // إزالة الإطار المخفي بعد انتهاء نافذة الطباعة
+        setTimeout(() => {
+            document.body.removeChild(printIframe);
+        }, 1000);
+        
+    }, 1500); // تأخير 1.5 ثانية لضمان تحميل خط Amiri
+}
+
 // ==================== محرك البحث الشامل ====================
 function openSearch() { 
     showView('searchView');
