@@ -988,6 +988,16 @@ function renderCurrentPage() {
     const pageData = currentBookPages[currentPageIndex - 1];
     let rawHtml = pageData ? (pageData.content || "صفحة فارغة") : "صفحة فارغة";
 
+    // ================== الكود الجديد المُضاف لإضافة العلامة المائية في نهاية الصفحة ==================
+    const watermarkHtml = `
+        <div style="margin-top: 40px; padding-top: 15px; border-top: 1px dashed rgba(150, 150, 150, 0.3); text-align: center; font-size: 14px; font-weight: 500; font-family: 'Cairo', sans-serif; direction: rtl; clear: both; user-select: none; opacity: 0.9;">
+            <span style="color: #a0a0a0;">مكتبة الامام السجاد: </span>
+            <span style="color: #D4AF37;">جليس الكليني - https://t.me/Jali4s</span>
+        </div>
+    `;
+    rawHtml += watermarkHtml;
+    // =================================================================================================
+
     if (currentActiveSearchHighlight) {
         contentDiv.innerHTML = highlightArabicText(rawHtml, currentActiveSearchHighlight);
     } else {
