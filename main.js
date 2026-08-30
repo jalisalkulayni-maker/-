@@ -988,14 +988,29 @@ function renderCurrentPage() {
     const pageData = currentBookPages[currentPageIndex - 1];
     let rawHtml = pageData ? (pageData.content || "صفحة فارغة") : "صفحة فارغة";
 
-    // ================== تنظيف النص من العلامة المائية القديمة ==================
-    // هذا الكود سيبحث عن العبارة القديمة (مكتبة جليس...) ويحذفها من محتوى الـ JSON الأصلي 
-    // ليمنع ظهورها بشكل مكرر فوق علامتنا المائية الجديدة المنظمة.
-    rawHtml = rawHtml.replace(/<([a-z]+)[^>]*>\s*مكتبة جليس\s*-\s*https:\/\/t\.me\/Jali4s\s*<\/\1>/gi, '');
-    rawHtml = rawHtml.replace(/مكتبة جليس\s*-\s*https:\/\/t\.me\/Jali4s/gi, '');
-    // ===========================================================================
+    // ================== تنظيف جذري للعلامة المائية المكررة/القديمة ==================
+    // 1. استخدام DOMParser لاصطياد وإزالة أي حاويات (div, p, span) تحتوي على العلامة المائية
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = rawHtml;
+    const elements = tempDiv.querySelectorAll('*');
+    
+    elements.forEach(el => {
+        // إذا كان العنصر يحتوي على رابط التليجرام، وحجم نصه الإجمالي صغير (لتأكيد أنه تذييل وليس فقرة من الكتاب)
+        if (el.textContent && el.textContent.toLowerCase().includes('t.me/jali4s') && el.textContent.length < 250) {
+            el.remove(); // تدمير العنصر بالكامل (بما فيه الخطوط المنقطة القديمة)
+        }
+    });
+    rawHtml = tempDiv.innerHTML; // استرجاع النص النظيف
+    
+    // 2. إزالة أي نصوص خام بجميع صيغها في حال كانت مرمية في الصفحة بدون وسوم HTML
+    rawHtml = rawHtml.replace(/مكتبة\s*الامام\s*السجاد:\s*جليس\s*الكليني\s*-\s*https:\/\/t\.me\/Jali4s/gi, '');
+    rawHtml = rawHtml.replace(/مكتبة\s*جليس\s*-\s*https:\/\/t\.me\/Jali4s/gi, '');
+    
+    // 3. تنظيف أي حاويات فارغة متبقية ذات خطوط متقطعة (dashed)
+    rawHtml = rawHtml.replace(/<div[^>]*border-top[^>]*dashed[^>]*>\s*<\/div>/gi, '');
+    // ==================================================================================
 
-    // ================== الكود الجديد المُضاف لإضافة العلامة المائية في نهاية الصفحة ==================
+    // ================== إضافة العلامة المائية الملكية (لمرة واحدة فقط) ==================
     const watermarkHtml = `
         <div style="margin-top: 40px; padding-top: 15px; border-top: 1px dashed rgba(150, 150, 150, 0.3); text-align: center; font-size: 14px; font-weight: 500; font-family: 'Cairo', sans-serif; direction: rtl; clear: both; user-select: none; opacity: 0.9;">
             <span style="color: #a0a0a0;">مكتبة الامام السجاد: </span>
@@ -1003,7 +1018,7 @@ function renderCurrentPage() {
         </div>
     `;
     rawHtml += watermarkHtml;
-    // =================================================================================================
+    // ====================================================================================
 
     if (currentActiveSearchHighlight) {
         contentDiv.innerHTML = highlightArabicText(rawHtml, currentActiveSearchHighlight);
