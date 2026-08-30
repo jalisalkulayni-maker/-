@@ -411,11 +411,6 @@ function getGroupName(book, bookId) {
     if (lowerId.startsWith("qny") || normTitle.includes("المقنع")) return "المقنع للمفيد";
     if (lowerId.startsWith("add") || normTitle.includes("العدد القوية")) return "العدد القوية لدفع المخاوف اليومية";
 
-    // ✅ تصنيفات المتون المطلوبة خصيصاً في السلايدر
-    if (normTitle.includes("الهجوم على بيت فاطمه") || normTitle.includes("الهجوم على بيت فاطمة")) return "الهجوم على بيت فاطمة";
-    if (normTitle.includes("الغيبه للنعماني") || normTitle.includes("الغيبة للنعماني")) return "الغيبة للنعماني";
-    if (normTitle.includes("توحيد المفضل")) return "توحيد المفضل";
-
     if (book.series && book.series.trim() !== "") {
         return book.series.trim();
     }
@@ -512,6 +507,7 @@ async function loadLibraryManifest() {
     }
 }
 
+// ==================== بناء واجهة الكتب مع السلايدر التلقائي ====================
 function processAndRenderBooks(data) {
     const container = document.getElementById('dynamicBooksContainer');
     const track = document.getElementById('heroSliderTrack');
@@ -543,15 +539,7 @@ function processAndRenderBooks(data) {
     );
 
     let heroCount = 0;
-
-    // 🌟 مصفوفة الكتب المميزة التي ستظهر حصرياً في السلايدر العلوي
-    const featuredBooks = [
-        "الهجوم",
-        "الغيبة للنعماني",
-        "الكافي الشريف",
-        "الصحيفة السجادية",
-        "توحيد المفضل"
-    ];
+    const maxHeroSlides = 10; // 🌟 رفع الحد الأقصى لضمان ظهور كل الكتب المطلوبة
 
     sortedGroupTitles.forEach(groupTitle => {
         const booksInGroup = groups[groupTitle];
@@ -575,8 +563,20 @@ function processAndRenderBooks(data) {
             ? `${mainBook.total_pages || 0} لوحة (مخطوط PDF)` 
             : (isSeries ? `${booksInGroup.length} أجزاء / مجلدات` : `${mainBook.total_pages || 0} صفحة`);
 
-        // بناء السلايدر العلوي فقط للكتب الموجودة في مصفوفة featuredBooks
-        if (track && featuredBooks.includes(groupTitle)) {
+        // 🌟 البحث الذكي والمرن (معالجة الحروف الفارسية والتشكيل والمسافات)
+        let cleanTitleForSearch = groupTitle.replace(/ی/g, "ي").replace(/ک/g, "ك").replace(/ة/g, "ه").replace(/[أإآ]/g, "ا");
+        
+        let isFeatured = false;
+        if (cleanTitleForSearch.includes("الهجوم") || 
+            cleanTitleForSearch.includes("نعماني") || 
+            cleanTitleForSearch.includes("الكافي") || 
+            cleanTitleForSearch.includes("سجاديه") || 
+            cleanTitleForSearch.includes("توحيد المفضل")) {
+            isFeatured = true;
+        }
+
+        // بناء السلايدر العلوي فقط للكتب التي تطابق الشروط
+        if (track && isFeatured && heroCount < maxHeroSlides) {
             const slide = document.createElement('div');
             slide.className = 'hero-slide tactile-btn';
             slide.innerHTML = `
