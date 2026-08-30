@@ -412,7 +412,7 @@ function getGroupName(book, bookId) {
     if (lowerId.startsWith("add") || normTitle.includes("العدد القوية")) return "العدد القوية لدفع المخاوف اليومية";
 
     // ✅ تصنيفات المتون المطلوبة خصيصاً في السلايدر
-    if (normTitle.includes("الهجوم على بيت فاطمه") || normTitle.includes("الهجوم على بيت فاطمة")) return "الهجوم على بيت فاطمة (عليها السلام)";
+    if (normTitle.includes("الهجوم على بيت فاطمه") || normTitle.includes("الهجوم على بيت فاطمة")) return "الهجوم على بيت فاطمة";
     if (normTitle.includes("الغيبه للنعماني") || normTitle.includes("الغيبة للنعماني")) return "الغيبة للنعماني";
     if (normTitle.includes("توحيد المفضل")) return "توحيد المفضل";
 
