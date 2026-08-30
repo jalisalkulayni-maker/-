@@ -988,6 +988,13 @@ function renderCurrentPage() {
     const pageData = currentBookPages[currentPageIndex - 1];
     let rawHtml = pageData ? (pageData.content || "صفحة فارغة") : "صفحة فارغة";
 
+    // ================== تنظيف النص من العلامة المائية القديمة ==================
+    // هذا الكود سيبحث عن العبارة القديمة (مكتبة جليس...) ويحذفها من محتوى الـ JSON الأصلي 
+    // ليمنع ظهورها بشكل مكرر فوق علامتنا المائية الجديدة المنظمة.
+    rawHtml = rawHtml.replace(/<([a-z]+)[^>]*>\s*مكتبة جليس\s*-\s*https:\/\/t\.me\/Jali4s\s*<\/\1>/gi, '');
+    rawHtml = rawHtml.replace(/مكتبة جليس\s*-\s*https:\/\/t\.me\/Jali4s/gi, '');
+    // ===========================================================================
+
     // ================== الكود الجديد المُضاف لإضافة العلامة المائية في نهاية الصفحة ==================
     const watermarkHtml = `
         <div style="margin-top: 40px; padding-top: 15px; border-top: 1px dashed rgba(150, 150, 150, 0.3); text-align: center; font-size: 14px; font-weight: 500; font-family: 'Cairo', sans-serif; direction: rtl; clear: both; user-select: none; opacity: 0.9;">
