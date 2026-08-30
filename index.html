@@ -37,7 +37,7 @@
         <section class="slider-container" style="padding: 0 20px 10px;">
             <div class="glass-box daily-hadith-card" style="padding: 16px; border: 1px solid rgba(212,175,55,0.35); position: relative; overflow: hidden;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <span class="tag-gold-bg" style="margin-bottom: 0;"><i class="fas fa-sun"></i> كلامكم نور</span>
+                    <span class="tag-gold-bg" style="margin-bottom: 0;"><i class="fas fa-sun"></i> كلاكم نور</span>
                     <div style="display: flex; gap: 6px;">
                         <button class="tactile-btn mini-action-btn" onclick="loadRandomDailyHadith()" title="تجديد الإشراقة">
                             <i class="fas fa-rotate"></i>
@@ -62,19 +62,17 @@
                 </div>
             </div>
         </section>
-                        <!-- 🌟 بانر أهم الكتب (سلايدر تلقائي) -->
-        <section style="padding: 5px 20px 15px;">
-            <div class="hero-slider-wrap glass-box" style="padding: 0; overflow: hidden; position: relative;">
-                <div class="hero-slider-track" id="heroSliderTrack">
-                    <!-- سيتم حقن البطاقات هنا برمجياً -->
-                </div>
-                <div class="hero-indicators" id="heroIndicators"></div>
-            </div>
-        </section>
 
         <!-- شبكة رفوف الكتب -->
         <section class="books-section">
             <h3 class="text-white" style="margin: 0 20px 10px; font-size: 15px;">خزانة المتون والمؤلفات</h3>
+            
+            <!-- حاوية السلايدر المضافة -->
+            <div class="hero-slider-wrap" style="margin: 0 20px 16px; position: relative;">
+                <div class="hero-slider-track" id="heroSliderTrack"></div>
+                <div class="hero-indicators" id="heroIndicators"></div>
+            </div>
+
             <div class="books-grid-container" id="dynamicBooksContainer">
                 <div style="color:var(--text-muted); padding: 0 20px; grid-column: span 2; text-align: center;">انتظر يامحب محمد وآل محمد...</div>
             </div>
