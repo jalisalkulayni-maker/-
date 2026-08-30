@@ -138,7 +138,7 @@ function attachTactilePhysics(btn) {
     btn.addEventListener('touchcancel', () => btn.classList.remove('pressed'), { passive: true });
 }
 
-// ==================== إدارة التبويبات والشاشات مع دعم الرجوع الذكي ====================
+// ==================== إدارة التبويبات والشاشات ====================
 function showView(viewId, pushHistory = true) {
     if (document.getElementById('homeView')?.classList.contains('active') && viewId !== 'homeView') {
         savedScrollPosition = window.scrollY || document.documentElement.scrollTop || 0;
@@ -216,7 +216,6 @@ window.addEventListener('popstate', (event) => {
     }
 });
 
-// ==================== معالجة وتوحيد النصوص العربية ====================
 function normalizeArabicText(text) {
     if (!text) return "";
     return text
@@ -309,7 +308,6 @@ function getVolumeNumber(vol) {
     let norm = normalizeArabicText(cleanTitle);
     let lowerId = (vol.id || "").toLowerCase();
 
-    // 📖 الروضة هي الجزء الثامن من الكافي
     if (norm.includes("الروضه") || lowerId.includes("rawda")) {
         return 8;
     }
@@ -345,22 +343,18 @@ function getGroupName(book, bookId) {
     let rawTitle = (book.title || "").trim();
     let normTitle = normalizeArabicText(rawTitle);
 
-    // 📜 1. المخطوطات والوثائق مستقلة دائماً
     if (book.pdf_url || lowerId.includes("mkh") || normTitle.includes("مخطوط") || normTitle.includes("مخطوطه") || normTitle.includes("نسخه خطيه") || normTitle.includes("وثيقه")) {
         return rawTitle;
     }
 
-    // 📚 2. فصل الأصول الستة عشر تماماً عن الكافي
     if (normTitle.includes("الاصول السته عشر") || normTitle.includes("الاصول ١٦") || lowerId.includes("osol16") || lowerId.includes("usul16")) {
         return "الأصول الستة عشر";
     }
 
-    // 📚 3. توحيد ودمج جميع أجزاء مناقب الإمام أمير المؤمنين (ع) في بطاقة واحدة
     if (normTitle.includes("مناقب الامام امير") || normTitle.includes("مناقب امير المومنين") || lowerId.startsWith("mnqb_amr") || lowerId.startsWith("mnqb_amir")) {
         return "مناقب الإمام أمير المؤمنين (عليه السلام)";
     }
 
-    // 📚 4. الكافي الشريف بجميع أجزائه الثمانية (الأصول والفروع والروضة)
     if (lowerId.startsWith("kafi") || lowerId.startsWith("rawda") ||
        (normTitle.includes("الكافي") && !normTitle.includes("مرآه") && !normTitle.includes("مراه")) || 
        (normTitle.includes("الروضه") && !normTitle.includes("الواعظين") && !normTitle.includes("الجنان") && !normTitle.includes("الشهداء") && !normTitle.includes("الانوار"))) {
@@ -402,7 +396,6 @@ function getGroupName(book, bookId) {
     if (lowerId.startsWith("mjtna") || normTitle.includes("المجتنى") || normTitle.includes("المجتني")) return "المجتنى من الدعاء المجتبى";
     if (lowerId.startsWith("slwh") || normTitle.includes("سلوه الحزين") || normTitle.includes("سلوة الحزين") || normTitle.includes("الدعوات للراوندي")) return "الدعوات (سلوة الحزين)";
     
-    // فلاح السائل فقط (مفصول عن كتب الفضائل)
     if (lowerId.startsWith("flah") || lowerId.startsWith("falah") || normTitle.includes("فلاح السائل")) return "فلاح السائل ونجاح المسائل";
     
     if (lowerId.startsWith("fth") || normTitle.includes("فتح الابواب") || normTitle.includes("فتح الأبواب")) return "فتح الأبواب في الاستخارات";
@@ -432,44 +425,48 @@ function getGroupName(book, bookId) {
     return clean || rawTitle;
 }
 
-// 🌟 تحديث تصنيفات الكتب لتطابق الترتيب والنصوص المطلوبة في الصور 🌟
+// 🌟 تحديث جذري: تجاوز تصنيفات الملفات القديمة وفرض التصنيفات والترتيب الجديد 🌟
 function getBookCategory(book) {
-    if (book.category && book.category.trim() !== "") return book.category.trim();
     let title = (book.title || "").toLowerCase();
+    let oldCat = (book.category || "").trim().toLowerCase();
+    
+    // دمج العنوان مع التصنيف القديم لتسهيل التقاط الكلمات المفتاحية
+    let combined = title + " " + oldCat;
 
-    // 0. المخطوطات والوثائق (استثناء للكتب المصورة)
-    if (book.pdf_url || title.includes("مخطوط") || title.includes("مخطوطة") || title.includes("نسخة خطية") || title.includes("وثيقة")) return "المخطوطات والوثائق التراثية";
+    // 1. المخطوطات والوثائق
+    if (book.pdf_url || combined.includes("مخطوط") || combined.includes("وثيقة")) return "المخطوطات والوثائق التراثية";
 
-    // 1. تفسير أهل البيت
-    if (title.includes("تفسير") || title.includes("القرآن") || title.includes("قرآن") || title.includes("بيان") || title.includes("برهان") || title.includes("عياشي") || title.includes("كنز") || title.includes("الميزان") || title.includes("الثقلين")) return "تفسير أهل البيت";
-
-    // 2. الكتب الأربعة
+    // 2. الكتب الأربعة (يجب أن تلتقط أولاً قبل الحديث)
     if (title.includes("الكافي") || title.includes("من لا يحضره") || title.includes("تهذيب الاحكام") || title.includes("تهذيب الأحكام") || title.includes("الاستبصار")) return "الكتب الأربعة";
 
-    // 4. كتب الغيبة (نضعها قبل العقائد العامة لضمان التقاطها)
-    if (title.includes("غيبة") || title.includes("الغيبة") || title.includes("كمال الدين") || title.includes("إلزام الناصب") || title.includes("الزام الناصب") || title.includes("المهدي")) return "كتب الغيبة";
+    // 3. كتب الغيبة
+    if (title.includes("غيبة") || title.includes("الغيبة") || title.includes("كمال الدين") || title.includes("الزام الناصب") || title.includes("إلزام الناصب") || title.includes("المهدي")) return "كتب الغيبة";
 
-    // 5. عقائد
-    if (title.includes("عقائد") || title.includes("توحيد") || title.includes("امامة") || title.includes("إمامة") || title.includes("عدل") || title.includes("اعتقادات")) return "عقائد";
+    // 4. تفسير أهل البيت
+    if (combined.includes("تفسير") || combined.includes("قرآن") || combined.includes("عياشي") || combined.includes("برهان") || combined.includes("الميزان") || combined.includes("الثقلين")) return "تفسير أهل البيت";
 
-    // 3. الحديث والرواية (بعد الكتب الأربعة لتجنب التداخل)
-    if (title.includes("حديث") || title.includes("بحار") || title.includes("وافي") || title.includes("وسائل") || title.includes("مستدرك") || title.includes("إحتجاج") || title.includes("احتجاج") || title.includes("العقول") || title.includes("فضائل") || title.includes("فضايل") || title.includes("اختصاص") || title.includes("إختصاص") || title.includes("مناقب") || title.includes("الاصول السته عشر") || title.includes("بصائر")) return "الحديث والرواية";
+    // 5. سيرة النبي وأهل بيته
+    if (combined.includes("سيرة") || combined.includes("تاريخ") || combined.includes("مقتل") || combined.includes("ارشاد") || combined.includes("إرشاد") || combined.includes("هجوم") || combined.includes("فاطمة")) return "سيرة النبي وأهل بيته";
 
     // 6. الفقه
-    if (title.includes("فقه") || title.includes("احكام") || title.includes("أحكام") || title.includes("شرايع") || title.includes("شرائع") || title.includes("رسالة") || title.includes("حدائق") || title.includes("المقنع")) return "الفقه";
+    if (combined.includes("فقه") || combined.includes("احكام") || combined.includes("أحكام") || combined.includes("شرايع") || combined.includes("شرائع") || combined.includes("حدائق") || combined.includes("رسالة")) return "الفقه";
 
-    // 7. سيرة النبي وأهل بيته
-    if (title.includes("تاريخ") || title.includes("سيرة") || title.includes("مقتل") || title.includes("إرشاد") || title.includes("الارشاد") || title.includes("هجوم") || title.includes("فاطمة")) return "سيرة النبي وأهل بيته";
+    // 7. عقائد
+    if (combined.includes("عقائد") || combined.includes("توحيد") || combined.includes("امامة") || combined.includes("إمامة") || combined.includes("عدل") || combined.includes("اعتقادات")) return "عقائد";
 
     // 8. رد الشبهات
-    if (title.includes("شبهات") || title.includes("رد") || title.includes("مناظرات") || title.includes("المراجعات") || title.includes("نقض")) return "رد الشبهات";
+    if (combined.includes("شبهات") || combined.includes("رد") || combined.includes("مناظرات") || combined.includes("مراجعات") || combined.includes("نقض")) return "رد الشبهات";
 
     // 9. الأخلاق
-    if (title.includes("أخلاق") || title.includes("اخلاق") || title.includes("آداب") || title.includes("مواعظ") || title.includes("ارشاد القلوب")) return "الأخلاق";
+    if (combined.includes("أخلاق") || combined.includes("اخلاق") || combined.includes("آداب") || combined.includes("مواعظ") || combined.includes("ارشاد القلوب")) return "الأخلاق";
 
     // 10. الدعاء والزيارة
-    if (title.includes("دعاء") || title.includes("صحيفة") || title.includes("زيارة") || title.includes("مناجات") || title.includes("مفاتيح") || title.includes("إقبال") || title.includes("اقبال") || title.includes("مصباح") || title.includes("مهج") || title.includes("مزار") || title.includes("زاد المعاد") || title.includes("البلد الامين") || title.includes("الدروع") || title.includes("فلاح السائل") || title.includes("جمال الاسبوع")) return "الداء والزيارة";
+    if (combined.includes("دعاء") || combined.includes("أدعية") || combined.includes("ادعية") || combined.includes("صحيفة") || combined.includes("زيارة") || combined.includes("مناجات") || combined.includes("مفاتيح") || combined.includes("اقبال") || combined.includes("إقبال") || combined.includes("مصباح") || combined.includes("مزار") || combined.includes("مهج")) return "الدعاء والزيارة";
 
+    // 11. الحديث والرواية (تلتقط باقي الكتب المتعلقة بالحديث والمصادر)
+    if (combined.includes("حديث") || combined.includes("بحار") || combined.includes("وافي") || combined.includes("وسائل") || combined.includes("مستدرك") || combined.includes("احتجاج") || combined.includes("إحتجاج") || combined.includes("عقول") || combined.includes("فضائل") || combined.includes("فضايل") || combined.includes("بصائر") || combined.includes("مناقب") || combined.includes("اصول")) return "الحديث والرواية";
+
+    // إذا لم يتطابق مع أي من الشروط، يتم وضعه في المتون العامة
     return "المتون العامة";
 }
 
@@ -685,7 +682,7 @@ function setupHeroSlider(count) {
     }, 4000);
 }
 
-// 🌟 تحديث ترتيب الأقسام ليطابق الصور تماماً 🌟
+// 🌟 ترتيب الفهرس بشكل قسري بناءً على المصفوفة، متجاهلاً الترتيب الأبجدي 🌟
 function renderCatalogAccordion() {
     const catalogContainer = document.getElementById('catalogAccordionContainer');
     if (!catalogContainer) return;
@@ -711,6 +708,8 @@ function renderCatalogAccordion() {
         const booksInGroup = groups[groupTitle];
         booksInGroup.sort((a, b) => getVolumeNumber(a) - getVolumeNumber(b));
         const mainBook = booksInGroup[0];
+        
+        // جلب التصنيف الجديد
         const cat = getBookCategory(mainBook);
 
         if (!categoriesMap[cat]) categoriesMap[cat] = [];
@@ -719,7 +718,7 @@ function renderCatalogAccordion() {
 
     catalogContainer.innerHTML = '';
 
-    // مصفوفة الترتيب الثابت بناءً على الصور المرفقة
+    // قائمة الفرز الصارمة المستندة لصورك
     const categoryOrder = [
         "تفسير أهل البيت",
         "الكتب الأربعة",
@@ -735,13 +734,18 @@ function renderCatalogAccordion() {
         "المتون العامة"
     ];
 
-    // فرز الفئات بناءً على المصفوفة أعلاه بدلاً من الترتيب الأبجدي
+    // عملية فرز قسرية للأقسام
     const sortedCategories = Object.keys(categoriesMap).sort((a, b) => {
-        let indexA = categoryOrder.indexOf(a);
-        let indexB = categoryOrder.indexOf(b);
-        // وضع أي أقسام غير موجودة في المصفوفة في النهاية
+        let indexA = categoryOrder.indexOf(a.trim());
+        let indexB = categoryOrder.indexOf(b.trim());
+        
         if (indexA === -1) indexA = 999;
         if (indexB === -1) indexB = 999;
+        
+        // إذا كان كلا القسمين غير موجودين في القائمة المرجعية، نرتبهم أبجدياً
+        if (indexA === 999 && indexB === 999) {
+            return a.localeCompare(b, 'ar');
+        }
         
         return indexA - indexB;
     });
