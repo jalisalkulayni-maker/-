@@ -329,6 +329,12 @@ body {
     text-justify: inter-word;
 }
 
+.footnote-item {
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.8;
+    margin-top: 6px;
+}
 .footnote-first {
     margin-top: 25px;
     border-top: 1px dashed var(--surface-border);
@@ -452,7 +458,7 @@ body {
     background: var(--surface-glass);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border-bottom: 1px solid var(--surface-border);
+    border-top: 1px solid var(--surface-border);
     padding: 10px 16px 14px;
     z-index: 10;
     display: flex;
@@ -933,11 +939,13 @@ body {
 
 /* ==================== بانر السلايدر التلقائي ==================== */
 .hero-slider-wrap {
-    width: 100%;
+    width: auto;
     height: 140px;
     border: 1px solid var(--gold-border);
     box-shadow: 0 4px 15px rgba(0,0,0,0.4);
     border-radius: 16px;
+    background: var(--surface-glass);
+    overflow: hidden;
 }
 .hero-slider-track {
     display: flex;
@@ -1004,6 +1012,7 @@ body {
     border-radius: 6px;
     font-size: 10px;
     font-weight: bold;
+    border: none;
 }
 .hero-indicators {
     position: absolute;
@@ -1025,15 +1034,16 @@ body {
     width: 14px;
     border-radius: 3px;
 }
-/* ==================== نافذة الحاشية المنبثقة ==================== */
+
+/* ==================== الحواشي المنبثقة ==================== */
 .footnote-toast {
     position: fixed;
-    bottom: 80px; /* ليكون فوق شريط القارئ السفلي */
+    bottom: 80px;
     left: 50%;
     transform: translateX(-50%) translateY(20px);
     width: 90%;
     max-width: 450px;
-    max-height: 250px; /* لمنع النافذة من تغطية الشاشة لو كانت الحاشية طويلة */
+    max-height: 250px;
     overflow-y: auto;
     background: rgba(12, 22, 18, 0.95);
     backdrop-filter: blur(10px);
@@ -1056,7 +1066,6 @@ body {
     opacity: 1;
     pointer-events: auto;
 }
-/* تلوين رقم الحاشية داخل النافذة بالذهبي */
 .footnote-toast strong {
     color: var(--gold-bright);
     margin-left: 4px;
