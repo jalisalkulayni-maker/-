@@ -425,7 +425,7 @@ function getGroupName(book, bookId) {
     return clean || rawTitle;
 }
 
-// 🌟 تحديث جذري: تجاوز تصنيفات الملفات القديمة وفرض التصنيفات والترتيب الجديد 🌟
+// 🌟 تحديث جذري: تجاوز تصنيفات الملفات القديمة وفرض التصنيفات والترتيب الجديد بدقة متناهية 🌟
 function getBookCategory(book) {
     let rawTitle = (book.title || "").toLowerCase();
     let rawCat = (book.category || "").trim().toLowerCase();
@@ -436,37 +436,46 @@ function getBookCategory(book) {
     // 1. المخطوطات والوثائق
     if (book.pdf_url || combined.includes("مخطوط") || combined.includes("وثيقه")) return "المخطوطات والوثائق التراثية";
 
-    // 2. الكتب الأربعة (يجب أن تلتقط أولاً قبل الحديث)
+    // 📌 استثناءات قوية جداً لضمان دخول أمهات الكتب في "الحديث والرواية" وعدم انجرارها خلف كلمات مفتاحية أخرى
+    if (combined.includes("كامل الزيارات") || 
+        combined.includes("علل الشرايع") || 
+        combined.includes("دلائل الامامه") || 
+        combined.includes("ارشاد القلوب") || 
+        combined.includes("كمال الدين")) {
+        return "الحديث والرواية";
+    }
+
+    // 2. الكتب الأربعة
     if (combined.includes("الكافي") || combined.includes("من لا يحضره") || combined.includes("تهذيب الاحكام") || combined.includes("الاستبصار")) return "الكتب الأربعة";
 
     // 3. كتب الغيبة
-    if (combined.includes("غيبه") || combined.includes("كمال الدين") || combined.includes("الزام الناصب") || combined.includes("المهدي")) return "كتب الغيبة";
+    if (combined.includes("غيبه") || combined.includes("الزام الناصب") || combined.includes("المهدي") || combined.includes("الايقاظ من الهجعه") || combined.includes("النجم الثاقب") || combined.includes("توقيعات") || combined.includes("الرجعه")) return "كتب الغيبة";
 
-    // 4. تفسير أهل البيت (تمت إضافة الكتب الأربعة المطلوبة هنا)
-    if (combined.includes("تفسير") || combined.includes("قران") || combined.includes("عياشي") || combined.includes("برهان") || combined.includes("الميزان") || combined.includes("الثقلين") || combined.includes("اسباب النزول") || combined.includes("عين العبره") || combined.includes("عيون الغرر") || combined.includes("تاويل الايات")) return "تفسير أهل البيت";
+    // 4. تفسير أهل البيت
+    if (combined.includes("تفسير") || combined.includes("قران") || combined.includes("عياشي") || combined.includes("برهان") || combined.includes("الميزان") || combined.includes("الثقلين") || combined.includes("اسباب النزول") || combined.includes("عين العبره") || combined.includes("عيون الغرر") || combined.includes("تاويل الايات") || combined.includes("تاويل ما نزل") || combined.includes("مراه الانوار") || combined.includes("المحكم والمتشابه")) return "تفسير أهل البيت";
 
-    // 5. سيرة النبي وأهل بيته
-    if (combined.includes("سيره") || combined.includes("تاريخ") || combined.includes("مقتل") || combined.includes("ارشاد") || combined.includes("هجوم") || combined.includes("فاطمه")) return "سيرة النبي وأهل بيته";
+    // 5. رد الشبهات (تم رفعها قبل العقائد لتجنب التقاط كلمة "امامة" بالخطأ لكتاب بهجة النظر)
+    if (combined.includes("شبهات") || combined.includes("رد") || combined.includes("مناظرات") || combined.includes("مراجعات") || combined.includes("نقض") || combined.includes("بهجه النظر") || combined.includes("غايه المرام") || combined.includes("حجه الخصام")) return "رد الشبهات";
 
-    // 6. الفقه
-    if (combined.includes("فقه") || combined.includes("احكام") || combined.includes("شرايع") || combined.includes("شرائع") || combined.includes("حدائق") || combined.includes("رساله")) return "الفقه";
+    // 6. سيرة النبي وأهل بيته
+    if (combined.includes("سيره") || combined.includes("تاريخ") || combined.includes("مقتل") || combined.includes("ارشاد") || combined.includes("هجوم") || combined.includes("فاطمه") || combined.includes("حليه الابرار") || combined.includes("نوادر المعجزات") || combined.includes("عوالم العلوم")) return "سيرة النبي وأهل بيته";
 
-    // 7. عقائد
-    if (combined.includes("عقائد") || combined.includes("عقايد") || combined.includes("توحيد") || combined.includes("امامه") || combined.includes("عدل") || combined.includes("اعتقادات")) return "عقائد";
+    // 7. الفقه
+    if (combined.includes("فقه") || combined.includes("احكام") || combined.includes("شرايع") || combined.includes("شرائع") || combined.includes("حدائق") || combined.includes("رساله") || combined.includes("المقنع")) return "الفقه";
 
-    // 8. رد الشبهات
-    if (combined.includes("شبهات") || combined.includes("رد") || combined.includes("مناظرات") || combined.includes("مراجعات") || combined.includes("نقض")) return "رد الشبهات";
+    // 8. عقائد
+    if (combined.includes("عقائد") || combined.includes("عقايد") || combined.includes("توحيد") || combined.includes("امامه") || combined.includes("عدل") || combined.includes("اعتقادات") || combined.includes("سفينه النجاه") || combined.includes("كنز الفوائد")) return "عقائد";
 
     // 9. الأخلاق
-    if (combined.includes("اخلاق") || combined.includes("اداب") || combined.includes("مواعظ") || combined.includes("ارشاد القلوب")) return "الأخلاق";
+    if (combined.includes("اخلاق") || combined.includes("اداب") || combined.includes("مواعظ")) return "الأخلاق";
 
     // 10. الدعاء والزيارة
-    if (combined.includes("دعاء") || combined.includes("ادعيه") || combined.includes("صحيفه") || combined.includes("زياره") || combined.includes("مناجات") || combined.includes("مفاتيح") || combined.includes("اقبال") || combined.includes("مصباح") || combined.includes("مزار") || combined.includes("مهج")) return "الدعاء والزيارة";
+    if (combined.includes("دعاء") || combined.includes("ادعيه") || combined.includes("صحيفه") || combined.includes("زياره") || combined.includes("مناجات") || combined.includes("مفاتيح") || combined.includes("اقبال") || combined.includes("مصباح") || combined.includes("مزار") || combined.includes("مهج") || combined.includes("زاد المعاد") || combined.includes("البلد الامين") || combined.includes("الدروع") || combined.includes("فلاح السائل") || combined.includes("جمال الاسبوع")) return "الدعاء والزيارة";
 
-    // 11. الحديث والرواية (تلتقط باقي الكتب المتعلقة بالحديث والمصادر)
-    if (combined.includes("حديث") || combined.includes("بحار") || combined.includes("وافي") || combined.includes("وسائل") || combined.includes("مستدرك") || combined.includes("احتجاج") || combined.includes("عقول") || combined.includes("فضائل") || combined.includes("فضايل") || combined.includes("بصائر") || combined.includes("مناقب") || combined.includes("اصول")) return "الحديث والرواية";
+    // 11. الحديث والرواية (تمت إضافة جميع الكتب التي أرفقتها في الصور هنا)
+    if (combined.includes("حديث") || combined.includes("بحار") || combined.includes("وافي") || combined.includes("وسائل") || combined.includes("مستدرك") || combined.includes("احتجاج") || combined.includes("عقول") || combined.includes("فضائل") || combined.includes("فضايل") || combined.includes("بصائر") || combined.includes("مناقب") || combined.includes("اصول") || combined.includes("خرائج") || combined.includes("محاسن") || combined.includes("بشاره") || combined.includes("رجال") || combined.includes("كتب الصدوق") || combined.includes("نهج البلاغه") || combined.includes("عيون اخبار") || combined.includes("سليم بن قيس") || combined.includes("معاجز") || combined.includes("مشارق") || combined.includes("امالي")) return "الحديث والرواية";
 
-    // إذا لم يتطابق مع أي من الشروط، يتم وضعه في المتون العامة
+    // المتون العامة
     return "المتون العامة";
 }
 
