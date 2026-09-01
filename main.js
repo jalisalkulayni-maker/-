@@ -5,16 +5,21 @@ const MANIFEST_FILES = [
     "./manifest_3.json",
     "./manifest_4.json",
     "./manifest_5.json",
+    "./manifest_6.json",
     "./data/manifest.json",
     "./data/manifest_2.json",
     "./data2/manifest.json",
     "./data2/manifest_2.json",
     "./data3/manifest.json",
+    "./data3/manifest_2.json",
     "./data3/manifest_3.json",
     "./data4/manifest.json",
+    "./data4/manifest_2.json",
     "./data4/manifest_4.json",
     "./data5/manifest.json",
+    "./data5/manifest_2.json",
     "./data5/manifest_5.json",
+    "./data6/manifest.json",
     "./data6/manifest_6.json",
     "./books/manifest.json"
 ];
@@ -178,76 +183,75 @@ function attachTactilePhysics(btn) {
 }
 
 // ==================== المرشد العائم الذكي ====================
-const GUIDE_STORAGE_KEY = 'library_guide_position_v2';
+const GUIDE_STORAGE_KEY = 'library_guide_position_v3';
 let guideDragState = null;
 let guideStep = 0;
-const guideTargets = {
-    homeView: [
-        {selector:'#navCatalogBtn', text:'قائمة الكتب: اضغط هنا للوصول إلى جميع الكتب والمجموعات.'},
-        {selector:'#navTagsBtn', text:'الوسوم: تجد هنا النصوص والاقتباسات التي صنّفتها.'},
-        {selector:'#navSearchBtn', text:'البحث: ابحث عن كتاب أو نص بسرعة.'},
-        {selector:'#navAppearanceBtn', text:'ألوان الواجهة: غيّر مظهر المكتبة بالكامل من هنا.'}
-    ],
-    catalogView: [
-        {selector:'#navSearchBtn', text:'البحث: استخدمه للوصول السريع إلى كتاب أو نص.'},
-        {selector:'#navHomeBtn', text:'الرواق: يعيدك إلى الصفحة الرئيسية للمكتبة.'}
-    ],
-    tagsView: [
-        {selector:'#navSearchBtn', text:'البحث: يمكنك البحث داخل المكتبة للوصول إلى ما تريد.'},
-        {selector:'#navCatalogBtn', text:'قائمة الكتب: للعودة إلى تصفح الكتب والمجموعات.'}
-    ],
-    searchView: [
-        {selector:'#navCatalogBtn', text:'قائمة الكتب: للعودة إلى تصفح الكتب.'},
-        {selector:'#navHomeBtn', text:'الرواق: للعودة إلى الصفحة الرئيسية.'}
-    ],
-    readerView: [
-        {selector:'#downloadPdfBtn', text:'PDF: تنزيل الكتاب أو فتح ملفه الأصلي.'},
-        {selector:'#bookmarkBtn', text:'الإشارة المرجعية: احفظ موضع القراءة للعودة إليه لاحقًا.'},
-        {selector:'button[onclick*="copyCurrentCitation"]', text:'نسخ مع المصدر: ينسخ الصفحة مع بيانات الكتاب ورقم الصفحة.'},
-        {selector:'button[onclick*="shareCurrentPage"]', text:'المشاركة: يرسل رابطًا يفتح الموضع نفسه مباشرة.'},
-        {selector:'button[onclick*="openInBookSearch"]', text:'بحث داخل الكتاب: ابحث في صفحات الكتاب المفتوح.'},
-        {selector:'#openTocBtn', text:'الفهرس: انتقل بين أبواب وفصول الكتاب بسرعة.'},
-        {selector:'button[onclick*="openSettings"]', text:'إعدادات القراءة: الخط والحجم وثيم صفحة الكتاب.'},
-        {selector:'button[onclick*="nextPage"]', text:'الصفحة التالية: انتقل إلى الصفحة التالية.'},
-        {selector:'button[onclick*="prevPage"]', text:'الصفحة السابقة: عد إلى الصفحة السابقة.'},
-        {selector:'#inlineJumpInput', text:'انتقال مباشر: اكتب رقم الصفحة ثم اضغط «انتقال».'}
-    ]
+const GUIDE_TEXT = {
+    '#navHomeBtn':'الرواق: العودة إلى الصفحة الرئيسية للمكتبة.',
+    '#navCatalogBtn':'قائمة الكتب: تصفح الكتب والمجلدات المتاحة.',
+    '#navTagsBtn':'الوسوم: استعرض التصنيفات والمواد المصنفة.',
+    '#navSearchBtn':'البحث: ابحث عن كتاب أو نص بسرعة.',
+    '#navAppearanceBtn':'ألوان الواجهة: غيّر مظهر المكتبة من خارج الكتاب.',
+    '#downloadPdfBtn':'PDF: تنزيل أو فتح ملف الكتاب الأصلي.',
+    '#bookmarkBtn':'الإشارة المرجعية: احفظ موضع القراءة للعودة إليه لاحقًا.',
+    '#openTocBtn':'الفهرس: انتقل بين أبواب وفصول الكتاب.',
+    '#inlineJumpInput':'الانتقال المباشر: أدخل رقم الصفحة ثم انتقل إليها.'
 };
-function currentGuideSteps(viewId=document.querySelector('.stage-view.active')?.id||'homeView'){ return guideTargets[viewId]||guideTargets.homeView; }
-function getGuideTarget(viewId=document.querySelector('.stage-view.active')?.id||'homeView'){
-    const steps=currentGuideSteps(viewId); if(!steps.length)return null; if(guideStep>=steps.length)guideStep=0;
-    for(let i=0;i<steps.length;i++){ const index=(guideStep+i)%steps.length; const item=steps[index]; try{const el=document.querySelector(item.selector); if(el&&el.offsetParent!==null&&getComputedStyle(el).visibility!=='hidden')return {el,item,index};}catch(e){} }
-    return null;
+function getVisibleGuideTargets(viewId){
+    const root=document.getElementById(viewId)||document;
+    const selectors=viewId==='readerView'
+        ? ['#downloadPdfBtn','#bookmarkBtn','button[onclick*="copyCurrentCitation"]','button[onclick*="shareCurrentPage"]','button[onclick*="openInBookSearch"]','#openTocBtn','button[onclick*="openSettings"]','button[onclick*="prevPage"]','button[onclick*="nextPage"]','#inlineJumpInput']
+        : ['#navHomeBtn','#navCatalogBtn','#navTagsBtn','#navSearchBtn','#navAppearanceBtn'];
+    return selectors.map(selector=>{try{const el=document.querySelector(selector);if(!el||!root.contains(el))return null;const r=el.getBoundingClientRect(),cs=getComputedStyle(el);if(r.width<2||r.height<2||cs.display==='none'||cs.visibility==='hidden'||cs.opacity==='0')return null;let text=GUIDE_TEXT[selector]||el.getAttribute('aria-label')||el.getAttribute('title')||el.textContent?.trim()||'هذه أداة متاحة في الصفحة الحالية.';return {el,selector,text:text.replace(/\s+/g,' ').trim()};}catch(e){return null;}}).filter(Boolean);
 }
+function currentGuideSteps(viewId=document.querySelector('.stage-view.active')?.id||'homeView'){return getVisibleGuideTargets(viewId);}
 function updateGuideContext(viewId=document.querySelector('.stage-view.active')?.id||'homeView'){
-    const text=document.getElementById('guideSpeechText'),counter=document.getElementById('guideStepCounter'),steps=currentGuideSteps(viewId);
-    const idx=Math.min(guideStep,Math.max(0,steps.length-1)); if(text)text.textContent=steps[idx]?.text||'اضغط على المرشد وسأدلك على أدوات الصفحة.'; if(counter)counter.textContent=steps.length?`${idx+1} / ${steps.length}`:'';
+    const steps=currentGuideSteps(viewId); if(guideStep>=steps.length)guideStep=0;
+    const item=steps[guideStep];
+    const text=document.getElementById('guideSpeechText'),counter=document.getElementById('guideStepCounter');
+    if(text)text.textContent=item?.text||'اضغط على المرشد وسأدلك على أدوات الصفحة الحالية.';
+    if(counter)counter.textContent=steps.length?`${guideStep+1} / ${steps.length}`:'';
+}
+function positionGuideBubble(){
+    const guide=document.getElementById('floatingGuide'),bubble=document.getElementById('guideSpeechBubble'); if(!guide||!bubble)return;
+    const r=guide.getBoundingClientRect(),bw=Math.min(285,innerWidth-16),bh=Math.min(bubble.scrollHeight||160,Math.floor(innerHeight*.48));
+    bubble.style.width=bw+'px';
+    let left=r.left+r.width-bw, top=r.top-bh-12;
+    if(top<8) top=r.bottom+12;
+    if(top+bh>innerHeight-8) top=Math.max(8,innerHeight-bh-8);
+    left=Math.max(8,Math.min(innerWidth-bw-8,left));
+    bubble.style.left=left+'px'; bubble.style.top=top+'px'; bubble.style.right='auto'; bubble.style.bottom='auto';
+    const afterX=Math.max(12,Math.min(bw-22,r.left+r.width/2-left-5)); bubble.style.setProperty('--guide-tail-left',afterX+'px');
 }
 function positionGuideArrow(target){
-    let arrow=document.getElementById('guideArrow'); if(!arrow){arrow=document.createElement('div');arrow.id='guideArrow';arrow.setAttribute('aria-hidden','true');document.body.appendChild(arrow);}
-    const guide=document.getElementById('floatingGuide')||document.querySelector('.floating-guide-container'); if(!guide||!target){arrow.style.display='none';return;}
-    const a=guide.getBoundingClientRect(),b=target.getBoundingClientRect(),x1=a.left+a.width/2,y1=a.top+a.height/2,x2=b.left+b.width/2,y2=b.top+b.height/2,dx=x2-x1,dy=y2-y1,len=Math.max(18,Math.hypot(dx,dy));
-    arrow.style.display='block';arrow.style.left=x1+'px';arrow.style.top=y1+'px';arrow.style.width=len+'px';arrow.style.transform=`rotate(${Math.atan2(dy,dx)}rad)`;
+    let arrow=document.getElementById('guideArrow');if(!arrow){arrow=document.createElement('div');arrow.id='guideArrow';document.body.appendChild(arrow);}
+    const guide=document.getElementById('floatingGuide');if(!guide||!target){arrow.style.display='none';return;}
+    const a=guide.getBoundingClientRect(),b=target.getBoundingClientRect(),x1=a.left+a.width/2,y1=a.top+a.height/2,x2=b.left+b.width/2,y2=b.top+b.height/2,dx=x2-x1,dy=y2-y1,len=Math.max(20,Math.hypot(dx,dy));
+    arrow.style.left=x1+'px';arrow.style.top=y1+'px';arrow.style.width=len+'px';arrow.style.transform=`rotate(${Math.atan2(dy,dx)}rad)`;arrow.style.display='block';
 }
 function guideFocusTarget(){
-    const viewId=document.querySelector('.stage-view.active')?.id||'homeView',found=getGuideTarget(viewId); updateGuideContext(viewId); if(!found){positionGuideArrow(null);return;} const target=found.el;
-    target.scrollIntoView({behavior:'smooth',block:'center',inline:'center'}); setTimeout(()=>positionGuideArrow(target),280);
+    const viewId=document.querySelector('.stage-view.active')?.id||'homeView',steps=currentGuideSteps(viewId);if(!steps.length){positionGuideArrow(null);return;}
+    if(guideStep>=steps.length)guideStep=0;const target=steps[guideStep].el;updateGuideContext(viewId);positionGuideBubble();
+    const isFixed=!!target.closest('.modal-overlay,.reader-bottom-bar,.glass-bottom-nav');
+    if(!isFixed) target.scrollIntoView({behavior:'smooth',block:'center',inline:'center'});
+    setTimeout(()=>{positionGuideBubble();positionGuideArrow(target);},isFixed?40:300);
     target.classList.remove('guide-focus-pulse');void target.offsetWidth;target.classList.add('guide-focus-pulse');setTimeout(()=>target.classList.remove('guide-focus-pulse'),2300);
 }
-function toggleGuideBubble(){const bubble=document.getElementById('guideSpeechBubble');if(!bubble)return;const opening=getComputedStyle(bubble).display==='none';bubble.style.display=opening?'block':'none';if(opening){updateGuideContext();setTimeout(guideFocusTarget,100);}else{document.getElementById('guideArrow')?.style.setProperty('display','none');}}
+function toggleGuideBubble(){const bubble=document.getElementById('guideSpeechBubble');if(!bubble)return;const opening=getComputedStyle(bubble).display==='none';if(opening){bubble.style.display='block';guideStep=0;updateGuideContext();setTimeout(guideFocusTarget,40);}else hideGuideBubble();}
 function hideGuideBubble(){const b=document.getElementById('guideSpeechBubble');if(b)b.style.display='none';document.getElementById('guideArrow')?.style.setProperty('display','none');}
-function advanceGuide(){const steps=currentGuideSteps();if(!steps.length)return;guideStep=(guideStep+1)%steps.length;updateGuideContext();guideFocusTarget();}
+function advanceGuide(){const steps=currentGuideSteps();if(!steps.length)return;guideStep=(guideStep+1)%steps.length;guideFocusTarget();}
 function initGuideDrag(){
     const guide=document.querySelector('.floating-guide-container'),handle=guide?.querySelector('.guide-avatar');if(!guide||!handle||guide.dataset.dragReady==='1')return;guide.dataset.dragReady='1';
-    try{const saved=JSON.parse(localStorage.getItem(GUIDE_STORAGE_KEY)||'null');if(saved&&Number.isFinite(saved.x)&&Number.isFinite(saved.y)){const w=guide.offsetWidth||44,h=guide.offsetHeight||44;guide.style.left=Math.max(4,Math.min(innerWidth-w-4,saved.x))+'px';guide.style.top=Math.max(4,Math.min(innerHeight-h-4,saved.y))+'px';guide.style.right='auto';guide.style.bottom='auto';}}catch(e){}
-    const down=e=>{const r=guide.getBoundingClientRect();guideDragState={startX:e.clientX,startY:e.clientY,baseLeft:r.left,baseTop:r.top,moved:false};handle.classList.add('is-dragging');handle.setPointerCapture?.(e.pointerId);e.preventDefault();};
-    const move=e=>{if(!guideDragState)return;const dx=e.clientX-guideDragState.startX,dy=e.clientY-guideDragState.startY;if(Math.abs(dx)+Math.abs(dy)>5)guideDragState.moved=true;const w=guide.offsetWidth||44,h=guide.offsetHeight||44;guide.style.left=Math.max(4,Math.min(innerWidth-w-4,guideDragState.baseLeft+dx))+'px';guide.style.top=Math.max(4,Math.min(innerHeight-h-4,guideDragState.baseTop+dy))+'px';guide.style.right='auto';guide.style.bottom='auto';const t=getGuideTarget()?.el;if(t)positionGuideArrow(t);e.preventDefault();};
-    const up=()=>{if(!guideDragState)return;const moved=guideDragState.moved;guideDragState=null;handle.classList.remove('is-dragging');try{const r=guide.getBoundingClientRect();localStorage.setItem(GUIDE_STORAGE_KEY,JSON.stringify({x:r.left,y:r.top}));}catch(e){}if(moved){handle.dataset.suppressClick='1';setTimeout(()=>handle.dataset.suppressClick='0',180);}};
-    handle.addEventListener('pointerdown',down);window.addEventListener('pointermove',move,{passive:false});window.addEventListener('pointerup',up);window.addEventListener('pointercancel',up);handle.addEventListener('click',e=>{if(handle.dataset.suppressClick==='1'){e.preventDefault();e.stopPropagation();return;}toggleGuideBubble();});handle.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleGuideBubble();}});
+    try{const saved=JSON.parse(localStorage.getItem(GUIDE_STORAGE_KEY)||'null');if(saved&&Number.isFinite(saved.x)&&Number.isFinite(saved.y)){guide.style.left=Math.max(4,Math.min(innerWidth-(guide.offsetWidth||44)-4,saved.x))+'px';guide.style.top=Math.max(4,Math.min(innerHeight-(guide.offsetHeight||44)-4,saved.y))+'px';guide.style.right='auto';guide.style.bottom='auto';}}catch(e){}
+    const down=e=>{if(e.button!==undefined&&e.button!==0)return;const r=guide.getBoundingClientRect();guideDragState={startX:e.clientX,startY:e.clientY,baseLeft:r.left,baseTop:r.top,moved:false};handle.setPointerCapture?.(e.pointerId);handle.classList.add('is-dragging');e.preventDefault();};
+    const move=e=>{if(!guideDragState)return;const dx=e.clientX-guideDragState.startX,dy=e.clientY-guideDragState.startY;if(Math.abs(dx)+Math.abs(dy)>5)guideDragState.moved=true;const w=guide.offsetWidth||44,h=guide.offsetHeight||44;guide.style.left=Math.max(4,Math.min(innerWidth-w-4,guideDragState.baseLeft+dx))+'px';guide.style.top=Math.max(4,Math.min(innerHeight-h-4,guideDragState.baseTop+dy))+'px';guide.style.right='auto';guide.style.bottom='auto';if(getComputedStyle(document.getElementById('guideSpeechBubble')||document.body).display!=='none')positionGuideBubble();const t=currentGuideSteps()[guideStep]?.el;if(t)positionGuideArrow(t);e.preventDefault();};
+    const up=()=>{if(!guideDragState)return;const moved=guideDragState.moved;guideDragState=null;handle.classList.remove('is-dragging');try{const r=guide.getBoundingClientRect();localStorage.setItem(GUIDE_STORAGE_KEY,JSON.stringify({x:r.left,y:r.top}));}catch(e){}if(moved){handle.dataset.suppressClick='1';setTimeout(()=>handle.dataset.suppressClick='0',220);}};
+    handle.addEventListener('pointerdown',down);window.addEventListener('pointermove',move,{passive:false});window.addEventListener('pointerup',up);window.addEventListener('pointercancel',up);handle.addEventListener('click',e=>{if(handle.dataset.suppressClick==='1'){e.preventDefault();e.stopPropagation();return;}toggleGuideBubble();});
     const next=document.createElement('button');next.className='guide-next-btn';next.type='button';next.textContent='التالي';next.addEventListener('click',advanceGuide);guide.querySelector('.guide-speech-bubble')?.appendChild(next);updateGuideContext();
 }
 function initGuideWhenReady(){initGuideDrag();updateGuideContext();}
 document.addEventListener('DOMContentLoaded',initGuideWhenReady,{once:true});
+window.addEventListener('resize',()=>{const b=document.getElementById('guideSpeechBubble');if(b&&getComputedStyle(b).display!=='none')guideFocusTarget();});
 
 // ==================== إدارة التبويبات والشاشات ====================
 function showView(viewId, pushHistory = true) {
@@ -610,42 +614,67 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 7000) {
 async function loadLibraryManifest() {
     const container = document.getElementById('dynamicBooksContainer');
     if (!container) return;
-
     allBooksManifest = {};
+    const loadedSources = [];
+
+    const normalizeManifest = (raw) => {
+        if (!raw) return {};
+        if (Array.isArray(raw)) {
+            const out = {};
+            raw.forEach((book, i) => {
+                if (!book || typeof book !== 'object') return;
+                const id = String(book.id || book.book_id || book.slug || `book_${i + 1}`);
+                out[id] = book;
+            });
+            return out;
+        }
+        if (raw.books && typeof raw.books === 'object') return normalizeManifest(raw.books);
+        if (raw.data && typeof raw.data === 'object') return normalizeManifest(raw.data);
+        if (typeof raw === 'object') return raw;
+        return {};
+    };
+
+    const mergeBooks = (booksObj, source) => {
+        for (const [id, incoming] of Object.entries(normalizeManifest(booksObj))) {
+            if (!incoming || typeof incoming !== 'object') continue;
+            if (!allBooksManifest[id]) {
+                allBooksManifest[id] = { ...incoming };
+            } else {
+                const old = allBooksManifest[id];
+                allBooksManifest[id] = { ...old, ...incoming };
+                if ((old.cover || '').trim() && !(incoming.cover || '').trim()) allBooksManifest[id].cover = old.cover;
+                if (Array.isArray(old.pages) && !Array.isArray(incoming.pages)) allBooksManifest[id].pages = old.pages;
+                if (Array.isArray(old.toc) && !Array.isArray(incoming.toc)) allBooksManifest[id].toc = old.toc;
+            }
+        }
+        if (Object.keys(normalizeManifest(booksObj)).length) loadedSources.push(source);
+    };
 
     try {
-        const fetchPromises = MANIFEST_FILES.map(async (fileUrl) => {
+        // تحميل الفهارس الستة الأساسية أولاً، ثم المسارات القديمة/الإضافية.
+        const results = await Promise.all(MANIFEST_FILES.map(async (fileUrl) => {
             try {
-                let res = await fetchWithTimeout(fileUrl + '?v=' + Date.now(), {}, 7000);
-                if (res.ok) {
-                    const data = await res.json();
-                    return data.books || data;
-                }
-            } catch (err) {}
-            return {};
-        });
-
-        const results = await Promise.all(fetchPromises);
-
-        results.forEach(booksObj => {
-            for (let [id, bookData] of Object.entries(booksObj)) {
-                if (!bookData) continue;
-                if (allBooksManifest[id]) {
-                    const existingCover = (allBooksManifest[id].cover || "").trim();
-                    const newCover = (bookData.cover || "").trim();
-                    allBooksManifest[id] = { ...allBooksManifest[id], ...bookData };
-                    if (existingCover !== "" && newCover === "") {
-                        allBooksManifest[id].cover = existingCover;
-                    }
-                } else {
-                    allBooksManifest[id] = bookData;
-                }
+                const res = await fetchWithTimeout(fileUrl + (fileUrl.includes('?') ? '&' : '?') + 'v=' + Date.now(), {}, 7000);
+                if (!res.ok) return { url:fileUrl, data:{} };
+                return { url:fileUrl, data:await res.json() };
+            } catch (err) {
+                return { url:fileUrl, data:{} };
             }
-        });
+        }));
+        results.forEach(r => mergeBooks(r.data, r.url));
 
-        if (Object.keys(allBooksManifest).length === 0) {
-            throw new Error("لم يتم العثور على أي بيانات في ملفات manifest");
+        // إذا كان الاستدعاء محلياً ولم تُحمّل الفهارس، جرّب نسخة CDN دون أن تمنع بقية الفهارس.
+        if (!Object.keys(allBooksManifest).length) {
+            for (const fileUrl of MANIFEST_FILES) {
+                try {
+                    const remote = CLOUD_FALLBACK_URL + fileUrl.replace(/^\.\//, '');
+                    const res = await fetchWithTimeout(remote + '?v=' + Date.now(), {}, 9000);
+                    if (res.ok) mergeBooks(await res.json(), 'CDN:' + fileUrl);
+                } catch (err) {}
+            }
         }
+
+        if (Object.keys(allBooksManifest).length === 0) throw new Error('لم يتم العثور على أي بيانات في ملفات manifest');
 
         processAndRenderBooks(allBooksManifest);
         const loadStatus = document.getElementById('dynamicBooksContainer')?.querySelector('.library-load-status');
@@ -657,17 +686,12 @@ async function loadLibraryManifest() {
         const targetQuote = urlParams.get('quote');
         if (targetBookId && allBooksManifest[targetBookId]) {
             const b = allBooksManifest[targetBookId];
-            if (b.pdf_url) {
-                // روابط PDF لا تملك قارئ الصفحات الداخلي؛ نفتح الملف الأصلي مباشرة.
-                window.open(b.pdf_url, '_blank', 'noopener,noreferrer');
-            } else {
-                loadAndOpenBook(targetBookId, b.title, b.toc, b.total_pages, targetPage ? Number(targetPage) : null, targetQuote || '');
-            }
+            if (b.pdf_url) window.open(b.pdf_url, '_blank', 'noopener,noreferrer');
+            else loadAndOpenBook(targetBookId, b.title, b.toc, b.total_pages, targetPage ? Number(targetPage) : null, targetQuote || '');
         }
-
     } catch (err) {
         console.error(err);
-        container.innerHTML = `<div class="library-load-status" style="color:#ff6b6b; grid-column: span 3; text-align: center; font-size: 13px; padding: 20px;">تعذر تحميل الفهارس. تأكد من وجود ملفات manifest وبيانات الكتب في المستودع.</div>`;
+        container.innerHTML = `<div class="library-load-status" style="color:#ff6b6b;grid-column:span 3;text-align:center;font-size:13px;padding:20px;">تعذر تحميل الفهارس. تم فحص الفهارس الستة والمسارات الإضافية.</div>`;
     }
 }
 

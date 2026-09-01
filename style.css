@@ -1454,3 +1454,14 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
 .royal-toast{top:auto!important;bottom:calc(82px + env(safe-area-inset-bottom))!important;}
 .glass-bottom-nav{z-index:1200;}
 @media(max-width:560px){.reader-bottom-bar{padding-bottom:calc(8px + env(safe-area-inset-bottom));}.selection-toolbar{bottom:calc(82px + env(safe-area-inset-bottom))!important;}}
+/* ==================== إصلاح نهائي للمرشد العائم ==================== */
+.floating-guide-container{position:fixed!important;right:8px;bottom:calc(72px + env(safe-area-inset-bottom));left:auto;top:auto;width:46px;height:46px;z-index:10000;pointer-events:none;}
+.guide-avatar{pointer-events:auto!important;width:46px!important;height:46px!important;cursor:grab!important;touch-action:none!important;user-select:none!important;}
+.guide-avatar.is-dragging{cursor:grabbing!important;}
+.guide-speech-bubble{z-index:10001!important;position:fixed!important;display:none;width:min(285px,calc(100vw - 16px));max-height:48vh;overflow:auto;}
+.guide-speech-bubble::after{left:var(--guide-tail-left,calc(100% - 28px));right:auto!important;top:auto!important;bottom:-6px;}
+#guideArrow{z-index:9999!important;pointer-events:none!important;}
+@media(max-width:560px){
+ .floating-guide-container{width:44px;height:44px;right:6px;bottom:calc(68px + env(safe-area-inset-bottom));}
+ .guide-avatar{width:44px!important;height:44px!important;}
+}
