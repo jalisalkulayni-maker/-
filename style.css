@@ -949,7 +949,7 @@ body {
 .royal-toast {
     position: fixed;
     top: auto;
-    bottom: calc(76px + env(safe-area-inset-bottom));
+    bottom: calc(12px + env(safe-area-inset-bottom));
     left: 50%;
     transform: translateX(-50%) translateY(18px);
     background: color-mix(in srgb, var(--bg-dark) 94%, #000 6%);
@@ -1361,17 +1361,19 @@ body {
 
 
 /* ==================== المرشد العائم الذكي ==================== */
-.floating-guide-container{position:fixed;left:auto;top:auto;right:10px;bottom:calc(82px + env(safe-area-inset-bottom));width:44px;height:44px;z-index:6500;pointer-events:none;direction:rtl;}
-.guide-avatar{pointer-events:auto;position:absolute;inset:0;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--gold-border);background:linear-gradient(145deg,var(--surface-glass-strong,rgba(20,20,20,.94)),var(--surface-glass,rgba(15,15,15,.88)));box-shadow:0 8px 22px rgba(0,0,0,.32),0 0 0 2px rgba(212,175,55,.08);cursor:grab;user-select:none;touch-action:none;transition:transform .18s ease,box-shadow .18s ease;}
-.guide-avatar i{font-size:15px!important}.guide-avatar:hover{transform:scale(1.04)}.guide-avatar.is-dragging{cursor:grabbing;transform:scale(1.06)}
-.guide-badge-name{position:absolute;right:50%;bottom:-15px;transform:translateX(50%);font-size:8px;white-space:nowrap;color:var(--gold-bright);background:var(--surface-glass-strong,rgba(10,10,10,.9));border:1px solid var(--gold-border);border-radius:999px;padding:1px 5px;pointer-events:none;}
-.guide-speech-bubble{display:none;position:absolute;right:0;bottom:54px;width:min(275px,calc(100vw - 20px));padding:11px 12px 10px;border:1px solid var(--gold-border);border-radius:14px;background:linear-gradient(145deg,var(--surface-glass-strong,rgba(12,12,12,.97)),var(--surface-glass,rgba(12,12,12,.93)));box-shadow:0 14px 34px rgba(0,0,0,.42);backdrop-filter:blur(14px);color:var(--text-white);pointer-events:auto;}
-.guide-speech-bubble::after{content:"";position:absolute;right:16px;bottom:-7px;width:12px;height:12px;background:inherit;border-right:1px solid var(--gold-border);border-bottom:1px solid var(--gold-border);transform:rotate(45deg);}
-.guide-speech-text{margin:0;font-size:11px;line-height:1.7;color:var(--text-white)}
-.guide-focus-pulse{animation:guideFocusPulse .9s ease-in-out 2;outline:2px solid var(--gold-main)!important;outline-offset:3px;position:relative;z-index:6700}
-.guide-next-btn{display:block;margin:8px 0 0 auto;padding:4px 10px;border:1px solid var(--gold-border);background:var(--gold-dim);color:var(--gold-bright);border-radius:8px;font-size:10px;font-weight:700;cursor:pointer}
-@keyframes guideFocusPulse{0%,100%{box-shadow:0 0 0 rgba(212,175,55,0)}50%{box-shadow:0 0 0 7px rgba(212,175,55,.18),0 0 24px rgba(212,175,55,.30)}}
-@media(max-width:560px){.floating-guide-container{width:42px;height:42px;right:8px;bottom:calc(72px + env(safe-area-inset-bottom))}.guide-avatar{width:42px;height:42px}.guide-speech-bubble{width:min(265px,calc(100vw - 16px));right:-2px}}
+.floating-guide-container{position:fixed;right:10px;bottom:calc(78px + env(safe-area-inset-bottom));width:48px;height:48px;z-index:6000;pointer-events:none;direction:rtl;}
+.guide-avatar{pointer-events:auto;position:absolute;inset:0;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--gold-border);background:linear-gradient(145deg,var(--surface-glass-strong,rgba(20,20,20,.96)),var(--surface-glass,rgba(15,15,15,.92)));box-shadow:0 8px 22px rgba(0,0,0,.34),0 0 0 2px color-mix(in srgb,var(--gold-main) 12%,transparent);cursor:grab;user-select:none;touch-action:none;transition:transform .16s ease,box-shadow .16s ease;}
+.guide-avatar:hover{transform:scale(1.04)} .guide-avatar.is-dragging{cursor:grabbing;transform:scale(1.06)}
+.guide-badge-name{position:absolute;right:50%;bottom:-15px;transform:translateX(50%);font-size:8px;white-space:nowrap;color:var(--gold-bright);background:var(--surface-glass-strong,rgba(10,10,10,.92));border:1px solid var(--gold-border);border-radius:999px;padding:1px 6px;pointer-events:none;}
+.guide-speech-bubble{display:none;position:fixed;width:min(285px,calc(100vw - 20px));padding:11px 12px;border:1px solid var(--gold-border);border-radius:14px;background:linear-gradient(145deg,var(--surface-glass-strong,rgba(12,12,12,.97)),var(--surface-glass,rgba(12,12,12,.93)));box-shadow:0 16px 38px rgba(0,0,0,.42);backdrop-filter:blur(14px);color:var(--text-white);pointer-events:auto;z-index:6001;}
+.guide-speech-bubble::after{content:"";position:absolute;width:10px;height:10px;background:inherit;border-right:1px solid var(--gold-border);border-bottom:1px solid var(--gold-border);transform:rotate(45deg)}
+.guide-speech-text{margin:0;font-size:11px;line-height:1.75;color:var(--text-white)}
+.guide-focus-pulse{animation:guideFocusPulse .75s ease-in-out 3;outline:2px solid var(--gold-main)!important;outline-offset:3px;position:relative;z-index:1700}
+@keyframes guideFocusPulse{0%,100%{box-shadow:0 0 0 rgba(212,175,55,0)}50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--gold-main) 20%,transparent),0 0 22px color-mix(in srgb,var(--gold-main) 32%,transparent)}}
+.guide-step-counter{font-size:9px;color:var(--gold-main);margin-bottom:4px;font-weight:800}.guide-next-btn{margin-top:8px;width:100%;min-height:28px;border:1px solid var(--gold-border);border-radius:8px;background:var(--gold-dim);color:var(--gold-bright);font-weight:800;font-size:10px;cursor:pointer}
+#guideArrow{position:fixed;height:3px;width:40px;display:none;transform-origin:0 50%;z-index:5999;pointer-events:none;background:var(--gold-main);border-radius:99px;box-shadow:0 0 10px color-mix(in srgb,var(--gold-main) 55%,transparent)}
+#guideArrow::after{content:"";position:absolute;right:-1px;top:50%;width:9px;height:9px;border-top:3px solid var(--gold-main);border-left:3px solid var(--gold-main);transform:translateY(-50%) rotate(-45deg)}
+@media(max-width:560px){.floating-guide-container{right:6px;bottom:calc(70px + env(safe-area-inset-bottom));width:44px;height:44px}.guide-avatar{width:44px;height:44px}.guide-badge-name{display:none}.guide-speech-bubble{width:min(270px,calc(100vw - 16px));max-height:48vh;overflow:auto}}
 
 /* ==================== واجهة تخصيص المظهر الاحترافية ==================== */
 body { transition: background-color .25s ease, color .25s ease; }
@@ -1419,3 +1421,36 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
   .selection-toolbar .toolbar-action-btn { min-height: 29px; font-size: 10px; padding: 4px 5px; }
   .selection-toolbar .color-dot { width: 20px; height: 20px; flex: 0 0 20px; }
 }
+
+/* إصلاحات V9: المرشد، شريط القراءة، والإشعارات */
+#guideArrow {
+    position: fixed; height: 3px; width: 40px; display: none;
+    transform-origin: 0 50%; z-index: 5999; pointer-events: none;
+    background: var(--gold-main); border-radius: 99px;
+    box-shadow: 0 0 10px color-mix(in srgb, var(--gold-main) 55%, transparent);
+}
+#guideArrow::after {
+    content:""; position:absolute; right:-1px; top:50%; width:9px; height:9px;
+    border-top:3px solid var(--gold-main); border-left:3px solid var(--gold-main);
+    transform:translateY(-50%) rotate(-45deg);
+}
+.guide-step-counter { font-size:9px; color:var(--gold-main); margin-bottom:4px; font-weight:800; }
+.guide-next-btn { margin-top:8px; width:100%; min-height:28px; border:1px solid var(--gold-border); border-radius:8px; background:var(--gold-dim); color:var(--gold-bright); font-weight:800; font-size:10px; cursor:pointer; }
+.guide-next-btn:active { transform:scale(.98); }
+.reader-bottom-bar { bottom: env(safe-area-inset-bottom) !important; }
+.selection-toolbar { bottom: calc(78px + env(safe-area-inset-bottom)) !important; }
+.royal-toast { bottom: calc(82px + env(safe-area-inset-bottom)); }
+@media(max-width:560px){
+  .floating-guide-container { right:6px; bottom:calc(70px + env(safe-area-inset-bottom)); width:44px; height:44px; }
+  .guide-avatar { width:44px; height:44px; }
+  .guide-avatar .guide-badge-name { display:none; }
+  .guide-speech-bubble { max-height:48vh; overflow:auto; }
+  .reader-bottom-bar { padding-bottom:calc(8px + env(safe-area-inset-bottom)); }
+}
+
+/* V9 final layout corrections */
+.reader-bottom-bar{bottom:env(safe-area-inset-bottom)!important;z-index:30;}
+.selection-toolbar{bottom:calc(78px + env(safe-area-inset-bottom))!important;}
+.royal-toast{top:auto!important;bottom:calc(82px + env(safe-area-inset-bottom))!important;}
+.glass-bottom-nav{z-index:1200;}
+@media(max-width:560px){.reader-bottom-bar{padding-bottom:calc(8px + env(safe-area-inset-bottom));}.selection-toolbar{bottom:calc(82px + env(safe-area-inset-bottom))!important;}}

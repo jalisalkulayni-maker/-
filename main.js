@@ -183,128 +183,71 @@ let guideDragState = null;
 let guideStep = 0;
 const guideTargets = {
     homeView: [
-        {selector:'#navCatalogBtn', text:'هذه قائمة الكتب. اضغط عليها لعرض الكتب والمجموعات.'},
-        {selector:'#navSearchBtn', text:'من هنا تبحث عن كتاب أو نص داخل المكتبة.'},
-        {selector:'#navTagsBtn', text:'الوسوم تجمع اقتباساتك وتصنيفاتك المحفوظة.'},
-        {selector:'#navAppearanceBtn', text:'من هنا تغيّر ألوان واجهة المكتبة خارج الكتب.'}
+        {selector:'#navCatalogBtn', text:'قائمة الكتب: اضغط هنا للوصول إلى جميع الكتب والمجموعات.'},
+        {selector:'#navTagsBtn', text:'الوسوم: تجد هنا النصوص والاقتباسات التي صنّفتها.'},
+        {selector:'#navSearchBtn', text:'البحث: ابحث عن كتاب أو نص بسرعة.'},
+        {selector:'#navAppearanceBtn', text:'ألوان الواجهة: غيّر مظهر المكتبة بالكامل من هنا.'}
     ],
     catalogView: [
-        {selector:'#navHomeBtn', text:'للعودة إلى الرواق اضغط هذا الزر.'},
-        {selector:'#navSearchBtn', text:'للعثور على كتاب بسرعة استخدم البحث.'},
-        {selector:'#navAppearanceBtn', text:'هنا تخصيص ألوان واجهة المكتبة.'}
+        {selector:'#navSearchBtn', text:'البحث: استخدمه للوصول السريع إلى كتاب أو نص.'},
+        {selector:'#navHomeBtn', text:'الرواق: يعيدك إلى الصفحة الرئيسية للمكتبة.'}
     ],
     tagsView: [
-        {selector:'#navHomeBtn', text:'للعودة إلى الرواق.'},
-        {selector:'#navSearchBtn', text:'يمكنك البحث عن نص أو كتاب.'},
-        {selector:'#navAppearanceBtn', text:'تخصيص ألوان الواجهة موجود هنا.'}
+        {selector:'#navSearchBtn', text:'البحث: يمكنك البحث داخل المكتبة للوصول إلى ما تريد.'},
+        {selector:'#navCatalogBtn', text:'قائمة الكتب: للعودة إلى تصفح الكتب والمجموعات.'}
     ],
     searchView: [
-        {selector:'#navCatalogBtn', text:'افتح قائمة الكتب للوصول إلى بقية الكتب.'},
-        {selector:'#navHomeBtn', text:'للعودة إلى الرواق.'},
-        {selector:'#navAppearanceBtn', text:'غيّر ألوان الواجهة من هنا.'}
+        {selector:'#navCatalogBtn', text:'قائمة الكتب: للعودة إلى تصفح الكتب.'},
+        {selector:'#navHomeBtn', text:'الرواق: للعودة إلى الصفحة الرئيسية.'}
     ],
     readerView: [
-        {selector:'#downloadPdfBtn', text:'هذا الزر لتنزيل الكتاب كملف PDF.'},
-        {selector:'#bookmarkBtn', text:'هنا تحفظ موضعك كإشارة مرجعية.'},
-        {selector:'button[onclick="copyCurrentCitation()"]', text:'ينسخ الصفحة مع المصدر للاستشهاد.'},
-        {selector:'button[onclick="shareCurrentPage()"]', text:'يشارك موضعك الحالي مع رابط مباشر.'},
-        {selector:'#openTocBtn', text:'يفتح الفهرس ويساعدك على التنقل بين أبواب الكتاب.'},
-        {selector:'button[onclick="openSettings()"]', text:'إعدادات القراءة: الخط والحجم ووضع القراءة.'}
+        {selector:'#downloadPdfBtn', text:'PDF: تنزيل الكتاب أو فتح ملفه الأصلي.'},
+        {selector:'#bookmarkBtn', text:'الإشارة المرجعية: احفظ موضع القراءة للعودة إليه لاحقًا.'},
+        {selector:'button[onclick*="copyCurrentCitation"]', text:'نسخ مع المصدر: ينسخ الصفحة مع بيانات الكتاب ورقم الصفحة.'},
+        {selector:'button[onclick*="shareCurrentPage"]', text:'المشاركة: يرسل رابطًا يفتح الموضع نفسه مباشرة.'},
+        {selector:'button[onclick*="openInBookSearch"]', text:'بحث داخل الكتاب: ابحث في صفحات الكتاب المفتوح.'},
+        {selector:'#openTocBtn', text:'الفهرس: انتقل بين أبواب وفصول الكتاب بسرعة.'},
+        {selector:'button[onclick*="openSettings"]', text:'إعدادات القراءة: الخط والحجم وثيم صفحة الكتاب.'},
+        {selector:'button[onclick*="nextPage"]', text:'الصفحة التالية: انتقل إلى الصفحة التالية.'},
+        {selector:'button[onclick*="prevPage"]', text:'الصفحة السابقة: عد إلى الصفحة السابقة.'},
+        {selector:'#inlineJumpInput', text:'انتقال مباشر: اكتب رقم الصفحة ثم اضغط «انتقال».'}
     ]
 };
-
-function currentGuideSteps(){ return guideTargets[document.querySelector('.stage-view.active')?.id || 'homeView'] || guideTargets.homeView; }
-function getGuideStep(){
-    const steps=currentGuideSteps();
-    if(!steps.length) return null;
-    guideStep = guideStep % steps.length;
-    return steps[guideStep];
-}
-function updateGuideContext(viewId = document.querySelector('.stage-view.active')?.id || 'homeView'){
-    const text=document.getElementById('guideSpeechText');
-    const steps=guideTargets[viewId]||guideTargets.homeView;
-    guideStep=Math.min(guideStep, Math.max(0,steps.length-1));
-    if(text) text.textContent = steps[guideStep]?.text || 'اضغط عليّ لأشرح لك طريقة استعمال الصفحة.';
-}
-function getGuideTarget(){
-    const spec=getGuideStep();
-    if(!spec) return null;
-    const selectors=(spec.selector||'').split(',').map(x=>x.trim()).filter(Boolean);
-    for(const selector of selectors){
-        const el=document.querySelector(selector);
-        if(el && el.offsetParent!==null) return el;
-    }
+function currentGuideSteps(viewId=document.querySelector('.stage-view.active')?.id||'homeView'){ return guideTargets[viewId]||guideTargets.homeView; }
+function getGuideTarget(viewId=document.querySelector('.stage-view.active')?.id||'homeView'){
+    const steps=currentGuideSteps(viewId); if(!steps.length)return null; if(guideStep>=steps.length)guideStep=0;
+    for(let i=0;i<steps.length;i++){ const index=(guideStep+i)%steps.length; const item=steps[index]; try{const el=document.querySelector(item.selector); if(el&&el.offsetParent!==null&&getComputedStyle(el).visibility!=='hidden')return {el,item,index};}catch(e){} }
     return null;
 }
+function updateGuideContext(viewId=document.querySelector('.stage-view.active')?.id||'homeView'){
+    const text=document.getElementById('guideSpeechText'),counter=document.getElementById('guideStepCounter'),steps=currentGuideSteps(viewId);
+    const idx=Math.min(guideStep,Math.max(0,steps.length-1)); if(text)text.textContent=steps[idx]?.text||'اضغط على المرشد وسأدلك على أدوات الصفحة.'; if(counter)counter.textContent=steps.length?`${idx+1} / ${steps.length}`:'';
+}
+function positionGuideArrow(target){
+    let arrow=document.getElementById('guideArrow'); if(!arrow){arrow=document.createElement('div');arrow.id='guideArrow';arrow.setAttribute('aria-hidden','true');document.body.appendChild(arrow);}
+    const guide=document.getElementById('floatingGuide')||document.querySelector('.floating-guide-container'); if(!guide||!target){arrow.style.display='none';return;}
+    const a=guide.getBoundingClientRect(),b=target.getBoundingClientRect(),x1=a.left+a.width/2,y1=a.top+a.height/2,x2=b.left+b.width/2,y2=b.top+b.height/2,dx=x2-x1,dy=y2-y1,len=Math.max(18,Math.hypot(dx,dy));
+    arrow.style.display='block';arrow.style.left=x1+'px';arrow.style.top=y1+'px';arrow.style.width=len+'px';arrow.style.transform=`rotate(${Math.atan2(dy,dx)}rad)`;
+}
 function guideFocusTarget(){
-    const target=getGuideTarget();
-    updateGuideContext();
-    if(!target) return;
-    target.scrollIntoView({behavior:'smooth',block:'center',inline:'center'});
-    target.classList.remove('guide-focus-pulse'); void target.offsetWidth; target.classList.add('guide-focus-pulse');
-    positionGuideBubbleNearTarget(target);
-    setTimeout(()=>target.classList.remove('guide-focus-pulse'),1800);
+    const viewId=document.querySelector('.stage-view.active')?.id||'homeView',found=getGuideTarget(viewId); updateGuideContext(viewId); if(!found){positionGuideArrow(null);return;} const target=found.el;
+    target.scrollIntoView({behavior:'smooth',block:'center',inline:'center'}); setTimeout(()=>positionGuideArrow(target),280);
+    target.classList.remove('guide-focus-pulse');void target.offsetWidth;target.classList.add('guide-focus-pulse');setTimeout(()=>target.classList.remove('guide-focus-pulse'),2300);
 }
-function positionGuideBubbleNearTarget(target){
-    const bubble=document.getElementById('guideSpeechBubble'); const guide=document.getElementById('floatingGuide');
-    if(!bubble||!guide||bubble.style.display==='none') return;
-    const r=target.getBoundingClientRect(); const g=guide.getBoundingClientRect();
-    bubble.style.setProperty('--target-x', Math.max(14, Math.min(bubble.offsetWidth-14, r.left + r.width/2 - g.left))+'px');
+function toggleGuideBubble(){const bubble=document.getElementById('guideSpeechBubble');if(!bubble)return;const opening=getComputedStyle(bubble).display==='none';bubble.style.display=opening?'block':'none';if(opening){updateGuideContext();setTimeout(guideFocusTarget,100);}else{document.getElementById('guideArrow')?.style.setProperty('display','none');}}
+function hideGuideBubble(){const b=document.getElementById('guideSpeechBubble');if(b)b.style.display='none';document.getElementById('guideArrow')?.style.setProperty('display','none');}
+function advanceGuide(){const steps=currentGuideSteps();if(!steps.length)return;guideStep=(guideStep+1)%steps.length;updateGuideContext();guideFocusTarget();}
+function initGuideDrag(){
+    const guide=document.querySelector('.floating-guide-container'),handle=guide?.querySelector('.guide-avatar');if(!guide||!handle||guide.dataset.dragReady==='1')return;guide.dataset.dragReady='1';
+    try{const saved=JSON.parse(localStorage.getItem(GUIDE_STORAGE_KEY)||'null');if(saved&&Number.isFinite(saved.x)&&Number.isFinite(saved.y)){const w=guide.offsetWidth||44,h=guide.offsetHeight||44;guide.style.left=Math.max(4,Math.min(innerWidth-w-4,saved.x))+'px';guide.style.top=Math.max(4,Math.min(innerHeight-h-4,saved.y))+'px';guide.style.right='auto';guide.style.bottom='auto';}}catch(e){}
+    const down=e=>{const r=guide.getBoundingClientRect();guideDragState={startX:e.clientX,startY:e.clientY,baseLeft:r.left,baseTop:r.top,moved:false};handle.classList.add('is-dragging');handle.setPointerCapture?.(e.pointerId);e.preventDefault();};
+    const move=e=>{if(!guideDragState)return;const dx=e.clientX-guideDragState.startX,dy=e.clientY-guideDragState.startY;if(Math.abs(dx)+Math.abs(dy)>5)guideDragState.moved=true;const w=guide.offsetWidth||44,h=guide.offsetHeight||44;guide.style.left=Math.max(4,Math.min(innerWidth-w-4,guideDragState.baseLeft+dx))+'px';guide.style.top=Math.max(4,Math.min(innerHeight-h-4,guideDragState.baseTop+dy))+'px';guide.style.right='auto';guide.style.bottom='auto';const t=getGuideTarget()?.el;if(t)positionGuideArrow(t);e.preventDefault();};
+    const up=()=>{if(!guideDragState)return;const moved=guideDragState.moved;guideDragState=null;handle.classList.remove('is-dragging');try{const r=guide.getBoundingClientRect();localStorage.setItem(GUIDE_STORAGE_KEY,JSON.stringify({x:r.left,y:r.top}));}catch(e){}if(moved){handle.dataset.suppressClick='1';setTimeout(()=>handle.dataset.suppressClick='0',180);}};
+    handle.addEventListener('pointerdown',down);window.addEventListener('pointermove',move,{passive:false});window.addEventListener('pointerup',up);window.addEventListener('pointercancel',up);handle.addEventListener('click',e=>{if(handle.dataset.suppressClick==='1'){e.preventDefault();e.stopPropagation();return;}toggleGuideBubble();});handle.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleGuideBubble();}});
+    const next=document.createElement('button');next.className='guide-next-btn';next.type='button';next.textContent='التالي';next.addEventListener('click',advanceGuide);guide.querySelector('.guide-speech-bubble')?.appendChild(next);updateGuideContext();
 }
-function toggleGuideBubble(){
-    const bubble=document.getElementById('guideSpeechBubble'); if(!bubble) return;
-    const opening = getComputedStyle(bubble).display==='none';
-    bubble.style.display=opening?'block':'none';
-    if(opening) guideFocusTarget();
-}
-function hideGuideBubble(){ const b=document.getElementById('guideSpeechBubble'); if(b)b.style.display='none'; }
-function advanceGuide(){
-    const steps=currentGuideSteps(); if(!steps.length)return;
-    guideStep=(guideStep+1)%steps.length;
-    updateGuideContext(); guideFocusTarget();
-}
-function initFloatingGuide(){
-    const guide=document.getElementById('floatingGuide'); const handle=guide?.querySelector('.guide-avatar');
-    if(!guide||!handle||guide.dataset.dragReady==='1')return;
-    guide.dataset.dragReady='1';
-    try{
-        const saved=JSON.parse(localStorage.getItem(GUIDE_STORAGE_KEY)||'null');
-        if(saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)){
-            guide.style.left=Math.max(4,Math.min(window.innerWidth-44,saved.x))+'px';
-            guide.style.top=Math.max(4,Math.min(window.innerHeight-44,saved.y))+'px'; guide.style.right='auto'; guide.style.bottom='auto';
-        }
-    }catch(e){}
-    const point=(ev)=>{const t=ev.touches?.[0]||ev; return {x:t.clientX,y:t.clientY};};
-    const down=(ev)=>{
-        const {x,y}=point(ev); const r=guide.getBoundingClientRect();
-        guideDragState={startX:x,startY:y,baseLeft:r.left,baseTop:r.top,moved:false}; handle.classList.add('is-dragging');
-        ev.preventDefault();
-    };
-    const move=(ev)=>{
-        if(!guideDragState)return; const {x,y}=point(ev); const dx=x-guideDragState.startX, dy=y-guideDragState.startY;
-        if(Math.abs(dx)+Math.abs(dy)>5)guideDragState.moved=true;
-        const w=guide.offsetWidth||44,h=guide.offsetHeight||44;
-        const nx=Math.max(4,Math.min(window.innerWidth-w-4,guideDragState.baseLeft+dx));
-        const ny=Math.max(4,Math.min(window.innerHeight-h-4,guideDragState.baseTop+dy));
-        guide.style.left=nx+'px';guide.style.top=ny+'px';guide.style.right='auto';guide.style.bottom='auto';
-        ev.preventDefault();
-    };
-    const up=()=>{
-        if(!guideDragState)return; const moved=guideDragState.moved; guideDragState=null; handle.classList.remove('is-dragging');
-        try{const r=guide.getBoundingClientRect();localStorage.setItem(GUIDE_STORAGE_KEY,JSON.stringify({x:r.left,y:r.top}));}catch(e){}
-        if(!moved) toggleGuideBubble();
-    };
-    handle.addEventListener('pointerdown',down); window.addEventListener('pointermove',move,{passive:false}); window.addEventListener('pointerup',up);
-    handle.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleGuideBubble();}});
-    const next=document.createElement('button'); next.className='guide-next-btn'; next.type='button'; next.textContent='التالي'; next.setAttribute('aria-label','الشرح التالي');
-    next.addEventListener('click',advanceGuide); guide.querySelector('.guide-speech-bubble')?.appendChild(next);
-    updateGuideContext();
-}
-window.addEventListener('resize',()=>{
-    const guide=document.getElementById('floatingGuide'); if(!guide)return;
-    if(guide.style.left){ const w=guide.offsetWidth||44,h=guide.offsetHeight||44; const x=Math.max(4,Math.min(window.innerWidth-w-4,parseFloat(guide.style.left)||4)); const y=Math.max(4,Math.min(window.innerHeight-h-4,parseFloat(guide.style.top)||4)); guide.style.left=x+'px'; guide.style.top=y+'px'; }
-});
-document.addEventListener('DOMContentLoaded',initFloatingGuide);
+function initGuideWhenReady(){initGuideDrag();updateGuideContext();}
+document.addEventListener('DOMContentLoaded',initGuideWhenReady,{once:true});
 
 // ==================== محرك القارئ وجلب البيانات ====================
 async function fetchBookData(bookId) {
