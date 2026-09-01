@@ -53,7 +53,7 @@
 .reader-paper-section #pageContent .hl-yellow { background-color:var(--highlight-yellow) !important; }
 .reader-paper-section #pageContent .hl-green  { background-color:var(--highlight-green) !important; }
 .reader-paper-section #pageContent .hl-pink   { background-color:var(--highlight-pink) !important; }
-.reader-paper-section #pageContent .search-highlight { background-color:var(--selection-bg) !important; }
+.reader-paper-section #pageContent .search-highlight { background-color:var(--selection-bg) !important; color:var(--reader-text) !important; padding:1px 4px; border-radius:3px; font-weight:700; box-shadow:0 0 4px color-mix(in srgb, var(--gold-main) 45%, transparent); }
 * {
     margin: 0;
     padding: 0;
@@ -589,18 +589,24 @@ body {
 
 .selection-toolbar {
     position: fixed;
-    bottom: 80px;
+    bottom: calc(76px + env(safe-area-inset-bottom));
     left: 50%;
     transform: translateX(-50%);
-    background: #111b15;
+    width: max-content;
+    max-width: calc(100vw - 16px);
+    max-height: min(45vh, 220px);
+    overflow-y: auto;
+    background: color-mix(in srgb, var(--bg-dark) 92%, #000 8%);
     border: 1px solid var(--gold-border);
-    border-radius: 30px;
-    padding: 6px 14px;
+    border-radius: 18px;
+    padding: 7px 9px;
     display: none;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px;
     box-shadow: 0 10px 25px rgba(0,0,0,0.6);
-    z-index: 100;
+    z-index: 5000;
 }
 .color-dot {
     width: 18px;
@@ -1378,3 +1384,14 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
 .appearance-actions { display:flex; gap:7px; margin-top:10px; }
 .appearance-actions button { flex:1; }
 @media(max-width:560px){.palette-presets{grid-template-columns:repeat(2,1fr)}.color-custom-grid{grid-template-columns:1fr}.appearance-pro-panel{padding:10px}.appearance-actions{flex-direction:column}}
+
+
+/* شريط التحديد: كامل ومرن على الشاشات الصغيرة */
+.selection-toolbar .toolbar-action-btn { min-height: 30px; padding: 4px 6px; border-radius: 8px; white-space: nowrap; }
+.selection-toolbar .toolbar-action-btn:hover { background: var(--gold-dim); }
+@media (max-width: 560px) {
+  .selection-toolbar { width: calc(100vw - 12px); max-width: calc(100vw - 12px); bottom: calc(68px + env(safe-area-inset-bottom)); padding: 6px 7px; gap: 4px; border-radius: 15px; }
+  .selection-toolbar > span:first-child { font-size: 9px !important; }
+  .selection-toolbar .toolbar-action-btn { min-height: 29px; font-size: 10px; padding: 4px 5px; }
+  .selection-toolbar .color-dot { width: 20px; height: 20px; flex: 0 0 20px; }
+}

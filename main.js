@@ -47,6 +47,7 @@ let isDeepSearching = false;
 
 let savedScrollPosition = 0;
 let currentActiveSearchHighlight = "";
+let currentDeepLinkQuote = "";
 let currentPersonalLibraryTab = 'recent';
 let readingHistory = [];
 const RECENT_SEARCH_KEY = 'recent_searches_v2';
@@ -309,7 +310,7 @@ function highlightArabicText(text, query) {
     if (!reg) return text;
     return text.replace(reg, (match, p1) => {
         let prefix = match.substring(0, match.indexOf(p1));
-        return prefix + '<mark class="search-highlight" style="background-color: #ffd54f; color: #111; padding: 1px 4px; border-radius: 3px; font-weight: bold; box-shadow: 0 0 4px rgba(212,175,55,0.6);">' + p1 + '</mark>';
+        return prefix + '<mark class="search-highlight">' + p1 + '</mark>';
     });
 }
 
@@ -962,7 +963,8 @@ async function loadAndOpenBook(bookId, bookTitle, bookToc, totalPages, targetPag
     showView('readerView');
     currentBookId = bookId;
     currentBookTitle = bookTitle;
-    currentActiveSearchHighlight = highlightQuery || "";
+    currentActiveSearchHighlight = "";
+    currentDeepLinkQuote = highlightQuery || "";
     document.getElementById('readerTitle').innerText = bookTitle;
     rememberRecentBook(bookId, bookTitle, bookTotal(bookId));
 
@@ -1063,11 +1065,14 @@ function renderCurrentPage() {
     rawHtml += watermarkHtml;
     // ====================================================================================
 
-    if (currentActiveSearchHighlight) {
-        contentDiv.innerHTML = highlightArabicText(rawHtml, currentActiveSearchHighlight);
+    const activeHighlight = currentActiveSearchHighlight || currentDeepLinkQuote;
+    if (activeHighlight) {
+        contentDiv.innerHTML = highlightArabicText(rawHtml, activeHighlight);
     } else {
         contentDiv.innerHTML = rawHtml;
     }
+    // تظليل الرابط المُشارك يُستخدم مرة واحدة فقط حتى لا ينتقل إلى الصفحات التالية.
+    currentDeepLinkQuote = "";
 
     contentDiv.parentElement.scrollTop = 0;
 
