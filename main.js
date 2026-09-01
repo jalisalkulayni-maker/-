@@ -1584,9 +1584,6 @@ function setReadingTheme(themeName) {
     } catch (e) {}
 }
 
-const savedTheme = localStorage.getItem('reading_theme');
-if (savedTheme) setReadingTheme(savedTheme);
-
 function openSettings() { const m = document.getElementById('settingsModal'); if (m) { m.style.display = 'flex'; syncAppearanceControls(); } }
 function closeSettings() { const m = document.getElementById('settingsModal'); if (m) m.style.display = 'none'; }
 
@@ -1672,8 +1669,14 @@ function syncAppearanceControls(){
 }
 function resetCustomAppearance(){ applyPalettePreset('royal'); }
 (function initAppearance(){
+    // جميع ثوابت المظهر معرفة قبل استعادة الإعدادات المحفوظة.
     let saved=null; try{saved=JSON.parse(localStorage.getItem(APPEARANCE_KEY)||'null')}catch(e){}
-    if(saved) setTimeout(()=>applyAppearance(saved,false),0);
+    if(saved) applyAppearance(saved,false);
+
+    const savedTheme = localStorage.getItem('reading_theme');
+    if(savedTheme && ['theme-royal','theme-sepia','theme-dark','theme-light'].includes(savedTheme)){
+        setReadingTheme(savedTheme);
+    }
 })();
 
 function adjustFontSize(delta) {
