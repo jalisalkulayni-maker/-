@@ -1586,6 +1586,8 @@ function setReadingTheme(themeName) {
 
 function openSettings() { const m = document.getElementById('settingsModal'); if (m) { m.style.display = 'flex'; syncAppearanceControls(); } }
 function closeSettings() { const m = document.getElementById('settingsModal'); if (m) m.style.display = 'none'; }
+function openAppearanceSettings() { const m=document.getElementById('appearanceModal'); if(m){m.style.display='flex'; syncAppearanceControls();} }
+function closeAppearanceSettings() { const m=document.getElementById('appearanceModal'); if(m)m.style.display='none'; }
 
 // ==================== نظام المظهر الاحترافي القابل للتخصيص ====================
 const APPEARANCE_KEY = 'library_appearance_v3';
@@ -1633,7 +1635,8 @@ function applyAppearance(data, save=true) {
     setCssVar('--surface-glass-strong',surface2); setCssVar('--surface-border',`rgba(${hexToRgb(d.text).r},${hexToRgb(d.text).g},${hexToRgb(d.text).b},.10)`);
     setCssVar('--text-white',d.text); setCssVar('--text-muted',muted); setCssVar('--text-gold',mixHex(d.accent,d.text,.18)); setCssVar('--appearance-brightness',(Number(d.brightness)||100)/100);
     document.body.dataset.appearance = 'custom';
-    document.body.style.filter = `brightness(${(Number(d.brightness)||100)/100})`;
+    document.body.style.removeProperty('filter');
+    document.body.dataset.uiBrightness = String(Number(d.brightness)||100);
     const badge=document.getElementById('appearanceContrastBadge');
     if(badge){const ratio=contrastRatio(d.text,d.bg); badge.textContent=ratio>=4.5?'متناسق ومريح':ratio>=3?'جيد':'يحتاج ضبط'; badge.classList.toggle('is-warning',ratio<4.5);}
     const active=document.querySelectorAll('.palette-preset'); active.forEach(b=>b.classList.toggle('active', b.dataset.preset===d.preset));
