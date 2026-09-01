@@ -495,7 +495,7 @@ body {
 /* شريط القارئ السفلي والأدوات */
 .reader-bottom-bar {
     position: fixed;
-    bottom: 0; left: 0; right: 0;
+    bottom: calc(74px + env(safe-area-inset-bottom)); left: 0; right: 0;
     background: var(--surface-glass);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
@@ -1386,11 +1386,23 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
 @media(max-width:560px){.palette-presets{grid-template-columns:repeat(2,1fr)}.color-custom-grid{grid-template-columns:1fr}.appearance-pro-panel{padding:10px}.appearance-actions{flex-direction:column}}
 
 
+/* تكديس الشريطين السفليين بدون تداخل */
+.reader-bottom-bar { z-index: 30; }
+.glass-bottom-nav { z-index: 40; }
+.reader-paper-section { padding-bottom: 150px; }
+@media (max-width: 560px) {
+    .reader-bottom-bar {
+        bottom: calc(76px + env(safe-area-inset-bottom));
+        padding: 8px 10px 10px;
+    }
+    .reader-paper-section { padding-bottom: 158px; }
+}
+
 /* شريط التحديد: كامل ومرن على الشاشات الصغيرة */
 .selection-toolbar .toolbar-action-btn { min-height: 30px; padding: 4px 6px; border-radius: 8px; white-space: nowrap; }
 .selection-toolbar .toolbar-action-btn:hover { background: var(--gold-dim); }
 @media (max-width: 560px) {
-  .selection-toolbar { width: calc(100vw - 12px); max-width: calc(100vw - 12px); bottom: calc(68px + env(safe-area-inset-bottom)); padding: 6px 7px; gap: 4px; border-radius: 15px; }
+  .selection-toolbar { width: calc(100vw - 12px); max-width: calc(100vw - 12px); bottom: calc(150px + env(safe-area-inset-bottom)); padding: 6px 7px; gap: 4px; border-radius: 15px; }
   .selection-toolbar > span:first-child { font-size: 9px !important; }
   .selection-toolbar .toolbar-action-btn { min-height: 29px; font-size: 10px; padding: 4px 5px; }
   .selection-toolbar .color-dot { width: 20px; height: 20px; flex: 0 0 20px; }

@@ -187,10 +187,10 @@ function showView(viewId, pushHistory = true) {
     const target = document.getElementById(viewId);
     if (target) target.classList.add('active');
 
+    // الشريط السفلي الرئيسي يبقى ظاهرًا في جميع الواجهات، بما فيها القارئ.
+    // تم إلغاء الإخفاء البرمجي الذي كان يسبب اختفاء الشريط بعد الدخول للقارئ.
     const bottomNav = document.querySelector('.glass-bottom-nav');
-    if (bottomNav) {
-        bottomNav.style.display = (viewId === 'readerView') ? 'none' : 'block';
-    }
+    if (bottomNav) bottomNav.style.display = '';
 
     if (pushHistory) {
         history.pushState({ view: viewId }, '', '');
