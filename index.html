@@ -33,20 +33,6 @@
             </button>
         </header>
 
-        <!-- شخصية المعلم التفاعلي: خويدم أنيس -->
-        <div id="interactiveGuideBanner" class="glass-box" style="margin: 0 20px 14px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--gold-border); background: linear-gradient(135deg, rgba(12,22,18,0.9), rgba(28,24,18,0.8));">
-            <div style="width: 44px; height: 44px; border-radius: 50%; background: var(--gold-dim); border: 1px solid var(--gold-main); display: grid; place-items: center; flex-shrink: 0; box-shadow: 0 0 10px rgba(212,175,55,0.3);">
-                <i class="fas fa-chalkboard-user text-gold" style="font-size: 20px;"></i>
-            </div>
-            <div style="flex: 1; overflow: hidden;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 11px; color: var(--gold-bright); font-weight: bold;">خويدم أنيس (مرشدك التعليمي)</span>
-                    <span onclick="dismissGuide()" style="font-size: 10px; color: var(--text-muted); cursor: pointer;"><i class="fas fa-xmark"></i> إخفاء</span>
-                </div>
-                <p id="guideSpeechText" style="font-size: 12px; color: #fff; margin-top: 2px; line-height: 1.5; transition: opacity 0.3s ease;">أهلاً بك يا محب أهل البيت. انقر على أي أداة أدناه لأساندك في رحلة القراءة والبحث!</p>
-            </div>
-        </div>
-
         <!-- كلامكم نور -->
         <section class="slider-container" style="padding: 0 20px 10px;">
             <div class="glass-box daily-hadith-card" style="padding: 16px; border: 1px solid rgba(212,175,55,0.35); position: relative; overflow: hidden;">
@@ -87,6 +73,7 @@
             </div>
 
             <div class="books-grid-container" id="dynamicBooksContainer">
+                <!-- تم التعديل لتتناسب مع الأعمدة الثلاثة -->
                 <div style="color:var(--text-muted); padding: 0 20px; grid-column: span 3; text-align: center;">انتظر يامحب محمد وآل محمد...</div>
             </div>
         </section>
@@ -293,7 +280,7 @@
                 </button>
             </div>
 
-            <!-- خيارات نوع البحث المتقدم (جديد) -->
+            <!-- خيارات نوع البحث المتقدم -->
             <div class="search-mode-selector" style="margin-bottom: 6px;">
                 <button id="searchMatchTypeExact" class="search-mode-btn active tactile-btn" onclick="setSearchMatchType('exact')">
                     <i class="fas fa-quote-right"></i> عبارة كاملة
@@ -316,7 +303,7 @@
                 </button>
             </div>
 
-            <!-- صف أزرار تحديد نطاق البحث (كل الكتب vs السلسلة vs الأجزاء) -->
+            <!-- صف أزرار تحديد نطاق البحث -->
             <div class="search-filters-scroll" id="searchFilterPills"></div>
 
             <!-- شريط حالة ونتائج البحث -->
@@ -388,6 +375,21 @@
             </button>
         </div>
     </nav>
+
+    <!-- مساعدك الرقمي: خويدم أنيس (علامة عائمة) -->
+    <div class="floating-guide-container">
+        <div id="guideSpeechBubble" class="guide-speech-bubble">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 10px; color: var(--gold-main); font-weight: bold;">خويدم أنيس</span>
+                <i class="fas fa-times text-muted tactile-btn" onclick="hideGuideBubble()" style="font-size: 14px; cursor: pointer;"></i>
+            </div>
+            <p id="guideSpeechText" class="guide-speech-text"></p>
+        </div>
+        <div class="guide-avatar tactile-btn" onclick="toggleGuideBubble()">
+            <i class="fas fa-chalkboard-user text-gold" style="font-size: 20px;"></i>
+            <span class="guide-badge-name">مرشدك</span>
+        </div>
+    </div>
 
     <script src="main.js"></script>
 </body>
