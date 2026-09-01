@@ -33,11 +33,25 @@
             </button>
         </header>
 
+        <!-- شخصية المعلم التفاعلي: خويدم أنيس -->
+        <div id="interactiveGuideBanner" class="glass-box" style="margin: 0 20px 14px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--gold-border); background: linear-gradient(135deg, rgba(12,22,18,0.9), rgba(28,24,18,0.8));">
+            <div style="width: 44px; height: 44px; border-radius: 50%; background: var(--gold-dim); border: 1px solid var(--gold-main); display: grid; place-items: center; flex-shrink: 0; box-shadow: 0 0 10px rgba(212,175,55,0.3);">
+                <i class="fas fa-chalkboard-user text-gold" style="font-size: 20px;"></i>
+            </div>
+            <div style="flex: 1; overflow: hidden;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 11px; color: var(--gold-bright); font-weight: bold;">خويدم أنيس (مرشدك التعليمي)</span>
+                    <span onclick="dismissGuide()" style="font-size: 10px; color: var(--text-muted); cursor: pointer;"><i class="fas fa-xmark"></i> إخفاء</span>
+                </div>
+                <p id="guideSpeechText" style="font-size: 12px; color: #fff; margin-top: 2px; line-height: 1.5; transition: opacity 0.3s ease;">أهلاً بك يا محب أهل البيت. انقر على أي أداة أدناه لأساندك في رحلة القراءة والبحث!</p>
+            </div>
+        </div>
+
         <!-- كلامكم نور -->
         <section class="slider-container" style="padding: 0 20px 10px;">
             <div class="glass-box daily-hadith-card" style="padding: 16px; border: 1px solid rgba(212,175,55,0.35); position: relative; overflow: hidden;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <span class="tag-gold-bg" style="margin-bottom: 0;"><i class="fas fa-sun"></i> كلاكم نور</span>
+                    <span class="tag-gold-bg" style="margin-bottom: 0;"><i class="fas fa-sun"></i> كلامكم نور</span>
                     <div style="display: flex; gap: 6px;">
                         <button class="tactile-btn mini-action-btn" onclick="loadRandomDailyHadith()" title="تجديد الإشراقة">
                             <i class="fas fa-rotate"></i>
@@ -67,14 +81,13 @@
         <section class="books-section">
             <h3 class="text-white" style="margin: 0 20px 10px; font-size: 15px;">خزانة المتون والمؤلفات</h3>
             
-            <!-- حاوية السلايدر المضافة -->
             <div class="hero-slider-wrap" style="margin: 0 20px 16px; position: relative;">
                 <div class="hero-slider-track" id="heroSliderTrack"></div>
                 <div class="hero-indicators" id="heroIndicators"></div>
             </div>
 
             <div class="books-grid-container" id="dynamicBooksContainer">
-                <div style="color:var(--text-muted); padding: 0 20px; grid-column: span 2; text-align: center;">انتظر يامحب محمد وآل محمد...</div>
+                <div style="color:var(--text-muted); padding: 0 20px; grid-column: span 3; text-align: center;">انتظر يامحب محمد وآل محمد...</div>
             </div>
         </section>
         <div style="height: 100px;"></div>
@@ -272,7 +285,7 @@
 
         <section style="padding: 0 20px;">
             <!-- شريط البحث -->
-            <div class="search-bar-wrap glass-box">
+            <div class="search-bar-wrap glass-box" style="margin-bottom: 8px;">
                 <i class="fas fa-search search-bar-icon"></i>
                 <input type="text" id="searchInput" placeholder="اكتب عبارة البحث..." class="search-input" oninput="handleSearchInput(this.value)">
                 <button id="searchClearBtn" class="search-clear-btn" onclick="clearSearch()" style="display: none;">
@@ -280,7 +293,20 @@
                 </button>
             </div>
 
-            <!-- صف أزرار تحديد نوع البحث (الأبواب vs النصوص) -->
+            <!-- خيارات نوع البحث المتقدم (جديد) -->
+            <div class="search-mode-selector" style="margin-bottom: 6px;">
+                <button id="searchMatchTypeExact" class="search-mode-btn active tactile-btn" onclick="setSearchMatchType('exact')">
+                    <i class="fas fa-quote-right"></i> عبارة كاملة
+                </button>
+                <button id="searchMatchTypeAll" class="search-mode-btn tactile-btn" onclick="setSearchMatchType('all')">
+                    <i class="fas fa-layer-group"></i> كل الكلمات (AND)
+                </button>
+                <button id="searchMatchTypeAny" class="search-mode-btn tactile-btn" onclick="setSearchMatchType('any')">
+                    <i class="fas fa-filter"></i> أي كلمة (OR)
+                </button>
+            </div>
+
+            <!-- صف أزرار تحديد هدف البحث (الأبواب vs النصوص) -->
             <div class="search-mode-selector">
                 <button id="searchTargetTocBtn" class="search-mode-btn active tactile-btn" onclick="setSearchTargetMode('toc')">
                     <i class="fas fa-list-ul"></i> الفصول والأبواب
