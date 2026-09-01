@@ -178,904 +178,133 @@ function attachTactilePhysics(btn) {
 }
 
 // ==================== المرشد العائم الذكي ====================
-const GUIDE_STORAGE_KEY = 'library_guide_position_v1';
+const GUIDE_STORAGE_KEY = 'library_guide_position_v2';
 let guideDragState = null;
+let guideStep = 0;
 const guideTargets = {
-    homeView: {
-        selector: '#navCatalogBtn',
-        text: 'من هنا تفتح قائمة الكتب. اضغط على زر «قائمة الكتب» للانتقال إلى جميع المجموعات.'
-    },
-    catalogView: {
-        selector: '#navSearchBtn',
-        text: 'يمكنك البحث بسرعة من هنا، أو فتح أي مجموعة للوصول إلى الكتب والصفحات.'
-    },
-    tagsView: {
-        selector: '#navSearchBtn',
-        text: 'يمكنك استعمال البحث للوصول إلى نص أو كتاب، بينما الوسوم تجمع اقتباساتك وتصنيفاتك.'
-    },
-    searchView: {
-        selector: '#navCatalogBtn',
-        text: 'بعد العثور على الكتاب، افتحه من نتيجة البحث. ويمكنك العودة إلى قائمة الكتب من هذا الزر.'
-    },
-    readerView: {
-        selector: '#openTocBtn, button[onclick*="openTocModal"]',
-        text: 'أنت داخل الكتاب. هذا الزر يفتح الفهرس والتنقل بين الأبواب. ويمكنك أيضًا البحث أو حفظ الموضع من شريط الأدوات العلوي.'
-    }
+    homeView: [
+        {selector:'#navCatalogBtn', text:'هذه قائمة الكتب. اضغط عليها لعرض الكتب والمجموعات.'},
+        {selector:'#navSearchBtn', text:'من هنا تبحث عن كتاب أو نص داخل المكتبة.'},
+        {selector:'#navTagsBtn', text:'الوسوم تجمع اقتباساتك وتصنيفاتك المحفوظة.'},
+        {selector:'#navAppearanceBtn', text:'من هنا تغيّر ألوان واجهة المكتبة خارج الكتب.'}
+    ],
+    catalogView: [
+        {selector:'#navHomeBtn', text:'للعودة إلى الرواق اضغط هذا الزر.'},
+        {selector:'#navSearchBtn', text:'للعثور على كتاب بسرعة استخدم البحث.'},
+        {selector:'#navAppearanceBtn', text:'هنا تخصيص ألوان واجهة المكتبة.'}
+    ],
+    tagsView: [
+        {selector:'#navHomeBtn', text:'للعودة إلى الرواق.'},
+        {selector:'#navSearchBtn', text:'يمكنك البحث عن نص أو كتاب.'},
+        {selector:'#navAppearanceBtn', text:'تخصيص ألوان الواجهة موجود هنا.'}
+    ],
+    searchView: [
+        {selector:'#navCatalogBtn', text:'افتح قائمة الكتب للوصول إلى بقية الكتب.'},
+        {selector:'#navHomeBtn', text:'للعودة إلى الرواق.'},
+        {selector:'#navAppearanceBtn', text:'غيّر ألوان الواجهة من هنا.'}
+    ],
+    readerView: [
+        {selector:'#downloadPdfBtn', text:'هذا الزر لتنزيل الكتاب كملف PDF.'},
+        {selector:'#bookmarkBtn', text:'هنا تحفظ موضعك كإشارة مرجعية.'},
+        {selector:'button[onclick="copyCurrentCitation()"]', text:'ينسخ الصفحة مع المصدر للاستشهاد.'},
+        {selector:'button[onclick="shareCurrentPage()"]', text:'يشارك موضعك الحالي مع رابط مباشر.'},
+        {selector:'#openTocBtn', text:'يفتح الفهرس ويساعدك على التنقل بين أبواب الكتاب.'},
+        {selector:'button[onclick="openSettings()"]', text:'إعدادات القراءة: الخط والحجم ووضع القراءة.'}
+    ]
 };
 
-function updateGuideContext(viewId = document.querySelector('.stage-view.active')?.id || 'homeView') {
-    const text = document.getElementById('guideSpeechText');
-    if (text) text.textContent = guideTargets[viewId]?.text || 'اضغط على المرشد وسأدلك على أهم أدوات هذه الصفحة.';
+function currentGuideSteps(){ return guideTargets[document.querySelector('.stage-view.active')?.id || 'homeView'] || guideTargets.homeView; }
+function getGuideStep(){
+    const steps=currentGuideSteps();
+    if(!steps.length) return null;
+    guideStep = guideStep % steps.length;
+    return steps[guideStep];
 }
-
-function getGuideTarget(viewId = document.querySelector('.stage-view.active')?.id || 'homeView') {
-    const spec = guideTargets[viewId] || guideTargets.homeView;
-    const selectors = (spec.selector || '').split(',').map(x => x.trim()).filter(Boolean);
-    for (const selector of selectors) {
-        const el = document.querySelector(selector);
-        if (el && el.offsetParent !== null) return el;
+function updateGuideContext(viewId = document.querySelector('.stage-view.active')?.id || 'homeView'){
+    const text=document.getElementById('guideSpeechText');
+    const steps=guideTargets[viewId]||guideTargets.homeView;
+    guideStep=Math.min(guideStep, Math.max(0,steps.length-1));
+    if(text) text.textContent = steps[guideStep]?.text || 'اضغط عليّ لأشرح لك طريقة استعمال الصفحة.';
+}
+function getGuideTarget(){
+    const spec=getGuideStep();
+    if(!spec) return null;
+    const selectors=(spec.selector||'').split(',').map(x=>x.trim()).filter(Boolean);
+    for(const selector of selectors){
+        const el=document.querySelector(selector);
+        if(el && el.offsetParent!==null) return el;
     }
     return null;
 }
-
-function guideFocusTarget() {
-    const viewId = document.querySelector('.stage-view.active')?.id || 'homeView';
-    const target = getGuideTarget(viewId);
-    updateGuideContext(viewId);
-    if (!target) return;
-    target.scrollIntoView({behavior: 'smooth', block: 'center', inline: 'center'});
-    target.classList.remove('guide-focus-pulse');
-    void target.offsetWidth;
-    target.classList.add('guide-focus-pulse');
-    setTimeout(() => target.classList.remove('guide-focus-pulse'), 1800);
+function guideFocusTarget(){
+    const target=getGuideTarget();
+    updateGuideContext();
+    if(!target) return;
+    target.scrollIntoView({behavior:'smooth',block:'center',inline:'center'});
+    target.classList.remove('guide-focus-pulse'); void target.offsetWidth; target.classList.add('guide-focus-pulse');
+    positionGuideBubbleNearTarget(target);
+    setTimeout(()=>target.classList.remove('guide-focus-pulse'),1800);
 }
-
-function toggleGuideBubble() {
-    const bubble = document.getElementById('guideSpeechBubble');
-    if (!bubble) return;
-    const opening = bubble.style.display !== 'block';
-    bubble.style.display = opening ? 'block' : 'none';
-    if (opening) {
-        updateGuideContext();
-        setTimeout(guideFocusTarget, 120);
-    }
+function positionGuideBubbleNearTarget(target){
+    const bubble=document.getElementById('guideSpeechBubble'); const guide=document.getElementById('floatingGuide');
+    if(!bubble||!guide||bubble.style.display==='none') return;
+    const r=target.getBoundingClientRect(); const g=guide.getBoundingClientRect();
+    bubble.style.setProperty('--target-x', Math.max(14, Math.min(bubble.offsetWidth-14, r.left + r.width/2 - g.left))+'px');
 }
-function hideGuideBubble() {
-    const bubble = document.getElementById('guideSpeechBubble');
-    if (bubble) bubble.style.display = 'none';
+function toggleGuideBubble(){
+    const bubble=document.getElementById('guideSpeechBubble'); if(!bubble) return;
+    const opening = getComputedStyle(bubble).display==='none';
+    bubble.style.display=opening?'block':'none';
+    if(opening) guideFocusTarget();
 }
-
-function initGuideDrag() {
-    const guide = document.querySelector('.floating-guide-container');
-    const handle = guide?.querySelector('.guide-avatar');
-    if (!guide || !handle || guide.dataset.dragReady === '1') return;
-    guide.dataset.dragReady = '1';
-
-    try {
-        const saved = JSON.parse(localStorage.getItem(GUIDE_STORAGE_KEY) || 'null');
-        if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
-            guide.style.left = Math.max(6, Math.min(window.innerWidth - 62, saved.x)) + 'px';
-            guide.style.top = Math.max(70, Math.min(window.innerHeight - 62, saved.y)) + 'px';
-            guide.style.right = 'auto';
-            guide.style.bottom = 'auto';
+function hideGuideBubble(){ const b=document.getElementById('guideSpeechBubble'); if(b)b.style.display='none'; }
+function advanceGuide(){
+    const steps=currentGuideSteps(); if(!steps.length)return;
+    guideStep=(guideStep+1)%steps.length;
+    updateGuideContext(); guideFocusTarget();
+}
+function initFloatingGuide(){
+    const guide=document.getElementById('floatingGuide'); const handle=guide?.querySelector('.guide-avatar');
+    if(!guide||!handle||guide.dataset.dragReady==='1')return;
+    guide.dataset.dragReady='1';
+    try{
+        const saved=JSON.parse(localStorage.getItem(GUIDE_STORAGE_KEY)||'null');
+        if(saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)){
+            guide.style.left=Math.max(4,Math.min(window.innerWidth-44,saved.x))+'px';
+            guide.style.top=Math.max(4,Math.min(window.innerHeight-44,saved.y))+'px'; guide.style.right='auto'; guide.style.bottom='auto';
         }
-    } catch (e) {}
-
-    const start = (clientX, clientY) => {
-        const rect = guide.getBoundingClientRect();
-        guideDragState = {startX: clientX, startY: clientY, baseLeft: rect.left, baseTop: rect.top, moved: false};
-        handle.classList.add('is-dragging');
+    }catch(e){}
+    const point=(ev)=>{const t=ev.touches?.[0]||ev; return {x:t.clientX,y:t.clientY};};
+    const down=(ev)=>{
+        const {x,y}=point(ev); const r=guide.getBoundingClientRect();
+        guideDragState={startX:x,startY:y,baseLeft:r.left,baseTop:r.top,moved:false}; handle.classList.add('is-dragging');
+        ev.preventDefault();
     };
-    const move = (clientX, clientY) => {
-        if (!guideDragState) return;
-        const dx = clientX - guideDragState.startX, dy = clientY - guideDragState.startY;
-        if (Math.abs(dx) + Math.abs(dy) > 6) guideDragState.moved = true;
-        const w = guide.offsetWidth || 52, h = guide.offsetHeight || 52;
-        const x = Math.max(6, Math.min(window.innerWidth - w - 6, guideDragState.baseLeft + dx));
-        const y = Math.max(70, Math.min(window.innerHeight - h - 8, guideDragState.baseTop + dy));
-        guide.style.left = x + 'px'; guide.style.top = y + 'px'; guide.style.right = 'auto'; guide.style.bottom = 'auto';
+    const move=(ev)=>{
+        if(!guideDragState)return; const {x,y}=point(ev); const dx=x-guideDragState.startX, dy=y-guideDragState.startY;
+        if(Math.abs(dx)+Math.abs(dy)>5)guideDragState.moved=true;
+        const w=guide.offsetWidth||44,h=guide.offsetHeight||44;
+        const nx=Math.max(4,Math.min(window.innerWidth-w-4,guideDragState.baseLeft+dx));
+        const ny=Math.max(4,Math.min(window.innerHeight-h-4,guideDragState.baseTop+dy));
+        guide.style.left=nx+'px';guide.style.top=ny+'px';guide.style.right='auto';guide.style.bottom='auto';
+        ev.preventDefault();
     };
-    const end = () => {
-        if (!guideDragState) return;
-        const moved = guideDragState.moved;
-        try { localStorage.setItem(GUIDE_STORAGE_KEY, JSON.stringify({x: guide.getBoundingClientRect().left, y: guide.getBoundingClientRect().top})); } catch (e) {}
-        handle.classList.remove('is-dragging');
-        handle.dataset.suppressClick = moved ? '1' : '0';
-        guideDragState = null;
-        if (moved) setTimeout(() => { handle.dataset.suppressClick = '0'; }, 120);
+    const up=()=>{
+        if(!guideDragState)return; const moved=guideDragState.moved; guideDragState=null; handle.classList.remove('is-dragging');
+        try{const r=guide.getBoundingClientRect();localStorage.setItem(GUIDE_STORAGE_KEY,JSON.stringify({x:r.left,y:r.top}));}catch(e){}
+        if(!moved) toggleGuideBubble();
     };
-
-    handle.addEventListener('pointerdown', e => {
-        if (e.button !== undefined && e.button !== 0) return;
-        handle.setPointerCapture?.(e.pointerId);
-        start(e.clientX, e.clientY);
-    });
-    handle.addEventListener('pointermove', e => move(e.clientX, e.clientY));
-    handle.addEventListener('pointerup', end);
-    handle.addEventListener('pointercancel', end);
-    handle.addEventListener('click', e => {
-        if (handle.dataset.suppressClick === '1') { e.preventDefault(); e.stopPropagation(); return; }
-        toggleGuideBubble();
-    });
-    window.addEventListener('resize', () => {
-        const rect = guide.getBoundingClientRect();
-        if (rect.right < 0 || rect.left > innerWidth || rect.bottom < 60 || rect.top > innerHeight) {
-            guide.style.left = 'auto'; guide.style.right = '14px'; guide.style.top = 'auto'; guide.style.bottom = '92px';
-        }
-    });
-}
-
-function initGuideWhenReady() {
-    initGuideDrag();
+    handle.addEventListener('pointerdown',down); window.addEventListener('pointermove',move,{passive:false}); window.addEventListener('pointerup',up);
+    handle.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleGuideBubble();}});
+    const next=document.createElement('button'); next.className='guide-next-btn'; next.type='button'; next.textContent='التالي'; next.setAttribute('aria-label','الشرح التالي');
+    next.addEventListener('click',advanceGuide); guide.querySelector('.guide-speech-bubble')?.appendChild(next);
     updateGuideContext();
 }
-
-// ==================== إدارة التبويبات والشاشات ====================
-function showView(viewId, pushHistory = true) {
-    if (document.getElementById('homeView')?.classList.contains('active') && viewId !== 'homeView') {
-        savedScrollPosition = window.scrollY || document.documentElement.scrollTop || 0;
-    }
-
-    document.querySelectorAll('.stage-view').forEach(v => v.classList.remove('active'));
-    const target = document.getElementById(viewId);
-    if (target) target.classList.add('active');
-
-    // الشريط السفلي خاص بواجهات المكتبة ولا يظهر داخل الكتاب.
-    const bottomNav = document.querySelector('.glass-bottom-nav');
-    if (bottomNav) {
-        const isReader = viewId === 'readerView';
-        bottomNav.style.display = isReader ? 'none' : '';
-        bottomNav.setAttribute('aria-hidden', isReader ? 'true' : 'false');
-    }
-    updateGuideContext(viewId);
-
-    if (pushHistory) {
-        history.pushState({ view: viewId }, '', '');
-    }
-
-    if (viewId === 'homeView') {
-        setTimeout(() => {
-            window.scrollTo({ top: savedScrollPosition, behavior: 'instant' });
-        }, 40);
-    }
-}
-
-function switchTab(tabKey) {
-    document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
-
-    if (tabKey === 'home') {
-        document.getElementById('navHomeBtn')?.classList.add('active');
-        showView('homeView');
-    } else if (tabKey === 'catalog') {
-        document.getElementById('navCatalogBtn')?.classList.add('active');
-        showView('catalogView');
-        renderCatalogAccordion();
-    } else if (tabKey === 'tags') {
-        document.getElementById('navTagsBtn')?.classList.add('active');
-        showView('tagsView');
-        renderTagsView(currentTagFilter);
-    } else if (tabKey === 'search') {
-        document.getElementById('navSearchBtn')?.classList.add('active');
-        openSearch();
-    }
-}
-
-window.addEventListener('popstate', (event) => {
-    const openModals = [
-        document.getElementById('volumesModal'),
-        document.getElementById('tocModal'),
-        document.getElementById('settingsModal'),
-        document.getElementById('inBookSearchModal'),
-        document.getElementById('addTagModal'),
-        document.getElementById('customConfirmModal'),
-        document.getElementById('personalLibraryModal')
-    ];
-
-    let modalClosed = false;
-    for (let modal of openModals) {
-        if (modal && (modal.style.display === 'flex' || modal.style.display === 'block')) {
-            modal.style.display = 'none';
-            modalClosed = true;
-        }
-    }
-    if (modalClosed) return;
-
-    const targetView = event.state?.view || 'homeView';
-    showView(targetView, false);
-
-    document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
-    if (targetView === 'homeView') {
-        document.getElementById('navHomeBtn')?.classList.add('active');
-    } else if (targetView === 'catalogView') {
-        document.getElementById('navCatalogBtn')?.classList.add('active');
-    } else if (targetView === 'tagsView') {
-        document.getElementById('navTagsBtn')?.classList.add('active');
-    }
+window.addEventListener('resize',()=>{
+    const guide=document.getElementById('floatingGuide'); if(!guide)return;
+    if(guide.style.left){ const w=guide.offsetWidth||44,h=guide.offsetHeight||44; const x=Math.max(4,Math.min(window.innerWidth-w-4,parseFloat(guide.style.left)||4)); const y=Math.max(4,Math.min(window.innerHeight-h-4,parseFloat(guide.style.top)||4)); guide.style.left=x+'px'; guide.style.top=y+'px'; }
 });
-
-function normalizeArabicText(text) {
-    if (!text) return "";
-    return text
-        .replace(/[\u064B-\u065F\u0670ـ]/g, "")
-        .replace(/[أإآ]/g, "ا")
-        .replace(/ة/g, "ه")
-        .toLowerCase()
-        .trim();
-}
-
-function createArabicSearchRegex(rawQuery) {
-    if (!rawQuery) return null;
-    let cleanQ = rawQuery.replace(/[\u064B-\u065F\u0670ـ]/g, "").trim();
-    if (!cleanQ) return null;
-
-    const tashkeel = "[\\u064B-\\u065F\\u0670ـ]*";
-    let words = cleanQ.split(/\s+/).filter(w => w.length > 0);
-    if (words.length === 0) return null;
-
-    let wordPatterns = words.map(w => {
-        let p = "";
-        for (let i = 0; i < w.length; i++) {
-            let c = w[i];
-            if (c === "ا" || c === "أ" || c === "إ" || c === "آ") {
-                p += "[اأإآ]" + tashkeel;
-            } else if (c === "ه" || c === "ة") {
-                p += "[هة]" + tashkeel;
-            } else if (c === "ي") {
-                p += "ي" + tashkeel;
-            } else if (c === "ى") {
-                p += "ى" + tashkeel;
-            } else if (/[a-zA-Z0-9\u0621-\u064A]/.test(c)) {
-                p += c + tashkeel;
-            } else {
-                p += "\\" + c;
-            }
-        }
-        return p;
-    });
-
-    let fullPattern = "(?:^|[^\\u0621-\\u064A0-9])(" + wordPatterns.join("\\s+") + ")(?=[^\\u0621-\\u064A0-9]|$)";
-    try {
-        return new RegExp(fullPattern, "gim");
-    } catch(e) {
-        return null;
-    }
-}
-
-function highlightArabicText(text, query) {
-    if (!text || !query) return text || "";
-    let reg = createArabicSearchRegex(query);
-    if (!reg) return text;
-    return text.replace(reg, (match, p1) => {
-        let prefix = match.substring(0, match.indexOf(p1));
-        return prefix + '<mark class="search-highlight">' + p1 + '</mark>';
-    });
-}
-
-const compoundMap = {
-    "الحادي والتسعون": 91, "الثاني والتسعون": 92, "الثالث والتسعون": 93, "الرابع والتسعون": 94,
-    "الخامس والتسعون": 95, "السادس والتسعون": 96, "السابع والتسعون": 97, "الثامن والتسعون": 98, "التاسع والتسعون": 99,
-    "الحادي والثمانون": 81, "الثاني والثمانون": 82, "الثالث والثمانون": 83, "الرابع والثمانون": 84,
-    "الخامس والثمانون": 85, "السادس والثمانون": 86, "السابع والثمانون": 87, "الثامن والثمانون": 88, "التاسع والثمانون": 89,
-    "الحادي والسبعون": 71, "الثاني والسبعون": 72, "الثالث والسبعون": 73, "الرابع والسبعون": 74,
-    "الخامس والسبعون": 75, "السادس والسبعون": 76, "السابع والسبعون": 77, "الثامن والسبعون": 78, "التاسع والسبعون": 79,
-    "الحادي والستون": 61, "الثاني والستون": 62, "الثالث والستون": 63, "الرابع والستون": 64,
-    "الخامس والستون": 65, "السادس والستون": 66, "السابع والستون": 67, "الثامن والستون": 68, "التاسع والستون": 69,
-    "الحادي والخمسون": 51, "الثاني والخمسون": 52, "الثالث والخمسون": 53, "الرابع والخمسون": 54,
-    "الخامس والخمسون": 55, "السادس والخمسون": 56, "السابع والخمسون": 57, "الثامن والخمسون": 58, "التاسع والخمسون": 59,
-    "الحادي والاربعون": 41, "الحادي والأربعون": 41, "الثاني والاربعون": 42, "الثاني والأربعون": 42,
-    "الثالث والاربعون": 43, "الثالث والأربعون": 43, "الرابع والاربعون": 44, "الرابع والأربعون": 44,
-    "الخامس والاربعون": 45, "الخامس والأربعون": 45, "السادس والاربعون": 46, "السادس والأربعون": 46,
-    "السابع والاربعون": 47, "السابع والأربعون": 47, "الثامن والاربعون": 48, "الثامن والأربعون": 48,
-    "التاسع والاربعون": 49, "التاسع والأربعون": 49,
-    "الحادي والثلاثون": 31, "الثاني والثلاثون": 32, "الثالث والثلاثون": 33, "الرابع والثلاثون": 34,
-    "الخامس والثلاثون": 35, "السادس والثلاثون": 36, "السابع والثلاثون": 37, "الثامن والثلاثون": 38, "التاسع والثلاثون": 39,
-    "الحادي والعشرون": 21, "الثاني والعشرون": 22, "الثالث والعشرون": 23, "الرابع والعشرون": 24,
-    "الخامس والعشرون": 25, "السادس والعشرون": 26, "السابع والعشرون": 27, "الثامن والعشرون": 28, "التاسع والعشرون": 29,
-    "الحادي عشر": 11, "الثاني عشر": 12, "الثالث عشر": 13, "الرابع عشر": 14, "الخامس عشر": 15,
-    "السادس عشر": 16, "السابع عشر": 17, "الثامن عشر": 18, "التاسع عشر": 19,
-    "المائة": 100, "المئة": 100, "التسعون": 90, "الثمانون": 80, "السبعون": 70,
-    "الستون": 60, "الخمسون": 50, "الأربعون": 40, "الاربعون": 40, "الثلاثون": 30, "العشرون": 20,
-    "العاشر": 10, "التاسع": 9, "الثامن": 8, "السابع": 7, "السادس": 6,
-    "الخامس": 5, "الرابع": 4, "الثالث": 3, "الثاني": 2, "الأول": 1, "الاول": 1
-};
-
-function getVolumeNumber(vol) {
-    if (vol.pdf_url) return 1;
-    let cleanTitle = (vol.title || "").replace(/[\u064B-\u065F\u0670ـ]/g, "");
-    let norm = normalizeArabicText(cleanTitle);
-    let lowerId = (vol.id || "").toLowerCase();
-
-    if (norm.includes("الروضه") || lowerId.includes("rawda")) {
-        return 8;
-    }
-
-    if (cleanTitle.includes("مخطوط") || cleanTitle.includes("نسخة")) return 1;
-
-    if (vol.volume) {
-        let cleanVol = String(vol.volume).replace(/\D/g, '');
-        if (cleanVol && !isNaN(parseInt(cleanVol, 10))) {
-            return parseInt(cleanVol, 10);
-        }
-    }
-
-    let idMatch = (vol.id || "").match(/_(\d+)/);
-    if (idMatch && idMatch && !isNaN(parseInt(idMatch, 10))) {
-        return parseInt(idMatch, 10);
-    }
-
-    for (let [word, num] of Object.entries(compoundMap)) {
-        if (cleanTitle.includes(word)) return num;
-    }
-
-    let textMatch = cleanTitle.match(/\d+/);
-    if (textMatch && !isNaN(parseInt(textMatch[0], 10))) {
-        return parseInt(textMatch[0], 10);
-    }
-
-    return 999;
-}
-
-function getGroupName(book, bookId) {
-    let lowerId = (bookId || "").toLowerCase();
-    let rawTitle = (book.title || "").trim();
-    let normTitle = normalizeArabicText(rawTitle);
-
-    if (book.pdf_url || lowerId.includes("mkh") || normTitle.includes("مخطوط") || normTitle.includes("مخطوطه") || normTitle.includes("نسخه خطيه") || normTitle.includes("وثيقه")) {
-        return rawTitle;
-    }
-
-    if (normTitle.includes("الاصول السته عشر") || normTitle.includes("الاصول ١٦") || lowerId.includes("osol16") || lowerId.includes("usul16")) {
-        return "الأصول الستة عشر";
-    }
-
-    if (normTitle.includes("مناقب الامام امير") || normTitle.includes("مناقب امير المومنين") || lowerId.startsWith("mnqb_amr") || lowerId.startsWith("mnqb_amir")) {
-        return "مناقب الإمام أمير المؤمنين (عليه السلام)";
-    }
-
-    if (lowerId.startsWith("kafi") || lowerId.startsWith("rawda") ||
-       (normTitle.includes("الكافي") && !normTitle.includes("مرآه") && !normTitle.includes("مراه")) || 
-       (normTitle.includes("الروضه") && !normTitle.includes("الواعظين") && !normTitle.includes("الجنان") && !normTitle.includes("الشهداء") && !normTitle.includes("الانوار"))) {
-        return "الكافي الشريف";
-    }
-
-    if (lowerId.startsWith("bhr") || normTitle.includes("بحار الانوار")) return "بحار الأنوار";
-    if (lowerId.startsWith("mrat") || lowerId.startsWith("mra") || normTitle.includes("العقول")) return "مرآة العقول في شرح أخبار آل الرسول";
-    if (lowerId.startsWith("iqbal") || normTitle.includes("اقبال") || normTitle.includes("إقبال") || normTitle.includes("لاقبال")) return "الإقبال بالأعمال الحسنة";
-    if (lowerId.startsWith("mtehjd") || normTitle.includes("المتهجد")) return "مصباح المتهجد وسلاح المتعبد";
-    if (lowerId.startsWith("mhj") || normTitle.includes("مهج الدعوات")) return "مهج الدعوات ومنهج العبادات";
-    if (lowerId.startsWith("hdyq") || normTitle.includes("الحدائق")) return "الحدائق الناضرة";
-    if (lowerId.startsWith("brh") || normTitle.includes("البرهان")) return "تفسير البرهان";
-    if (lowerId.startsWith("knz") || normTitle.includes("كنز الدقائق")) return "تفسير كنز الدقائق وبحر الغرائب";
-    if (lowerId.startsWith("nwr") || normTitle.includes("نور الثقلين")) return "تفسير نور الثقلين";
-    if (lowerId.startsWith("kml") || normTitle.includes("كمال الدين")) return "كمال الدين وتمام النعمة";
-    if (lowerId.startsWith("wsl") || normTitle.includes("وسائل الشيعه") || normTitle.includes("وسائل الشيعة")) return "وسائل الشيعة";
-    if (lowerId.startsWith("mstdrk") || normTitle.includes("مستدرك الوسائل")) return "مستدرك الوسائل";
-    if (lowerId.startsWith("mzn") || normTitle.includes("الميزان")) return "تفسير الميزان";
-    if (lowerId.startsWith("shf") || normTitle.includes("الصحيفه السجاديه") || normTitle.includes("الصحيفة السجادية")) return "الصحيفة السجادية";
-    if (lowerId.startsWith("nahj") || normTitle.includes("نهج البلاغه") || normTitle.includes("نهج البلاغة")) return "نهج البلاغة";
-    if (lowerId.startsWith("stb") || normTitle.includes("الاستبصار")) return "الاستبصار";
-    if (lowerId.startsWith("thb") || normTitle.includes("تهذيب الاحكام") || normTitle.includes("تهذيب الأحكام")) return "تهذيب الأحكام";
-    if (lowerId.startsWith("faqih") || normTitle.includes("من لا يحضره")) return "من لا يحضره الفقيه";
-    if (lowerId.startsWith("ayash") || lowerId.startsWith("aysh") || normTitle.includes("العياشي")) return "تفسير العياشي";
-    if (lowerId.startsWith("htj") || normTitle.includes("الاحتجاج") || normTitle.includes("الإحتجاج")) return "الإحتجاج للطبرسي";
-    if (lowerId.startsWith("irshad") || normTitle.includes("الارشاد") || normTitle.includes("الإرشاد")) return "الإرشاد في معرفة حجج الله على العباد";
-    if (lowerId.startsWith("amli") || normTitle.includes("امالي") || normTitle.includes("الأمالي")) return "الأمالي";
-    if (lowerId.startsWith("ilzam") || normTitle.includes("الزام الناصب") || normTitle.includes("إلزام الناصب")) return "إلزام الناصب في إثبات الحجة الغائب";
-    if (lowerId.startsWith("bsayr") || normTitle.includes("بصائر الدرجات")) return "بصائر الدرجات";
-    if (lowerId.startsWith("thwab") || normTitle.includes("ثواب الاعمال") || normTitle.includes("ثواب الأعمال")) return "ثواب الأعمال وعقاب الأعمال";
-    if (lowerId.startsWith("zad") || normTitle.includes("زاد المعاد")) return "زاد المعاد";
-    if (lowerId.startsWith("bld") || normTitle.includes("البلد الامين") || normTitle.includes("البلد الأمين")) return "البلد الأمين والدرع الحصين";
-    if (lowerId.startsWith("msb_kfc") || (normTitle.includes("مصباح") && normTitle.includes("كفعمي"))) return "مصباح الكفعمي";
-    if (lowerId.startsWith("mzr_shd") || (normTitle.includes("مزار") && normTitle.includes("شهيد"))) return "المزار للشهيد الأول";
-    if (lowerId.startsWith("mzr_mshd") || (normTitle.includes("مزار") && normTitle.includes("مشهدي"))) return "المزار الكبير للمشهدي";
-    if (lowerId.startsWith("mzr_bk") || normTitle.includes("المزار")) return "المزار";
-    if (lowerId.startsWith("jmal") || normTitle.includes("جمال الاسبوع") || normTitle.includes("جمال الأسبوع")) return "جمال الأسبوع بكمال العمل المشروع";
-    if (lowerId.startsWith("mjtna") || normTitle.includes("المجتنى") || normTitle.includes("المجتني")) return "المجتنى من الدعاء المجتبى";
-    if (lowerId.startsWith("slwh") || normTitle.includes("سلوه الحزين") || normTitle.includes("سلوة الحزين") || normTitle.includes("الدعوات للراوندي")) return "الدعوات (سلوة الحزين)";
-    
-    if (lowerId.startsWith("flah") || lowerId.startsWith("falah") || normTitle.includes("فلاح السائل")) return "فلاح السائل ونجاح المسائل";
-    
-    if (lowerId.startsWith("fth") || normTitle.includes("فتح الابواب") || normTitle.includes("فتح الأبواب")) return "فتح الأبواب في الاستخارات";
-    if (lowerId.startsWith("drwa") || normTitle.includes("الدروع الواقية")) return "الدروع الواقية";
-    if (lowerId.startsWith("aman") || normTitle.includes("الامان من اخطار") || normTitle.includes("الأمان من أخطار")) return "الأمان من أخطار الأسفار والأزمان";
-    if (lowerId.startsWith("qny") || normTitle.includes("المقنع")) return "المقنع للمفيد";
-    if (lowerId.startsWith("add") || normTitle.includes("العدد القوية")) return "العدد القوية لدفع المخاوف اليومية";
-
-    if (book.series && book.series.trim() !== "") {
-        return book.series.trim();
-    }
-
-    let clean = rawTitle
-        .replace(/[\u064B-\u065F\u0670ـ]/g, "")
-        .replace(/[-–—_:\/,\.،؛\(\)]/g, ' ');
-
-    for (let w of Object.keys(compoundMap).sort((a, b) => b.length - a.length)) {
-        clean = clean.replace(new RegExp(`\\b${w}\\b`, 'gi'), '');
-    }
-
-    clean = clean
-        .replace(/\b(?:الجزء|المجلد|جزء|مجلد|ج|م|vol|v)\b\s*\d*/gi, '')
-        .replace(/\s+\d+\s*$/g, '')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-    return clean || rawTitle;
-}
-
-// 🌟 تحديث جذري: تجاوز تصنيفات الملفات القديمة وفرض التصنيفات والترتيب الجديد بدقة متناهية 🌟
-function getBookCategory(book) {
-    let rawTitle = (book.title || "").toLowerCase();
-    let rawCat = (book.category || "").trim().toLowerCase();
-    
-    // دمج العنوان مع التصنيف وتوحيد الحروف (إزالة الهمزات والتاء المربوطة) لضمان دقة البحث
-    let combined = normalizeArabicText(rawTitle + " " + rawCat);
-
-    // 1. المخطوطات والوثائق
-    if (book.pdf_url || combined.includes("مخطوط") || combined.includes("وثيقه")) return "المخطوطات والوثائق التراثية";
-
-    // 📌 استثناءات قوية جداً لضمان دخول أمهات الكتب في "الحديث والرواية" وعدم انجرارها خلف كلمات مفتاحية أخرى
-    if (combined.includes("كامل الزيارات") || 
-        combined.includes("علل الشرايع") || 
-        combined.includes("دلائل الامامه") || 
-        combined.includes("ارشاد القلوب") || 
-        combined.includes("كمال الدين")) {
-        return "الحديث والرواية";
-    }
-
-    // 2. الكتب الأربعة
-    if (combined.includes("الكافي") || combined.includes("من لا يحضره") || combined.includes("تهذيب الاحكام") || combined.includes("الاستبصار")) return "الكتب الأربعة";
-
-    // 3. كتب الغيبة
-    if (combined.includes("غيبه") || combined.includes("الزام الناصب") || combined.includes("المهدي") || combined.includes("الايقاظ من الهجعه") || combined.includes("النجم الثاقب") || combined.includes("توقيعات") || combined.includes("الرجعه")) return "كتب الغيبة";
-
-    // 4. تفسير أهل البيت
-    if (combined.includes("تفسير") || combined.includes("قران") || combined.includes("عياشي") || combined.includes("برهان") || combined.includes("الميزان") || combined.includes("الثقلين") || combined.includes("اسباب النزول") || combined.includes("عين العبره") || combined.includes("عيون الغرر") || combined.includes("تاويل الايات") || combined.includes("تاويل ما نزل") || combined.includes("مراه الانوار") || combined.includes("المحكم والمتشابه")) return "تفسير أهل البيت";
-
-    // 5. رد الشبهات (تم رفعها قبل العقائد لتجنب التقاط كلمة "امامة" بالخطأ لكتاب بهجة النظر)
-    if (combined.includes("شبهات") || combined.includes("رد") || combined.includes("مناظرات") || combined.includes("مراجعات") || combined.includes("نقض") || combined.includes("بهجه النظر") || combined.includes("غايه المرام") || combined.includes("حجه الخصام")) return "رد الشبهات";
-
-    // 6. سيرة النبي وأهل بيته
-    if (combined.includes("سيره") || combined.includes("تاريخ") || combined.includes("مقتل") || combined.includes("ارشاد") || combined.includes("هجوم") || combined.includes("فاطمه") || combined.includes("حليه الابرار") || combined.includes("نوادر المعجزات") || combined.includes("عوالم العلوم")) return "سيرة النبي وأهل بيته";
-
-    // 7. الفقه
-    if (combined.includes("فقه") || combined.includes("احكام") || combined.includes("شرايع") || combined.includes("شرائع") || combined.includes("حدائق") || combined.includes("رساله") || combined.includes("المقنع")) return "الفقه";
-
-    // 8. عقائد
-    if (combined.includes("عقائد") || combined.includes("عقايد") || combined.includes("توحيد") || combined.includes("امامه") || combined.includes("عدل") || combined.includes("اعتقادات") || combined.includes("سفينه النجاه") || combined.includes("كنز الفوائد")) return "عقائد";
-
-    // 9. الأخلاق
-    if (combined.includes("اخلاق") || combined.includes("اداب") || combined.includes("مواعظ")) return "الأخلاق";
-
-    // 10. الدعاء والزيارة
-    if (combined.includes("دعاء") || combined.includes("ادعيه") || combined.includes("صحيفه") || combined.includes("زياره") || combined.includes("مناجات") || combined.includes("مفاتيح") || combined.includes("اقبال") || combined.includes("مصباح") || combined.includes("مزار") || combined.includes("مهج") || combined.includes("زاد المعاد") || combined.includes("البلد الامين") || combined.includes("الدروع") || combined.includes("فلاح السائل") || combined.includes("جمال الاسبوع")) return "الدعاء والزيارة";
-
-    // 11. الحديث والرواية (تمت إضافة جميع الكتب التي أرفقتها في الصور هنا)
-    if (combined.includes("حديث") || combined.includes("بحار") || combined.includes("وافي") || combined.includes("وسائل") || combined.includes("مستدرك") || combined.includes("احتجاج") || combined.includes("عقول") || combined.includes("فضائل") || combined.includes("فضايل") || combined.includes("بصائر") || combined.includes("مناقب") || combined.includes("اصول") || combined.includes("خرائج") || combined.includes("محاسن") || combined.includes("بشاره") || combined.includes("رجال") || combined.includes("كتب الصدوق") || combined.includes("نهج البلاغه") || combined.includes("عيون اخبار") || combined.includes("سليم بن قيس") || combined.includes("معاجز") || combined.includes("مشارق") || combined.includes("امالي")) return "الحديث والرواية";
-
-    // المتون العامة
-    return "المتون العامة";
-}
-
-// طلبات شبكة محمية بمهلة حتى لا يبقى التطبيق عالقًا في "جاري التحميل".
-async function fetchWithTimeout(url, options = {}, timeoutMs = 7000) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-        return await fetch(url, { ...options, signal: controller.signal, cache: options.cache || 'no-store' });
-    } finally {
-        clearTimeout(timer);
-    }
-}
-
-// ==================== تحميل ودمج الفهارس الذكي ====================
-async function loadLibraryManifest() {
-    const container = document.getElementById('dynamicBooksContainer');
-    if (!container) return;
-
-    allBooksManifest = {};
-
-    try {
-        const fetchPromises = MANIFEST_FILES.map(async (fileUrl) => {
-            try {
-                let res = await fetchWithTimeout(fileUrl + '?v=' + Date.now(), {}, 7000);
-                if (res.ok) {
-                    const data = await res.json();
-                    return data.books || data;
-                }
-            } catch (err) {}
-            return {};
-        });
-
-        const results = await Promise.all(fetchPromises);
-
-        results.forEach(booksObj => {
-            for (let [id, bookData] of Object.entries(booksObj)) {
-                if (!bookData) continue;
-                if (allBooksManifest[id]) {
-                    const existingCover = (allBooksManifest[id].cover || "").trim();
-                    const newCover = (bookData.cover || "").trim();
-                    allBooksManifest[id] = { ...allBooksManifest[id], ...bookData };
-                    if (existingCover !== "" && newCover === "") {
-                        allBooksManifest[id].cover = existingCover;
-                    }
-                } else {
-                    allBooksManifest[id] = bookData;
-                }
-            }
-        });
-
-        if (Object.keys(allBooksManifest).length === 0) {
-            throw new Error("لم يتم العثور على أي بيانات في ملفات manifest");
-        }
-
-        processAndRenderBooks(allBooksManifest);
-        const loadStatus = document.getElementById('dynamicBooksContainer')?.querySelector('.library-load-status');
-        if (loadStatus) loadStatus.remove();
-
-        const urlParams = new URLSearchParams(window.location.search);
-        const targetBookId = urlParams.get('book');
-        const targetPage = urlParams.get('page');
-        const targetQuote = urlParams.get('quote');
-        if (targetBookId && allBooksManifest[targetBookId]) {
-            const b = allBooksManifest[targetBookId];
-            if (b.pdf_url) {
-                // روابط PDF لا تملك قارئ الصفحات الداخلي؛ نفتح الملف الأصلي مباشرة.
-                window.open(b.pdf_url, '_blank', 'noopener,noreferrer');
-            } else {
-                loadAndOpenBook(targetBookId, b.title, b.toc, b.total_pages, targetPage ? Number(targetPage) : null, targetQuote || '');
-            }
-        }
-
-    } catch (err) {
-        console.error(err);
-        container.innerHTML = `<div class="library-load-status" style="color:#ff6b6b; grid-column: span 3; text-align: center; font-size: 13px; padding: 20px;">تعذر تحميل الفهارس. تأكد من وجود ملفات manifest وبيانات الكتب في المستودع.</div>`;
-    }
-}
-
-// ==================== بناء واجهة الكتب مع السلايدر التلقائي ====================
-function processAndRenderBooks(data) {
-    const container = document.getElementById('dynamicBooksContainer');
-    const track = document.getElementById('heroSliderTrack');
-    const indicators = document.getElementById('heroIndicators');
-    
-    if (!container) return;
-    container.innerHTML = "";
-    if (track) track.innerHTML = "";
-    if (indicators) indicators.innerHTML = "";
-
-    const bookKeys = Object.keys(data);
-    searchIndex = [];
-    if (bookKeys.length === 0) {
-        container.innerHTML = '<div style="color:var(--text-muted); grid-column: span 3; text-align: center;">قائمة الكتب فارغة.</div>';
-        return;
-    }
-
-    const groups = {};
-
-    bookKeys.forEach(bookId => {
-        let book = data[bookId];
-        book.id = bookId;
-        let groupName = getGroupName(book, bookId);
-        searchIndex.push({ id: bookId, title: book.title || '', author: book.author || book.writer || book.authors || '', category: book.category || '', group: groupName, toc: Array.isArray(book.toc) ? book.toc : [], pdf: !!book.pdf_url });
-        if (!groups[groupName]) groups[groupName] = [];
-        groups[groupName].push(book);
-    });
-
-    const sortedGroupTitles = Object.keys(groups).sort((a, b) => 
-        a.localeCompare(b, 'ar', { numeric: true, sensitivity: 'base' })
-    );
-
-    let heroCount = 0;
-    const maxHeroSlides = 10; 
-
-    sortedGroupTitles.forEach(groupTitle => {
-        const booksInGroup = groups[groupTitle];
-        booksInGroup.sort((a, b) => getVolumeNumber(a) - getVolumeNumber(b));
-
-        const mainBook = booksInGroup[0];
-        const isSeries = booksInGroup.length > 1;
-        const isPdfManuscript = !!mainBook.pdf_url;
-
-        let coverSrc = "";
-        for (let b of booksInGroup) {
-            let candidate = (b.cover || "").trim();
-            if (candidate !== "") { coverSrc = candidate; break; }
-        }
-
-        let coverHtml = createCoverHtml(coverSrc, groupTitle, isPdfManuscript);
-
-        let subtitle = isPdfManuscript 
-            ? `${mainBook.total_pages || 0} لوحة (مخطوط PDF)` 
-            : (isSeries ? `${booksInGroup.length} أجزاء / مجلدات` : `${mainBook.total_pages || 0} صفحة`);
-
-        let cleanTitleForSearch = groupTitle.replace(/ی/g, "ي").replace(/ک/g, "ك").replace(/ة/g, "ه").replace(/[أإآ]/g, "ا");
-        
-        let isFeatured = false;
-        if (cleanTitleForSearch.includes("الهجوم") || 
-            cleanTitleForSearch.includes("نعماني") || 
-            cleanTitleForSearch.includes("الكافي") || 
-            cleanTitleForSearch.includes("سجاديه") || 
-            cleanTitleForSearch.includes("توحيد المفضل")) {
-            isFeatured = true;
-        }
-
-        if (track && isFeatured && heroCount < maxHeroSlides) {
-            const slide = document.createElement('div');
-            slide.className = 'hero-slide tactile-btn';
-            slide.innerHTML = `
-                ${coverHtml}
-                <div class="hero-slide-content">
-                    <span class="hero-slide-tag">مميز</span>
-                    <h4 class="hero-slide-title">${groupTitle}</h4>
-                    <p class="hero-slide-desc">${subtitle}</p>
-                    <button class="hero-slide-btn">قراءة الآن</button>
-                </div>
-            `;
-            attachTactilePhysics(slide);
-            
-            if (isPdfManuscript) slide.onclick = () => window.open(mainBook.pdf_url, '_blank');
-            else if (isSeries) slide.onclick = () => openVolumesModal(groupTitle, booksInGroup);
-            else slide.onclick = () => loadAndOpenBook(mainBook.id, mainBook.title, mainBook.toc, mainBook.total_pages);
-            
-            track.appendChild(slide);
-            
-            const dot = document.createElement('div');
-            dot.className = 'hero-dot' + (heroCount === 0 ? ' active' : '');
-            indicators.appendChild(dot);
-            
-            heroCount++;
-        }
-
-        const card = document.createElement("div");
-        card.className = "book-card tactile-btn";
-        card.innerHTML = `
-            <button class="book-favorite-btn tactile-btn ${isFavoriteBook(mainBook.id) ? 'active' : ''}" title="${isFavoriteBook(mainBook.id) ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}" onclick="toggleFavoriteBook('${escapeHtml(mainBook.id)}', event)"><i class="${isFavoriteBook(mainBook.id) ? 'fas' : 'far'} fa-star"></i></button>
-            ${coverHtml}
-            <div class="book-info">
-                <h4 class="text-white">${groupTitle}</h4>
-                <p class="text-muted">${subtitle}</p>
-                <div class="progress-bar v2-book-progress" style="width: 100%;"><div class="progress-fill" style="width: ${getBookProgressPercent(mainBook.id)}%;"></div></div>
-            </div>
-        `;
-
-        attachTactilePhysics(card);
-        if (isPdfManuscript) {
-            card.onclick = () => window.open(mainBook.pdf_url, '_blank');
-        } else if (isSeries) {
-            card.onclick = () => openVolumesModal(groupTitle, booksInGroup);
-        } else {
-            card.onclick = () => loadAndOpenBook(mainBook.id, mainBook.title, mainBook.toc, mainBook.total_pages);
-        }
-        container.appendChild(card);
-    });
-
-    renderSearchFilterPills(groups);
-    renderContinueReading();
-    if (heroCount > 0) setupHeroSlider(heroCount);
-}
-
-let heroSliderTimer = null;
-function setupHeroSlider(count) {
-    clearInterval(heroSliderTimer);
-    let currentIndex = 0;
-    const track = document.getElementById('heroSliderTrack');
-    const dots = document.querySelectorAll('.hero-dot');
-    
-    if (!track) return;
-    
-    track.addEventListener('scroll', () => {
-        let index = Math.round(Math.abs(track.scrollLeft) / track.clientWidth);
-        if (index < count) {
-            currentIndex = index;
-            dots.forEach(d => d.classList.remove('active'));
-            if (dots[currentIndex]) dots[currentIndex].classList.add('active');
-        }
-    }, { passive: true });
-    
-    heroSliderTimer = setInterval(() => {
-        currentIndex++;
-        if (currentIndex >= count) currentIndex = 0;
-        
-        const slide = track.children[currentIndex];
-        if (slide) {
-            track.scrollTo({
-                left: slide.offsetLeft,
-                behavior: 'smooth'
-            });
-        }
-    }, 4000);
-}
-
-// 🌟 ترتيب الفهرس بشكل قسري بناءً على المصفوفة، متجاهلاً الترتيب الأبجدي 🌟
-function renderCatalogAccordion() {
-    const catalogContainer = document.getElementById('catalogAccordionContainer');
-    if (!catalogContainer) return;
-
-    if (Object.keys(allBooksManifest).length === 0) {
-        catalogContainer.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:30px;">جاري تحميل الفهرس...</div>';
-        return;
-    }
-
-    const categoriesMap = {};
-    const bookKeys = Object.keys(allBooksManifest);
-    const groups = {};
-
-    bookKeys.forEach(bookId => {
-        let book = allBooksManifest[bookId];
-        book.id = bookId;
-        let groupName = getGroupName(book, bookId);
-        if (!groups[groupName]) groups[groupName] = [];
-        groups[groupName].push(book);
-    });
-
-    Object.keys(groups).forEach(groupTitle => {
-        const booksInGroup = groups[groupTitle];
-        booksInGroup.sort((a, b) => getVolumeNumber(a) - getVolumeNumber(b));
-        const mainBook = booksInGroup[0];
-        
-        // جلب التصنيف الجديد
-        const cat = getBookCategory(mainBook);
-
-        if (!categoriesMap[cat]) categoriesMap[cat] = [];
-        categoriesMap[cat].push({ groupTitle, booksInGroup, mainBook });
-    });
-
-    catalogContainer.innerHTML = '';
-
-    // قائمة الفرز الصارمة المستندة لصورك
-    const categoryOrder = [
-        "تفسير أهل البيت",
-        "الكتب الأربعة",
-        "الحديث والرواية",
-        "كتب الغيبة",
-        "عقائد",
-        "الفقه",
-        "سيرة النبي وأهل بيته",
-        "رد الشبهات",
-        "الأخلاق",
-        "الدعاء والزيارة",
-        "المخطوطات والوثائق التراثية",
-        "المتون العامة"
-    ];
-
-    // عملية فرز قسرية للأقسام
-    const sortedCategories = Object.keys(categoriesMap).sort((a, b) => {
-        let indexA = categoryOrder.indexOf(a.trim());
-        let indexB = categoryOrder.indexOf(b.trim());
-        
-        if (indexA === -1) indexA = 999;
-        if (indexB === -1) indexB = 999;
-        
-        // إذا كان كلا القسمين غير موجودين في القائمة المرجعية، نرتبهم أبجدياً
-        if (indexA === 999 && indexB === 999) {
-            return a.localeCompare(b, 'ar');
-        }
-        
-        return indexA - indexB;
-    });
-
-    sortedCategories.forEach((catName, index) => {
-        const items = categoriesMap[catName];
-        if (!items || items.length === 0) return;
-
-        items.sort((a, b) => a.groupTitle.localeCompare(b.groupTitle, 'ar', { numeric: true }));
-
-        const accordionId = `acc_item_${index}`;
-        const itemDiv = document.createElement('div');
-        itemDiv.className = 'catalog-accordion-item';
-        itemDiv.innerHTML = `
-            <div class="catalog-accordion-header tactile-btn" onclick="toggleAccordionBody('${accordionId}')">
-                <h4><i class="fas fa-bookmark text-gold"></i> ${catName} <span class="results-badge" style="font-size: 10px; margin-right: 6px;">${items.length} كتاب</span></h4>
-                <i class="fas fa-chevron-down text-gold" id="icon_${accordionId}" style="transition: transform 0.3s;"></i>
-            </div>
-            <div class="catalog-accordion-body" id="${accordionId}">
-                <div class="books-grid-container" id="grid_${accordionId}" style="padding: 4px 0 !important;"></div>
-            </div>
-        `;
-        attachTactilePhysics(itemDiv.querySelector('.catalog-accordion-header'));
-        catalogContainer.appendChild(itemDiv);
-
-        const gridEl = itemDiv.querySelector(`#grid_${accordionId}`);
-        items.forEach(item => {
-            const { groupTitle, booksInGroup, mainBook } = item;
-            const isSeries = booksInGroup.length > 1;
-            const isPdfManuscript = !!mainBook.pdf_url;
-
-            let coverSrc = "";
-            for (let b of booksInGroup) {
-                let candidate = (b.cover || "").trim();
-                if (candidate !== "") { coverSrc = candidate; break; }
-            }
-
-            let coverHtml = createCoverHtml(coverSrc, groupTitle, isPdfManuscript);
-
-            let subtitle = isPdfManuscript 
-                ? `${mainBook.total_pages || 0} لوحة (مخطوط PDF)` 
-                : (isSeries ? `${booksInGroup.length} أجزاء` : `${mainBook.total_pages || 0} صفحة`);
-
-            const card = document.createElement("div");
-            card.className = "book-card tactile-btn";
-            card.innerHTML = `
-                <button class="book-favorite-btn tactile-btn ${isFavoriteBook(mainBook.id) ? 'active' : ''}" title="${isFavoriteBook(mainBook.id) ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}" onclick="toggleFavoriteBook('${escapeHtml(mainBook.id)}', event)"><i class="${isFavoriteBook(mainBook.id) ? 'fas' : 'far'} fa-star"></i></button>
-                ${coverHtml}
-                <div class="book-info">
-                    <h4 class="text-white">${groupTitle}</h4>
-                    <p class="text-muted">${subtitle}</p>
-                    <div class="progress-bar v2-book-progress" style="width: 100%;"><div class="progress-fill" style="width: ${getBookProgressPercent(mainBook.id)}%;"></div></div>
-                </div>
-            `;
-
-            attachTactilePhysics(card);
-            if (isPdfManuscript) {
-                card.onclick = () => window.open(mainBook.pdf_url, '_blank');
-            } else if (isSeries) {
-                card.onclick = () => openVolumesModal(groupTitle, booksInGroup);
-            } else {
-                card.onclick = () => loadAndOpenBook(mainBook.id, mainBook.title, mainBook.toc, mainBook.total_pages);
-            }
-            gridEl.appendChild(card);
-        });
-    });
-}
-
-function toggleAccordionBody(accId) {
-    const bodyEl = document.getElementById(accId);
-    const iconEl = document.getElementById(`icon_${accId}`);
-    if (!bodyEl) return;
-
-    const isOpen = bodyEl.classList.contains('open');
-    document.querySelectorAll('.catalog-accordion-body').forEach(b => b.classList.remove('open'));
-    document.querySelectorAll('.catalog-accordion-header i.fa-chevron-up').forEach(i => i.className = 'fas fa-chevron-down text-gold');
-
-    if (!isOpen) {
-        bodyEl.classList.add('open');
-        if (iconEl) iconEl.className = 'fas fa-chevron-up text-gold';
-    }
-}
-
-// ==================== قائمة اختيار الأجزاء ====================
-function openVolumesModal(seriesTitle, volumesList) {
-    const modalTitle = document.getElementById('volumesModalTitle');
-    const container = document.getElementById('volumesListContainer');
-    if (modalTitle) modalTitle.innerText = seriesTitle;
-    if (!container) return;
-
-    volumesList.sort((a, b) => getVolumeNumber(a) - getVolumeNumber(b));
-
-    container.innerHTML = '';
-    volumesList.forEach(vol => {
-        let volNum = getVolumeNumber(vol);
-        let volLabel = (volNum !== 999 && !isNaN(volNum)) ? `الجزء ${volNum}` : (vol.title || seriesTitle);
-
-        const item = document.createElement('div');
-        item.className = 'toc-item tactile-btn';
-        item.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 10px; overflow: hidden;">
-                <i class="fas fa-book text-gold"></i>
-                <span class="toc-item-title" style="font-weight: bold; font-size: 14px;">${volLabel}</span>
-            </div>
-            <span class="toc-item-page">${vol.total_pages || 0} ص</span>
-        `;
-        attachTactilePhysics(item);
-        item.onclick = () => {
-            closeVolumesModal();
-            if (vol.pdf_url) {
-                window.open(vol.pdf_url, '_blank');
-            } else {
-                loadAndOpenBook(vol.id, vol.title, vol.toc, vol.total_pages);
-            }
-        };
-        container.appendChild(item);
-    });
-
-    const modal = document.getElementById('volumesModal');
-    if (modal) modal.style.display = 'flex';
-}
-
-function closeVolumesModal() {
-    const modal = document.getElementById('volumesModal');
-    if (modal) modal.style.display = 'none';
-}
+document.addEventListener('DOMContentLoaded',initFloatingGuide);
 
 // ==================== محرك القارئ وجلب البيانات ====================
 async function fetchBookData(bookId) {
