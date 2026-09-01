@@ -177,6 +177,139 @@ function attachTactilePhysics(btn) {
     btn.addEventListener('touchcancel', () => btn.classList.remove('pressed'), { passive: true });
 }
 
+// ==================== المرشد العائم الذكي ====================
+const GUIDE_STORAGE_KEY = 'library_guide_position_v1';
+let guideDragState = null;
+const guideTargets = {
+    homeView: {
+        selector: '#navCatalogBtn',
+        text: 'من هنا تفتح قائمة الكتب. اضغط على زر «قائمة الكتب» للانتقال إلى جميع المجموعات.'
+    },
+    catalogView: {
+        selector: '#navSearchBtn',
+        text: 'يمكنك البحث بسرعة من هنا، أو فتح أي مجموعة للوصول إلى الكتب والصفحات.'
+    },
+    tagsView: {
+        selector: '#navSearchBtn',
+        text: 'يمكنك استعمال البحث للوصول إلى نص أو كتاب، بينما الوسوم تجمع اقتباساتك وتصنيفاتك.'
+    },
+    searchView: {
+        selector: '#navCatalogBtn',
+        text: 'بعد العثور على الكتاب، افتحه من نتيجة البحث. ويمكنك العودة إلى قائمة الكتب من هذا الزر.'
+    },
+    readerView: {
+        selector: '#openTocBtn, button[onclick*="openTocModal"]',
+        text: 'أنت داخل الكتاب. هذا الزر يفتح الفهرس والتنقل بين الأبواب. ويمكنك أيضًا البحث أو حفظ الموضع من شريط الأدوات العلوي.'
+    }
+};
+
+function updateGuideContext(viewId = document.querySelector('.stage-view.active')?.id || 'homeView') {
+    const text = document.getElementById('guideSpeechText');
+    if (text) text.textContent = guideTargets[viewId]?.text || 'اضغط على المرشد وسأدلك على أهم أدوات هذه الصفحة.';
+}
+
+function getGuideTarget(viewId = document.querySelector('.stage-view.active')?.id || 'homeView') {
+    const spec = guideTargets[viewId] || guideTargets.homeView;
+    const selectors = (spec.selector || '').split(',').map(x => x.trim()).filter(Boolean);
+    for (const selector of selectors) {
+        const el = document.querySelector(selector);
+        if (el && el.offsetParent !== null) return el;
+    }
+    return null;
+}
+
+function guideFocusTarget() {
+    const viewId = document.querySelector('.stage-view.active')?.id || 'homeView';
+    const target = getGuideTarget(viewId);
+    updateGuideContext(viewId);
+    if (!target) return;
+    target.scrollIntoView({behavior: 'smooth', block: 'center', inline: 'center'});
+    target.classList.remove('guide-focus-pulse');
+    void target.offsetWidth;
+    target.classList.add('guide-focus-pulse');
+    setTimeout(() => target.classList.remove('guide-focus-pulse'), 1800);
+}
+
+function toggleGuideBubble() {
+    const bubble = document.getElementById('guideSpeechBubble');
+    if (!bubble) return;
+    const opening = bubble.style.display !== 'block';
+    bubble.style.display = opening ? 'block' : 'none';
+    if (opening) {
+        updateGuideContext();
+        setTimeout(guideFocusTarget, 120);
+    }
+}
+function hideGuideBubble() {
+    const bubble = document.getElementById('guideSpeechBubble');
+    if (bubble) bubble.style.display = 'none';
+}
+
+function initGuideDrag() {
+    const guide = document.querySelector('.floating-guide-container');
+    const handle = guide?.querySelector('.guide-avatar');
+    if (!guide || !handle || guide.dataset.dragReady === '1') return;
+    guide.dataset.dragReady = '1';
+
+    try {
+        const saved = JSON.parse(localStorage.getItem(GUIDE_STORAGE_KEY) || 'null');
+        if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+            guide.style.left = Math.max(6, Math.min(window.innerWidth - 62, saved.x)) + 'px';
+            guide.style.top = Math.max(70, Math.min(window.innerHeight - 62, saved.y)) + 'px';
+            guide.style.right = 'auto';
+            guide.style.bottom = 'auto';
+        }
+    } catch (e) {}
+
+    const start = (clientX, clientY) => {
+        const rect = guide.getBoundingClientRect();
+        guideDragState = {startX: clientX, startY: clientY, baseLeft: rect.left, baseTop: rect.top, moved: false};
+        handle.classList.add('is-dragging');
+    };
+    const move = (clientX, clientY) => {
+        if (!guideDragState) return;
+        const dx = clientX - guideDragState.startX, dy = clientY - guideDragState.startY;
+        if (Math.abs(dx) + Math.abs(dy) > 6) guideDragState.moved = true;
+        const w = guide.offsetWidth || 52, h = guide.offsetHeight || 52;
+        const x = Math.max(6, Math.min(window.innerWidth - w - 6, guideDragState.baseLeft + dx));
+        const y = Math.max(70, Math.min(window.innerHeight - h - 8, guideDragState.baseTop + dy));
+        guide.style.left = x + 'px'; guide.style.top = y + 'px'; guide.style.right = 'auto'; guide.style.bottom = 'auto';
+    };
+    const end = () => {
+        if (!guideDragState) return;
+        const moved = guideDragState.moved;
+        try { localStorage.setItem(GUIDE_STORAGE_KEY, JSON.stringify({x: guide.getBoundingClientRect().left, y: guide.getBoundingClientRect().top})); } catch (e) {}
+        handle.classList.remove('is-dragging');
+        handle.dataset.suppressClick = moved ? '1' : '0';
+        guideDragState = null;
+        if (moved) setTimeout(() => { handle.dataset.suppressClick = '0'; }, 120);
+    };
+
+    handle.addEventListener('pointerdown', e => {
+        if (e.button !== undefined && e.button !== 0) return;
+        handle.setPointerCapture?.(e.pointerId);
+        start(e.clientX, e.clientY);
+    });
+    handle.addEventListener('pointermove', e => move(e.clientX, e.clientY));
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
+    handle.addEventListener('click', e => {
+        if (handle.dataset.suppressClick === '1') { e.preventDefault(); e.stopPropagation(); return; }
+        toggleGuideBubble();
+    });
+    window.addEventListener('resize', () => {
+        const rect = guide.getBoundingClientRect();
+        if (rect.right < 0 || rect.left > innerWidth || rect.bottom < 60 || rect.top > innerHeight) {
+            guide.style.left = 'auto'; guide.style.right = '14px'; guide.style.top = 'auto'; guide.style.bottom = '92px';
+        }
+    });
+}
+
+function initGuideWhenReady() {
+    initGuideDrag();
+    updateGuideContext();
+}
+
 // ==================== إدارة التبويبات والشاشات ====================
 function showView(viewId, pushHistory = true) {
     if (document.getElementById('homeView')?.classList.contains('active') && viewId !== 'homeView') {
@@ -187,10 +320,14 @@ function showView(viewId, pushHistory = true) {
     const target = document.getElementById(viewId);
     if (target) target.classList.add('active');
 
-    // الشريط السفلي الرئيسي يبقى ظاهرًا في جميع الواجهات، بما فيها القارئ.
-    // تم إلغاء الإخفاء البرمجي الذي كان يسبب اختفاء الشريط بعد الدخول للقارئ.
+    // الشريط السفلي خاص بواجهات المكتبة ولا يظهر داخل الكتاب.
     const bottomNav = document.querySelector('.glass-bottom-nav');
-    if (bottomNav) bottomNav.style.display = '';
+    if (bottomNav) {
+        const isReader = viewId === 'readerView';
+        bottomNav.style.display = isReader ? 'none' : '';
+        bottomNav.setAttribute('aria-hidden', isReader ? 'true' : 'false');
+    }
+    updateGuideContext(viewId);
 
     if (pushHistory) {
         history.pushState({ view: viewId }, '', '');
@@ -2547,3 +2684,6 @@ document.addEventListener('keydown',(event)=>{
     if(event.ctrlKey&&event.key.toLowerCase()==='k'){event.preventDefault();openLibraryCommandCenter();return;}
     if(event.key==='/'&&!typing){event.preventDefault();openSearch();}
 });
+
+
+document.addEventListener('DOMContentLoaded', initGuideWhenReady, {once:true});
