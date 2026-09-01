@@ -32,6 +32,9 @@ let currentBookTitle = "";
 
 let currentSearchScope = 'all';
 let currentSearchTarget = 'toc';
+let currentSearchMatchType = 'exact';
+let searchRequestId = 0;
+let searchIndex = [];
 let searchDebounceTimer = null;
 let savedSelectionRange = null;
 let savedSelectionText = "";
@@ -579,6 +582,7 @@ function processAndRenderBooks(data) {
     if (indicators) indicators.innerHTML = "";
 
     const bookKeys = Object.keys(data);
+    searchIndex = [];
     if (bookKeys.length === 0) {
         container.innerHTML = '<div style="color:var(--text-muted); grid-column: span 3; text-align: center;">قائمة الكتب فارغة.</div>';
         return;
@@ -590,6 +594,7 @@ function processAndRenderBooks(data) {
         let book = data[bookId];
         book.id = bookId;
         let groupName = getGroupName(book, bookId);
+        searchIndex.push({ id: bookId, title: book.title || '', group: groupName, toc: Array.isArray(book.toc) ? book.toc : [], pdf: !!book.pdf_url });
         if (!groups[groupName]) groups[groupName] = [];
         groups[groupName].push(book);
     });
@@ -1817,13 +1822,55 @@ function setSearchScope(scopeKey, element) {
     executeGlobalSearch();
 }
 
+function setSearchMatchType(type) {
+    currentSearchMatchType = ['exact', 'all', 'any'].includes(type) ? type : 'exact';
+    document.getElementById('searchMatchTypeExact')?.classList.toggle('active', currentSearchMatchType === 'exact');
+    document.getElementById('searchMatchTypeAll')?.classList.toggle('active', currentSearchMatchType === 'all');
+    document.getElementById('searchMatchTypeAny')?.classList.toggle('active', currentSearchMatchType === 'any');
+    executeGlobalSearch();
+}
+
+function searchTokens(value) {
+    return normalizeArabicText(value).split(/\s+/).filter(Boolean);
+}
+
+function searchTextMatch(text, query, mode = currentSearchMatchType) {
+    const hay = normalizeArabicText(text);
+    const needle = normalizeArabicText(query);
+    if (!hay || !needle) return false;
+    const tokens = searchTokens(query);
+    if (mode === 'exact') return hay.includes(needle);
+    if (mode === 'all') return tokens.every(token => hay.includes(token));
+    return tokens.some(token => hay.includes(token));
+}
+
+function createSearchMatcher(query) {
+    const normalized = normalizeArabicText(query);
+    const tokens = searchTokens(query);
+    return text => {
+        const hay = normalizeArabicText(text);
+        if (!hay || !normalized) return false;
+        if (currentSearchMatchType === 'exact') return hay.includes(normalized);
+        if (currentSearchMatchType === 'all') return tokens.every(t => hay.includes(t));
+        return tokens.some(t => hay.includes(t));
+    };
+}
+
+function highlightSearchText(text, query) {
+    if (!text || !query) return text || '';
+    return highlightArabicText(text, query);
+}
+
 function handleSearchInput(val) {
     const clearBtn = document.getElementById('searchClearBtn');
-    if (clearBtn) clearBtn.style.display = val.trim().length > 0 ? 'block' : 'none';
-
-    isDeepSearching = false;
+    if (clearBtn) clearBtn.style.display = val.trim() ? 'block' : 'none';
     clearTimeout(searchDebounceTimer);
-    searchDebounceTimer = setTimeout(() => { executeGlobalSearch(); }, 250);
+    isDeepSearching = false;
+    searchRequestId++;
+    const request = searchRequestId;
+    searchDebounceTimer = setTimeout(() => {
+        if (request === searchRequestId) executeGlobalSearch(request);
+    }, 90);
 }
 
 function clearSearch() {
@@ -1832,193 +1879,135 @@ function clearSearch() {
     handleSearchInput('');
 }
 
-async function executeGlobalSearch() {
-    const query = document.getElementById('searchInput').value.trim();
+function getScopedSearchIndex() {
+    let items = searchIndex.length ? searchIndex : Object.keys(allBooksManifest).map(id => ({
+        id, title: allBooksManifest[id]?.title || '', group: getGroupName(allBooksManifest[id], id),
+        toc: Array.isArray(allBooksManifest[id]?.toc) ? allBooksManifest[id].toc : [], pdf: !!allBooksManifest[id]?.pdf_url
+    }));
+    if (currentSearchScope === 'all') return items;
+    const group = currentSearchScope.replace(/^group:/, '');
+    return items.filter(x => x.group === group);
+}
+
+function renderSearchBookResult(item, query, matcher) {
+    const book = allBooksManifest[item.id];
+    if (!book) return null;
+    const card = document.createElement('div');
+    card.className = 'search-result-card search-book-result tactile-btn';
+    card.innerHTML = `
+        <div class="search-result-icon"><i class="fas ${item.pdf ? 'fa-file-pdf' : 'fa-book-open'}"></i></div>
+        <div class="search-result-main">
+            <div class="search-card-header">
+                <h4>${highlightSearchText(item.title || item.group, query)}</h4>
+                <span class="search-page-badge">${item.pdf ? 'PDF' : 'كتاب'}</span>
+            </div>
+            <div class="search-result-meta"><span>${highlightSearchText(item.group, query)}</span><span>${item.toc.length} باب</span></div>
+        </div>`;
+    attachTactilePhysics(card);
+    card.onclick = () => item.pdf ? window.open(book.pdf_url, '_blank', 'noopener,noreferrer') : loadAndOpenBook(item.id, book.title, book.toc, book.total_pages, null, query);
+    return card;
+}
+
+async function executeGlobalSearch(requestId = searchRequestId) {
+    const input = document.getElementById('searchInput');
+    const query = input ? input.value.trim() : '';
     const container = document.getElementById('searchResultsContainer');
     const statusInfo = document.getElementById('searchStatusInfo');
     const countBadge = document.getElementById('searchResultCount');
     const filterBadge = document.getElementById('searchFilterName');
-
     if (!container) return;
+    if (requestId !== searchRequestId) return;
 
     if (!query) {
         if (statusInfo) statusInfo.style.display = 'none';
-        container.innerHTML = `
-            <div class="search-empty-state">
-                <div class="empty-icon-box"><i class="fas fa-book-bookmark text-gold"></i></div>
-                <h4>ابحث في أسماء المتون، الأبواب، أو نصوص الصفحات</h4>
-                <p>حدد النوع والنطاق من الأزرار أعلاه ثم اكتب عبارة البحث.</p>
-            </div>
-        `;
+        container.innerHTML = `<div class="search-empty-state search-start-state"><div class="empty-icon-box"><i class="fas fa-magnifying-glass text-gold"></i></div><h4>ابحث باسم الكتاب أو المؤلف أو الباب</h4><p>البحث يدعم التطابق التام، كل الكلمات، أو أي كلمة.</p></div>`;
         return;
     }
 
-    let targetBookIds = Object.keys(allBooksManifest);
-    let filterLabel = "في كل المكتبة";
-
-    if (currentSearchScope !== 'all') {
-        if (currentSearchScope.startsWith('group:')) {
-            const gTarget = currentSearchScope.replace('group:', '');
-            targetBookIds = targetBookIds.filter(bId => getGroupName(allBooksManifest[bId], bId) === gTarget);
-            filterLabel = `في ${gTarget}`;
-        }
-    }
-
-    container.innerHTML = "";
+    const matcher = createSearchMatcher(query);
+    const items = getScopedSearchIndex();
+    const filterLabel = currentSearchScope === 'all' ? 'كل المكتبة' : `في ${currentSearchScope.replace(/^group:/, '')}`;
+    container.innerHTML = '';
     let foundCount = 0;
-    const searchRegex = createArabicSearchRegex(query);
-    if (!searchRegex) return;
+    let resultLimit = currentSearchTarget === 'fulltext' ? 120 : 250;
 
     if (currentSearchTarget === 'toc') {
-        targetBookIds.forEach(bookId => {
-            let book = allBooksManifest[bookId];
-            let groupName = getGroupName(book, bookId);
-            let rawTitle = book.title || "";
-
-            if (searchRegex.test(rawTitle) || searchRegex.test(groupName)) {
-                foundCount++;
-                const bookCard = document.createElement('div');
-                bookCard.className = "search-result-card tactile-btn";
-                bookCard.style.borderRight = "3px solid #D4AF37";
-                const highlightedHeader = highlightArabicText(rawTitle || groupName, query);
-                bookCard.innerHTML = `
-                    <div class="search-card-header">
-                        <h4><i class="fas fa-book-open text-gold"></i> ${highlightedHeader}</h4>
-                        <span class="search-page-badge">${book.pdf_url ? 'مخطوط PDF' : 'كتاب كامل'}</span>
-                    </div>
-                    <p class="search-snippet" style="color: var(--text-gold);">اضغط لفتح هذا المجلد مباشرة.</p>
-                `;
-                attachTactilePhysics(bookCard);
-                bookCard.onclick = () => {
-                    if (book.pdf_url) {
-                        window.open(book.pdf_url, '_blank');
-                    } else {
-                        loadAndOpenBook(book.id, book.title, book.toc, book.total_pages, null, query);
-                    }
-                };
-                container.appendChild(bookCard);
+        const fragment = document.createDocumentFragment();
+        for (const item of items) {
+            if (requestId !== searchRequestId) return;
+            if (matcher(`${item.title} ${item.group}`)) {
+                const card = renderSearchBookResult(item, query, matcher);
+                if (card) { fragment.appendChild(card); foundCount++; }
+                if (foundCount >= resultLimit) break;
             }
-
-            if (book.toc && Array.isArray(book.toc)) {
-                book.toc.forEach(tocItem => {
-                    let tocTitle = tocItem.title || "";
-                    if (searchRegex.test(tocTitle)) {
-                        foundCount++;
-                        const tocCard = document.createElement('div');
-                        tocCard.className = "search-result-card tactile-btn";
-                        const highlightedToc = highlightArabicText(tocItem.title, query);
-                        tocCard.innerHTML = `
-                            <div class="search-card-header">
-                                <h4 style="font-size: 13px;"><i class="fas fa-bookmark text-gold"></i> ${highlightedToc}</h4>
-                                <span class="search-page-badge">صـ ${tocItem.page_number}</span>
-                            </div>
-                            <p class="search-snippet">${rawTitle || groupName}</p>
-                        `;
-                        attachTactilePhysics(tocCard);
-                        tocCard.onclick = () => loadAndOpenBook(book.id, book.title, book.toc, book.total_pages, tocItem.page_number, query);
-                        container.appendChild(tocCard);
-                    }
-                });
+            if (foundCount < resultLimit) {
+                for (const tocItem of item.toc) {
+                    if (!matcher(tocItem.title || '')) continue;
+                    const card = document.createElement('div');
+                    card.className = 'search-result-card search-toc-result tactile-btn';
+                    card.innerHTML = `<div class="search-result-icon"><i class="fas fa-bookmark"></i></div><div class="search-result-main"><div class="search-card-header"><h4>${highlightSearchText(tocItem.title || 'باب', query)}</h4><span class="search-page-badge">صـ ${tocItem.page_number ?? '-'}</span></div><div class="search-result-meta"><span>${highlightSearchText(item.title, query)}</span><span>${item.group}</span></div></div>`;
+                    attachTactilePhysics(card);
+                    card.onclick = () => loadAndOpenBook(item.id, item.title, item.toc, bookTotal(item.id), tocItem.page_number, query);
+                    fragment.appendChild(card); foundCount++;
+                    if (foundCount >= resultLimit) break;
+                }
             }
-        });
-
-        if (statusInfo && countBadge && filterBadge) {
-            statusInfo.style.display = 'flex';
-            countBadge.innerText = `${foundCount} نتائج`;
-            filterBadge.innerText = `${filterLabel} (أبواب)`;
+            if (foundCount >= resultLimit) break;
         }
-
-        if (foundCount === 0) {
-            container.innerHTML = `
-                <div class="search-empty-state">
-                    <div class="empty-icon-box"><i class="fas fa-search-minus" style="color: var(--text-muted);"></i></div>
-                    <h4>لم نجد أبواباً مطابقة لـ "${query}"</h4>
-                    <p>جرّب التحويل إلى خيار «نصوص وصفحات الكتب» بالأعلى.</p>
-                </div>
-            `;
-        }
-    } 
-    else if (currentSearchTarget === 'fulltext') {
-        const progressIndicator = document.createElement('div');
-        progressIndicator.className = "glass-box";
-        progressIndicator.style.padding = "10px 14px";
-        progressIndicator.style.marginBottom = "10px";
-        progressIndicator.style.textAlign = "center";
-        progressIndicator.style.fontSize = "12px";
-        progressIndicator.style.color = "var(--gold-bright)";
-        progressIndicator.innerHTML = `<i class="fas fa-spinner fa-spin"></i> جاري البحث في نصوص الصفحات... (<span id="deepSearchProgress">0%</span>)`;
-        container.appendChild(progressIndicator);
-
+        container.appendChild(fragment);
+    } else {
+        const progress = document.createElement('div');
+        progress.className = 'search-progress-card';
+        progress.innerHTML = `<i class="fas fa-bolt"></i><span>بحث سريع داخل نصوص الصفحات</span><b id="deepSearchProgress">0%</b>`;
+        container.appendChild(progress);
         isDeepSearching = true;
-        let total = targetBookIds.length;
+        const total = items.length;
         let processed = 0;
-
-        for (const bookId of targetBookIds) {
-            if (!isDeepSearching) break;
-
-            try {
-                const bookMeta = allBooksManifest[bookId];
-                if (bookMeta.pdf_url) continue;
-
-                let bookData = null;
-                const cached = localStorage.getItem(`book_pages_${bookId}`);
-                if (cached) {
-                    bookData = { pages: JSON.parse(cached) };
-                } else {
-                    bookData = await fetchBookData(bookId);
-                }
-
-                if (bookData && bookData.pages) {
-                    bookData.pages.forEach(page => {
-                        const temp = document.createElement('div');
-                        temp.innerHTML = page.content || '';
+        const fragment = document.createDocumentFragment();
+        const batchSize = 4;
+        for (let i = 0; i < items.length && foundCount < resultLimit; i += batchSize) {
+            if (requestId !== searchRequestId) return;
+            const batch = items.slice(i, i + batchSize);
+            await Promise.all(batch.map(async item => {
+                if (requestId !== searchRequestId || foundCount >= resultLimit || item.pdf) return;
+                try {
+                    let bookData;
+                    const cached = localStorage.getItem(`book_pages_${item.id}`);
+                    if (cached) bookData = { pages: JSON.parse(cached) };
+                    else bookData = await fetchBookData(item.id);
+                    if (!bookData?.pages) return;
+                    for (const page of bookData.pages) {
+                        if (requestId !== searchRequestId || foundCount >= resultLimit) break;
+                        const temp = document.createElement('div'); temp.innerHTML = page.content || '';
                         const raw = temp.textContent || '';
-
-                        if (searchRegex.test(raw)) {
-                            foundCount++;
-                            const snippet = generateSearchSnippet(raw, query);
-                            const card = document.createElement('div');
-                            card.className = "search-result-card tactile-btn";
-                            card.style.borderLeft = "3px solid #4caf50";
-                            card.innerHTML = `
-                                <div class="search-card-header">
-                                    <h4 style="font-size: 13px;"><i class="fas fa-quote-right" style="color:#4caf50;"></i> ${bookMeta.title}</h4>
-                                    <span class="search-page-badge">صـ ${page.page_number}</span>
-                                </div>
-                                <p class="search-snippet" style="color: #fff;">${snippet}</p>
-                            `;
-                            attachTactilePhysics(card);
-                            card.onclick = () => loadAndOpenBook(bookId, bookMeta.title, bookMeta.toc, bookMeta.total_pages, page.page_number, query);
-                            container.appendChild(card);
-                        }
-                    });
-                }
-            } catch (e) {}
-
-            processed++;
-            const progEl = document.getElementById('deepSearchProgress');
-            if (progEl) progEl.innerText = `${Math.round((processed / total) * 100)}%`;
+                        if (!matcher(raw)) continue;
+                        const card = document.createElement('div');
+                        card.className = 'search-result-card search-text-result tactile-btn';
+                        card.innerHTML = `<div class="search-result-icon"><i class="fas fa-align-right"></i></div><div class="search-result-main"><div class="search-card-header"><h4>${highlightSearchText(item.title, query)}</h4><span class="search-page-badge">صـ ${page.page_number ?? '-'}</span></div><p class="search-snippet">${generateSearchSnippet(raw, query)}</p></div>`;
+                        attachTactilePhysics(card);
+                        card.onclick = () => loadAndOpenBook(item.id, item.title, item.toc, bookTotal(item.id), page.page_number, query);
+                        fragment.appendChild(card); foundCount++;
+                    }
+                } catch (_) {}
+            }));
+            processed += batch.length;
+            const p = document.getElementById('deepSearchProgress');
+            if (p) p.textContent = `${Math.round((processed / Math.max(total, 1)) * 100)}%`;
+            if (foundCount) { container.appendChild(fragment); }
         }
-
-        progressIndicator.remove();
         isDeepSearching = false;
-
-        if (statusInfo && countBadge && filterBadge) {
-            statusInfo.style.display = 'flex';
-            countBadge.innerText = `${foundCount} نتائج`;
-            filterBadge.innerText = `${filterLabel} (نصوص)`;
-        }
-
-        if (foundCount === 0) {
-            container.innerHTML = `
-                <div class="search-empty-state">
-                    <div class="empty-icon-box"><i class="fas fa-search-minus" style="color: var(--text-muted);"></i></div>
-                    <h4>لم نجد نصوصاً مطابقة لـ "${query}" في نطاق البحث</h4>
-                    <p>تأكد من كتابة الكلمة بدون أخطاء إملائية.</p>
-                </div>
-            `;
-        }
+        progress.remove();
     }
+
+    if (requestId !== searchRequestId) return;
+    if (statusInfo) statusInfo.style.display = 'flex';
+    if (countBadge) countBadge.textContent = `${foundCount}${foundCount >= resultLimit ? '+' : ''} نتائج`;
+    if (filterBadge) filterBadge.textContent = `${filterLabel} · ${currentSearchTarget === 'toc' ? 'أسماء وأبواب' : 'نصوص'}`;
+    if (!foundCount) container.innerHTML = `<div class="search-empty-state"><div class="empty-icon-box"><i class="fas fa-search-minus"></i></div><h4>لا توجد نتائج لـ «${query}»</h4><p>جرّب اسمًا آخر أو غيّر طريقة المطابقة.</p></div>`;
+}
+
+function bookTotal(id) {
+    return allBooksManifest[id]?.total_pages || 1;
 }
 
 // ==================== محرك الإشراقات اليومية ====================

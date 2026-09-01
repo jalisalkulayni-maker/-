@@ -1070,3 +1070,152 @@ body {
     color: var(--gold-bright);
     margin-left: 4px;
 }
+
+/* ==================== تحسين احترافي: رفوف 3 أعمدة + بحث خفيف ==================== */
+.books-grid-container {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    align-items: stretch;
+}
+
+.book-card {
+    min-width: 0;
+    padding: 8px;
+    border-radius: 12px;
+    transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+    contain: layout paint style;
+}
+.book-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--gold-border);
+    box-shadow: 0 8px 22px rgba(0,0,0,.28);
+}
+.book-cover-wrapper {
+    aspect-ratio: 3 / 4;
+    max-height: none;
+    margin-bottom: 7px;
+}
+.book-info h4 { font-size: 12px; }
+.book-info p { font-size: 10px; }
+
+/* البحث: واجهة صغيرة وواضحة */
+.search-results-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+    contain: content;
+}
+.search-result-card {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 12px;
+    min-height: 64px;
+    transition: transform .14s ease, border-color .14s ease, background .14s ease;
+}
+.search-result-card:hover {
+    transform: translateY(-1px);
+    border-color: var(--gold-border);
+    background: rgba(212,175,55,.06);
+}
+.search-result-icon {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    color: var(--gold-bright);
+    background: var(--gold-dim);
+    border: 1px solid var(--gold-border);
+}
+.search-result-main { min-width: 0; flex: 1; }
+.search-result-main .search-card-header { gap: 7px; margin-bottom: 3px; }
+.search-result-main .search-card-header h4 {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.search-result-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 9px;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.search-result-meta span { overflow: hidden; text-overflow: ellipsis; }
+.search-text-result { align-items: flex-start; }
+.search-text-result .search-result-icon { margin-top: 2px; }
+.search-text-result .search-snippet {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin: 2px 0 0;
+}
+.search-progress-card {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 8px 12px;
+    border: 1px solid var(--gold-border);
+    border-radius: 10px;
+    background: var(--gold-dim);
+    color: var(--gold-bright);
+    font-size: 11px;
+}
+.search-progress-card b { margin-inline-start: auto; }
+.search-start-state { grid-column: 1 / -1; }
+
+.search-mode-selector {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+}
+.search-mode-selector .search-mode-btn {
+    min-height: 34px;
+    padding: 5px 7px;
+    border-radius: 9px;
+    background: rgba(255,255,255,.035);
+    border: 1px solid var(--surface-border);
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 700;
+}
+.search-mode-selector .search-mode-btn.active {
+    color: var(--gold-bright);
+    background: var(--gold-dim);
+    border-color: var(--gold-border);
+}
+
+.search-bar-wrap {
+    min-height: 46px;
+    border-radius: 13px;
+    border-color: var(--gold-border);
+}
+.search-input {
+    font-family: var(--font-cairo);
+    font-size: 13px;
+}
+
+@media (max-width: 560px) {
+    .books-grid-container { gap: 8px; padding: 0 14px; }
+    .book-card { padding: 7px; }
+    .book-info h4 { font-size: 10.5px; }
+    .book-info p { font-size: 9px; }
+    .search-results-grid { grid-template-columns: 1fr; }
+    .search-mode-selector .search-mode-btn { font-size: 9px; }
+}
+
+@media (min-width: 900px) {
+    .books-grid-container { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; max-width: 1100px; margin: 0 auto; }
+    .search-results-grid { max-width: 1050px; margin-inline: auto; }
+}
