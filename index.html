@@ -29,10 +29,10 @@
                 <h1 class="main-title">خزانة علوم العترة</h1>
             </div>
             <div class="header-actions-v2">
-                <button class="tactile-btn icon-btn" onclick="openPersonalLibrary()" title="مكتبتي">
+                <button class="tactile-btn icon-btn" onclick="openPersonalLibrary()" title="مكتبتي" aria-label="مكتبتي">
                     <i class="fas fa-star text-gold"></i>
                 </button>
-                <button class="tactile-btn icon-btn" onclick="openSearch()" title="بحث">
+                <button class="tactile-btn icon-btn" onclick="openSearch()" title="بحث" aria-label="بحث">
                     <i class="fas fa-search text-gold"></i>
                 </button>
             </div>
@@ -66,15 +66,6 @@
                     </a>
                 </div>
             </div>
-        </section>
-
-        <!-- متابعة القراءة + مكتبة شخصية (V2) -->
-        <section id="continueReadingSection" class="v2-continue-section" style="display:none;">
-            <div class="v2-section-head">
-                <div><span class="tag-gold">✦ مكتبتك</span><h3>تابع من حيث توقفت</h3></div>
-                <button class="tactile-btn v2-link-btn" onclick="openPersonalLibrary()">مكتبتي <i class="fas fa-arrow-left"></i></button>
-            </div>
-            <div id="continueReadingCard" class="continue-reading-card"></div>
         </section>
 
         <!-- شبكة رفوف الكتب -->
@@ -198,6 +189,8 @@
         <div style="width: 1px; height: 16px; background: rgba(212,175,55,0.4); margin: 0 4px;"></div>
         <button class="toolbar-action-btn" onclick="openAddTagModal()" title="إضافة وسم دلالي"><i class="fas fa-tag text-gold"></i> وسم</button>
         <div style="width: 1px; height: 16px; background: rgba(212,175,55,0.4); margin: 0 4px;"></div>
+        <button class="toolbar-action-btn" onclick="saveSelectedQuote()" title="حفظ الاقتباس"><i class="fas fa-bookmark text-gold"></i> حفظ</button>
+        <button class="toolbar-action-btn" onclick="saveSelectedNote()" title="إضافة ملاحظة"><i class="fas fa-note-sticky"></i> ملاحظة</button>
         <button class="toolbar-action-btn" onclick="shareSelectedQuote()" title="مشاركة واقتباس"><i class="fas fa-share-nodes"></i> اقتباس</button>
     </div>
 
@@ -342,12 +335,53 @@
                 <div><span class="tag-gold">✦ مساحتك</span><h3 class="text-gold">مكتبتي</h3></div>
                 <button class="tactile-btn icon-btn-flat" onclick="closePersonalLibrary()"><i class="fas fa-times"></i></button>
             </div>
-            <div class="v2-library-tabs">
-                <button class="v2-library-tab active" onclick="switchPersonalLibraryTab('recent',this)"><i class="fas fa-clock"></i> قراءتي</button>
-                <button class="v2-library-tab" onclick="switchPersonalLibraryTab('favorites',this)"><i class="fas fa-star"></i> المفضلة</button>
-                <button class="v2-library-tab" onclick="switchPersonalLibraryTab('bookmarks',this)"><i class="fas fa-bookmark"></i> العلامات</button>
+            <div class="v2-library-dashboard" id="personalLibraryDashboard"></div>
+            <div class="v2-library-tabs v2-library-tabs-wide">
+                <button class="v2-library-tab active" onclick="switchPersonalLibraryTab('recent',this)"><i class="fas fa-clock"></i><span>قراءتي</span></button>
+                <button class="v2-library-tab" onclick="switchPersonalLibraryTab('favorites',this)"><i class="fas fa-star"></i><span>المفضلة</span></button>
+                <button class="v2-library-tab" onclick="switchPersonalLibraryTab('bookmarks',this)"><i class="fas fa-bookmark"></i><span>العلامات</span></button>
+                <button class="v2-library-tab" onclick="switchPersonalLibraryTab('quotes',this)"><i class="fas fa-quote-right"></i><span>الاقتباسات</span></button>
+                <button class="v2-library-tab" onclick="switchPersonalLibraryTab('notes',this)"><i class="fas fa-note-sticky"></i><span>الملاحظات</span></button>
+                <button class="v2-library-tab" onclick="switchPersonalLibraryTab('tags',this)"><i class="fas fa-tags"></i><span>الوسوم</span></button>
             </div>
             <div id="personalLibraryList" class="v2-library-list"></div>
+            <div class="v2-library-footer">
+                <button class="tactile-btn v2-secondary-btn" onclick="exportPersonalLibrary()"><i class="fas fa-download"></i> تصدير مكتبتي</button>
+                <button class="tactile-btn v2-secondary-btn" onclick="openLibraryCommandCenter()"><i class="fas fa-sliders"></i> مركز الأدوات</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- مركز أدوات المكتبة المتقدم -->
+    <div id="libraryCommandCenterModal" class="glass-modal">
+        <div class="modal-content glass-box v2-command-modal">
+            <div class="v2-modal-head">
+                <div><span class="tag-gold">✦ أدوات متقدمة</span><h3 class="text-gold">مركز الأدوات</h3></div>
+                <button class="tactile-btn icon-btn-flat" onclick="closeLibraryCommandCenter()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="v2-command-grid">
+                <button class="v2-command-card tactile-btn" onclick="switchPersonalLibraryTab('quotes');closeLibraryCommandCenter();openPersonalLibrary();"><i class="fas fa-quote-right"></i><b>مكتب الاقتباسات</b><span>النصوص المحفوظة مع مصادرها</span></button>
+                <button class="v2-command-card tactile-btn" onclick="switchPersonalLibraryTab('notes');closeLibraryCommandCenter();openPersonalLibrary();"><i class="fas fa-note-sticky"></i><b>ملاحظاتي</b><span>ملاحظاتك مرتبطة بالكتاب والصفحة</span></button>
+                <button class="v2-command-card tactile-btn" onclick="showToast('وضع الباحث جاهز داخل القارئ', 'fa-flask');closeLibraryCommandCenter();"><i class="fas fa-flask"></i><b>وضع الباحث</b><span>أدوات مركزة دون تغيير الواجهة</span></button>
+                <button class="v2-command-card tactile-btn" onclick="openSearch();closeLibraryCommandCenter();"><i class="fas fa-bolt"></i><b>البحث السريع</b><span>الانتقال مباشرة إلى محرك البحث</span></button>
+            </div>
+            <div class="v2-command-tip"><i class="fas fa-keyboard"></i><span>اختصارات: / للبحث · Esc للإغلاق · Ctrl+K لمركز الأدوات</span></div>
+        </div>
+    </div>
+
+    <!-- نافذة حفظ ملاحظة مرتبطة بالنص -->
+    <div id="noteEditorModal" class="glass-modal">
+        <div class="modal-content glass-box v2-note-modal">
+            <div class="v2-modal-head">
+                <div><span class="tag-gold">✦ بحثك</span><h3 class="text-gold">ملاحظة على النص</h3></div>
+                <button class="tactile-btn icon-btn-flat" onclick="closeNoteEditor()"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="selectedTextPreview" class="v2-selection-preview"></div>
+            <textarea id="noteEditorInput" class="v2-note-input" placeholder="اكتب ملاحظتك..."></textarea>
+            <div class="v2-note-actions">
+                <button class="tactile-btn glass-btn" onclick="closeNoteEditor()">إلغاء</button>
+                <button class="tactile-btn v2-primary-btn" onclick="commitNote()">حفظ الملاحظة</button>
+            </div>
         </div>
     </div>
 

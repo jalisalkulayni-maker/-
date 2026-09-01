@@ -1272,3 +1272,41 @@ body {
     .book-favorite-btn { width:24px; height:24px; top:5px; right:5px; font-size:10px; }
     .reader-top-actions .icon-btn-flat:nth-child(1), .reader-top-actions .icon-btn-flat:nth-child(2) { display:none; }
 }
+
+
+/* ==================== V2.5: واجهة هادئة + مكتبة شخصية متقدمة ==================== */
+.v2-library-modal { width:min(94%,760px); max-height:84vh; padding:14px; }
+.v2-library-dashboard { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin:0 0 9px; }
+.v2-stat { min-width:0; padding:8px 6px; text-align:center; border:1px solid var(--surface-border); border-radius:10px; background:rgba(255,255,255,.018); }
+.v2-stat b { display:block; color:var(--gold-bright); font-size:15px; line-height:1.1; }
+.v2-stat span { display:block; margin-top:3px; color:var(--text-muted); font-size:8px; }
+.v2-library-tabs-wide { grid-template-columns:repeat(6,minmax(0,1fr)); }
+.v2-library-tab { display:flex; align-items:center; justify-content:center; gap:4px; min-width:0; }
+.v2-library-tab span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.v2-library-footer { display:flex; justify-content:flex-end; gap:6px; margin-top:9px; padding-top:8px; border-top:1px solid rgba(255,255,255,.05); }
+.v2-secondary-btn { padding:7px 9px; border:1px solid var(--surface-border); border-radius:9px; background:rgba(255,255,255,.03); color:var(--text-muted); font-size:9px; }
+.v2-secondary-btn:hover { color:var(--gold-bright); border-color:var(--gold-border); }
+.v2-command-modal { width:min(92%,650px); }
+.v2-command-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.v2-command-card { min-width:0; padding:13px; text-align:right; border:1px solid var(--surface-border); border-radius:13px; background:linear-gradient(135deg,rgba(255,255,255,.025),rgba(212,175,55,.025)); }
+.v2-command-card i { float:right; width:32px; height:32px; display:grid; place-items:center; border-radius:9px; margin-left:9px; background:var(--gold-dim); color:var(--gold-bright); }
+.v2-command-card b { display:block; color:#fff; font-size:11px; margin-bottom:3px; }
+.v2-command-card span { display:block; color:var(--text-muted); font-size:8.5px; line-height:1.6; }
+.v2-command-tip { margin-top:9px; padding:8px 10px; border-radius:9px; background:rgba(212,175,55,.055); border:1px dashed var(--gold-border); color:var(--text-muted); font-size:8.5px; }
+.v2-command-tip i { color:var(--gold-bright); margin-left:5px; }
+.v2-note-modal { width:min(92%,560px); }
+.v2-selection-preview { max-height:150px; overflow:auto; padding:10px; margin-bottom:9px; border:1px solid var(--gold-border); border-radius:11px; background:rgba(212,175,55,.05); color:#e8dfc8; font-family:'Amiri',serif; font-size:12px; line-height:1.8; }
+.v2-note-input { width:100%; min-height:130px; resize:vertical; box-sizing:border-box; border:1px solid var(--surface-border); border-radius:11px; outline:none; background:rgba(255,255,255,.03); color:#fff; padding:10px; font-family:var(--font-cairo); font-size:12px; }
+.v2-note-input:focus { border-color:var(--gold-border); box-shadow:0 0 0 2px rgba(212,175,55,.05); }
+.v2-note-actions { display:flex; justify-content:flex-end; gap:7px; margin-top:9px; }
+.v2-library-row .mini-action-btn { flex:0 0 30px; }
+@media (max-width:560px){
+  .v2-library-dashboard { grid-template-columns:repeat(4,minmax(0,1fr)); }
+  .v2-stat b { font-size:13px; }
+  .v2-library-tabs-wide { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .v2-library-tab { padding:7px 3px; }
+  .v2-command-grid { grid-template-columns:1fr; }
+  .v2-library-footer { justify-content:stretch; }
+  .v2-secondary-btn { flex:1; }
+}
+@media (prefers-reduced-motion:reduce){ .book-card,.search-result-card { transition:none !important; } }

@@ -52,6 +52,8 @@ let readingHistory = [];
 const RECENT_SEARCH_KEY = 'recent_searches_v2';
 const FAVORITE_BOOKS_KEY = 'favorite_books_v2';
 const READING_HISTORY_KEY = 'reading_history_v2';
+const SAVED_QUOTES_KEY = 'saved_quotes_v2';
+const SAVED_NOTES_KEY = 'saved_notes_v2';
 
 // ==================== نظام التنبيهات والإشعارات ====================
 let toastTimeout = null;
@@ -600,7 +602,7 @@ function processAndRenderBooks(data) {
         let book = data[bookId];
         book.id = bookId;
         let groupName = getGroupName(book, bookId);
-        searchIndex.push({ id: bookId, title: book.title || '', group: groupName, toc: Array.isArray(book.toc) ? book.toc : [], pdf: !!book.pdf_url });
+        searchIndex.push({ id: bookId, title: book.title || '', author: book.author || book.writer || book.authors || '', category: book.category || '', group: groupName, toc: Array.isArray(book.toc) ? book.toc : [], pdf: !!book.pdf_url });
         if (!groups[groupName]) groups[groupName] = [];
         groups[groupName].push(book);
     });
@@ -1208,24 +1210,6 @@ function removeHighlight() {
     showToast("تمت إزالة التظليل", "fa-eraser");
 }
 
-function shareSelectedQuote() {
-    const selectedText = window.getSelection().toString().trim() || savedSelectionText;
-    if (!selectedText) return;
-
-    let pageData = currentBookPages[currentPageIndex - 1];
-    let pageNum = pageData ? (pageData.page_number || currentPageIndex) : currentPageIndex;
-    let quoteFormatted = `"${selectedText}"\n\n📖 المصدر: ${currentBookTitle} (صـ ${pageNum})\n✦ مكتبة سيد الساجدين: https://t.me/Jali4s`;
-
-    if (navigator.share) {
-        navigator.share({ title: currentBookTitle, text: quoteFormatted }).catch(() => {});
-    } else {
-        navigator.clipboard.writeText(quoteFormatted);
-        showToast("تم نسخ الاقتباس مع التوثيق والمصدر", "fa-clipboard-check");
-    }
-
-    document.getElementById('selectionToolbar').style.display = 'none';
-    window.getSelection().removeAllRanges();
-}
 
 function getStoredTags() {
     const data = localStorage.getItem('custom_tags_list');
@@ -1858,59 +1842,10 @@ function resumeRecentBook(id, event) {
     const book = getBookById(id); if (!book) return;
     loadAndOpenBook(id, book.title || getGroupName(book,id), book.toc, book.total_pages);
 }
-function openPersonalLibrary() {
-    const modal = document.getElementById('personalLibraryModal');
-    if (!modal) return;
-    modal.style.display = 'flex';
-    renderPersonalLibrary();
-}
-function closePersonalLibrary() { const m=document.getElementById('personalLibraryModal'); if(m)m.style.display='none'; }
-function switchPersonalLibraryTab(tab, btn) {
-    currentPersonalLibraryTab = tab;
-    document.querySelectorAll('.v2-library-tab').forEach(x => x.classList.remove('active'));
-    if (btn) btn.classList.add('active');
-    renderPersonalLibrary();
-}
-function renderPersonalLibrary() {
-    const container = document.getElementById('personalLibraryList'); if (!container) return;
-    let items = [];
-    if (currentPersonalLibraryTab === 'favorites') {
-        items = getFavoriteBookIds().map(id => ({...getBookById(id), id})).filter(Boolean);
-    } else if (currentPersonalLibraryTab === 'bookmarks') {
-        const rows = [];
-        Object.keys(localStorage).filter(k => k.startsWith('bookmarks_')).forEach(k => {
-            const id = k.replace(/^bookmarks_/, '');
-            const book = getBookById(id);
-            if (!book) return;
-            const bookmarks = readJsonStorage(k, []);
-            bookmarks.forEach(b => rows.push({ ...b, id, book }));
-        });
-        rows.sort((a,b) => String(b.date || '').localeCompare(String(a.date || ''), 'ar'));
-        items = rows;
-    } else {
-        items = readJsonStorage(READING_HISTORY_KEY, []).filter(x => getBookById(x.id));
-    }
-    if (!items.length) {
-        container.innerHTML = `<div class="v2-empty"><i class="fas ${currentPersonalLibraryTab==='favorites' ? 'fa-star' : 'fa-book-open'}"></i><h4>${currentPersonalLibraryTab==='favorites' ? 'لا توجد كتب مفضلة بعد' : 'ابدأ القراءة لتظهر كتبك هنا'}</h4><p>ستبقى بياناتك محفوظة على هذا الجهاز.</p></div>`;
-        return;
-    }
-    container.innerHTML = '';
-    items.slice(0, 30).forEach(item => {
-        const id = item.id;
-        const book = item.book || getBookById(id);
-        const title = book?.title || getGroupName(book || {}, id);
-        const group = getGroupName(book || {}, id);
-        const page = currentPersonalLibraryTab === 'bookmarks' ? (item.pageNum || item.pageIndex || 1) : (Number(localStorage.getItem(`last_page_${id}`)) || item.page || 1);
-        const row = document.createElement('div'); row.className='v2-library-row tactile-btn';
-        row.innerHTML = `<div class="v2-library-icon"><i class="fas fa-book"></i></div><div class="v2-library-row-main"><b>${escapeHtml(group)}</b><span>${escapeHtml(title)} · صـ ${page}</span></div><i class="fas fa-chevron-left text-gold"></i>`;
-        row.onclick = () => { closePersonalLibrary(); if(book) loadAndOpenBook(id, title, book.toc, book.total_pages, currentPersonalLibraryTab==='bookmarks' ? (item.pageNum || item.pageIndex) : null); };
-        container.appendChild(row);
-    });
-}
 function getRecentSearches() { return readJsonStorage(RECENT_SEARCH_KEY, []); }
 function rememberSearchQuery(query) {
     const q = query.trim(); if (!q) return;
-    const next = [q, ...getRecentSearches().filter(x => x !== q)].slice(0, 8);
+    const next = [q, ...getRecentSearches().filter(x => x !== q)].slice(0, 10);
     writeJsonStorage(RECENT_SEARCH_KEY, next);
 }
 function renderSmartSearchPanel(query='') {
@@ -1919,29 +1854,79 @@ function renderSmartSearchPanel(query='') {
     if (!q) {
         const recent = getRecentSearches();
         if (!recent.length) { panel.style.display='none'; panel.innerHTML=''; return; }
-        panel.innerHTML = `<div class="smart-panel-head"><span>عمليات البحث الأخيرة</span><button class="tactile-btn" onclick="clearRecentSearches()">مسح</button></div><div class="smart-chip-row">${recent.map(x=>`<button class="smart-search-chip tactile-btn" onclick="useSmartSearch(this.dataset.q)" data-q="${escapeHtml(x)}"><i class="fas fa-clock"></i>${escapeHtml(x)}</button>`).join('')}</div>`;
+        panel.innerHTML = `<div class="smart-panel-head"><span>بحثك الأخير</span><button class="tactile-btn" onclick="clearRecentSearches()">مسح</button></div><div class="smart-chip-row">${recent.map(x=>`<button class="smart-search-chip tactile-btn" onclick="useSmartSearch(this.dataset.q)" data-q="${escapeHtml(x)}"><i class="fas fa-clock"></i>${escapeHtml(x)}</button>`).join('')}</div>`;
         panel.style.display='block'; return;
     }
     const matcher = createSearchMatcher(q);
     const suggestions=[];
     getScopedSearchIndex().forEach(item=>{
-        if(suggestions.length>=6) return;
+        if(suggestions.length>=8) return;
         if(matcher(item.title) || matcher(item.group)) suggestions.push({label:item.title||item.group, icon:'fa-book'});
-        if(suggestions.length>=6) return;
-        for(const t of item.toc || []) { if(matcher(t.title||'')){ suggestions.push({label:t.title,icon:'fa-bookmark'}); if(suggestions.length>=6) break; } }
+        if(suggestions.length>=8) return;
+        for(const t of item.toc || []) { if(matcher(t.title||'')){ suggestions.push({label:t.title,icon:'fa-bookmark'}); if(suggestions.length>=8) break; } }
     });
-    panel.innerHTML = suggestions.length ? `<div class="smart-panel-head"><span>اقتراحات سريعة</span></div><div class="smart-chip-row">${suggestions.map(x=>`<button class="smart-search-chip tactile-btn" onclick="useSmartSearch(this.dataset.q)" data-q="${escapeHtml(x.label)}"><i class="fas ${x.icon}"></i>${escapeHtml(x.label)}</button>`).join('')}</div>` : '';
+    panel.innerHTML = suggestions.length ? `<div class="smart-panel-head"><span>اقتراحات من مكتبتك</span></div><div class="smart-chip-row">${suggestions.map(x=>`<button class="smart-search-chip tactile-btn" onclick="useSmartSearch(this.dataset.q)" data-q="${escapeHtml(x.label)}"><i class="fas ${x.icon}"></i>${escapeHtml(x.label)}</button>`).join('')}</div>` : '';
     panel.style.display = suggestions.length ? 'block' : 'none';
 }
 function useSmartSearch(query) { const input=document.getElementById('searchInput'); if(!input)return; input.value=query; rememberSearchQuery(query); handleSearchInput(query); setTimeout(()=>{ document.getElementById('searchSmartPanel')?.style.setProperty('display','none'); }, 50); }
 function clearRecentSearches() { writeJsonStorage(RECENT_SEARCH_KEY, []); renderSmartSearchPanel(''); }
+
+function getSavedQuotes() { return readJsonStorage(SAVED_QUOTES_KEY, []); }
+function saveSelectedQuote() {
+    const text = (window.getSelection().toString().trim() || savedSelectionText).trim();
+    if (!text) { showToast('حدد نصًا أولًا لحفظه', 'fa-text-height'); return; }
+    const pageData = currentBookPages[currentPageIndex - 1];
+    const pageNum = pageData ? (pageData.page_number || currentPageIndex) : currentPageIndex;
+    const quotes = getSavedQuotes();
+    const key = `${currentBookId}|${pageNum}|${text}`;
+    if (quotes.some(q => q.key === key)) { showToast('الاقتباس محفوظ مسبقًا', 'fa-bookmark'); return; }
+    quotes.unshift({ id:'q_'+Date.now(), key, text, bookId:currentBookId, bookTitle:currentBookTitle, pageNum, pageIndex:currentPageIndex, date:new Date().toLocaleDateString('ar-IQ') });
+    writeJsonStorage(SAVED_QUOTES_KEY, quotes.slice(0, 300));
+    hideSelectionToolbar();
+    showToast('تم حفظ الاقتباس في مكتبك', 'fa-bookmark');
+}
+function shareSelectedQuote() {
+    const selectedText = window.getSelection().toString().trim() || savedSelectionText;
+    if (!selectedText) return;
+    let pageData = currentBookPages[currentPageIndex - 1];
+    let pageNum = pageData ? (pageData.page_number || currentPageIndex) : currentPageIndex;
+    let quoteFormatted = `"${selectedText}"\n\n📖 المصدر: ${currentBookTitle} (صـ ${pageNum})\n✦ جليس الكليني | Jali4s`;
+    if (navigator.share) navigator.share({ title: currentBookTitle, text: quoteFormatted }).catch(() => {});
+    else navigator.clipboard?.writeText(quoteFormatted).then(()=>showToast('تم نسخ الاقتباس مع المصدر','fa-clipboard-check'));
+    hideSelectionToolbar();
+}
+function hideSelectionToolbar() { document.getElementById('selectionToolbar').style.display='none'; window.getSelection()?.removeAllRanges(); }
+function getSavedNotes() { return readJsonStorage(SAVED_NOTES_KEY, []); }
+function saveSelectedNote() {
+    const text = (window.getSelection().toString().trim() || savedSelectionText).trim();
+    if (!text) { showToast('حدد نصًا أولًا لإضافة ملاحظة', 'fa-note-sticky'); return; }
+    savedSelectionText = text;
+    const preview=document.getElementById('selectedTextPreview');
+    if(preview) preview.textContent = `«${text.slice(0,420)}${text.length>420?'…':''}»`;
+    const input=document.getElementById('noteEditorInput'); if(input) input.value='';
+    document.getElementById('noteEditorModal').style.display='flex';
+    hideSelectionToolbar();
+    setTimeout(()=>input?.focus(),80);
+}
+function closeNoteEditor(){ const m=document.getElementById('noteEditorModal'); if(m)m.style.display='none'; }
+function commitNote(){
+    const note=(document.getElementById('noteEditorInput')?.value||'').trim();
+    if(!note){ showToast('اكتب الملاحظة أولًا','fa-triangle-exclamation'); return; }
+    const pageData=currentBookPages[currentPageIndex-1]; const pageNum=pageData?(pageData.page_number||currentPageIndex):currentPageIndex;
+    const notes=getSavedNotes(); notes.unshift({id:'n_'+Date.now(), note, text:savedSelectionText, bookId:currentBookId, bookTitle:currentBookTitle, pageNum, pageIndex:currentPageIndex, date:new Date().toLocaleDateString('ar-IQ')});
+    writeJsonStorage(SAVED_NOTES_KEY, notes.slice(0,300));
+    closeNoteEditor(); showToast('تم حفظ الملاحظة','fa-note-sticky');
+}
+function deleteSavedQuote(id){ writeJsonStorage(SAVED_QUOTES_KEY,getSavedQuotes().filter(x=>x.id!==id)); renderPersonalLibrary(); showToast('تم حذف الاقتباس','fa-trash-can'); }
+function deleteSavedNote(id){ writeJsonStorage(SAVED_NOTES_KEY,getSavedNotes().filter(x=>x.id!==id)); renderPersonalLibrary(); showToast('تم حذف الملاحظة','fa-trash-can'); }
+
 function copyCurrentCitation() {
     const pageData=currentBookPages[currentPageIndex-1]; if(!pageData) return;
     const tmp=document.createElement('div'); tmp.innerHTML=pageData.content||'';
     const text=(tmp.textContent||'').trim(); if(!text) return;
     const pageNum=pageData.page_number||currentPageIndex;
     const citation=`${text}\n\n📖 ${currentBookTitle} — صـ ${pageNum}\nجليس الكليني | Jali4s`;
-    navigator.clipboard?.writeText(citation).then(()=>showToast('تم نسخ النص مع المصدر','fa-copy')).catch(()=>showToast('تعذر النسخ التلقائي','fa-triangle-exclamation'));
+    navigator.clipboard?.writeText(citation).then(()=>showToast('تم نسخ الصفحة مع المصدر','fa-copy')).catch(()=>showToast('تعذر النسخ التلقائي','fa-triangle-exclamation'));
 }
 function shareCurrentPage() {
     const url = new URL(window.location.href); url.searchParams.set('book', currentBookId); url.searchParams.set('page', currentPageIndex);
@@ -1949,6 +1934,56 @@ function shareCurrentPage() {
     if(navigator.share) navigator.share(data).catch(()=>{}); else navigator.clipboard?.writeText(url.toString()).then(()=>showToast('تم نسخ رابط الموضع','fa-link'));
 }
 
+function renderPersonalLibraryDashboard(){
+    const el=document.getElementById('personalLibraryDashboard'); if(!el)return;
+    const recent=readJsonStorage(READING_HISTORY_KEY,[]).filter(x=>getBookById(x.id)).length;
+    const fav=getFavoriteBookIds().filter(id=>getBookById(id)).length;
+    const quotes=getSavedQuotes().length;
+    const notes=getSavedNotes().length;
+    el.innerHTML=`<div class="v2-stat"><b>${recent}</b><span>قراءات</span></div><div class="v2-stat"><b>${fav}</b><span>مفضلة</span></div><div class="v2-stat"><b>${quotes}</b><span>اقتباسات</span></div><div class="v2-stat"><b>${notes}</b><span>ملاحظات</span></div>`;
+}
+function openPersonalLibrary() { const modal=document.getElementById('personalLibraryModal'); if(!modal)return; modal.style.display='flex'; renderPersonalLibraryDashboard(); renderPersonalLibrary(); }
+function closePersonalLibrary() { const m=document.getElementById('personalLibraryModal'); if(m)m.style.display='none'; }
+function openLibraryCommandCenter(){ const m=document.getElementById('libraryCommandCenterModal'); if(m)m.style.display='flex'; }
+function closeLibraryCommandCenter(){ const m=document.getElementById('libraryCommandCenterModal'); if(m)m.style.display='none'; }
+function switchPersonalLibraryTab(tab, btn) { currentPersonalLibraryTab=tab; document.querySelectorAll('.v2-library-tab').forEach(x=>x.classList.remove('active')); if(btn)btn.classList.add('active'); renderPersonalLibrary(); }
+function renderPersonalLibrary(){
+    const container=document.getElementById('personalLibraryList'); if(!container)return;
+    renderPersonalLibraryDashboard();
+    let items=[];
+    if(currentPersonalLibraryTab==='favorites') items=getFavoriteBookIds().map(id=>({...getBookById(id),id})).filter(Boolean);
+    else if(currentPersonalLibraryTab==='bookmarks'){
+        Object.keys(localStorage).filter(k=>k.startsWith('bookmarks_')).forEach(k=>{const id=k.replace(/^bookmarks_/,'');const book=getBookById(id);if(!book)return;readJsonStorage(k,[]).forEach(b=>items.push({...b,id,book}));});
+        items.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''),'ar'));
+    } else if(currentPersonalLibraryTab==='quotes') items=getSavedQuotes();
+    else if(currentPersonalLibraryTab==='notes') items=getSavedNotes();
+    else if(currentPersonalLibraryTab==='tags') items=getStoredTaggedSnippets();
+    else items=readJsonStorage(READING_HISTORY_KEY,[]).filter(x=>getBookById(x.id));
+    if(!items.length){ const titles={recent:'ابدأ القراءة لتظهر آثارك هنا',favorites:'لا توجد كتب مفضلة بعد',bookmarks:'لا توجد علامات محفوظة بعد',quotes:'لم تحفظ اقتباسات بعد',notes:'لا توجد ملاحظات بعد',tags:'لا توجد نصوص موسومة بعد'}; const icons={recent:'fa-book-open',favorites:'fa-star',bookmarks:'fa-bookmark',quotes:'fa-quote-right',notes:'fa-note-sticky',tags:'fa-tags'}; container.innerHTML=`<div class="v2-empty"><i class="fas ${icons[currentPersonalLibraryTab]||'fa-book-open'}"></i><h4>${titles[currentPersonalLibraryTab]||titles.recent}</h4><p>كل شيء يبقى محفوظًا على هذا الجهاز.</p></div>`;return; }
+    container.innerHTML='';
+    items.slice(0,40).forEach(item=>{
+        const row=document.createElement('div'); row.className='v2-library-row';
+        if(currentPersonalLibraryTab==='quotes'){
+            row.innerHTML=`<div class="v2-library-icon"><i class="fas fa-quote-right"></i></div><div class="v2-library-row-main"><b>${escapeHtml(item.bookTitle||'كتاب')}</b><span>«${escapeHtml(item.text.slice(0,150))}${item.text.length>150?'…':''}» · صـ ${item.pageNum}</span></div><button class="mini-action-btn tactile-btn" title="حذف" onclick="deleteSavedQuote('${item.id}')"><i class="fas fa-trash-can"></i></button>`;
+            row.onclick=(e)=>{if(e.target.closest('button'))return;closePersonalLibrary();jumpToTaggedSnippet(item.bookId,item.bookTitle,item.pageIndex||item.pageNum);};
+        } else if(currentPersonalLibraryTab==='notes'){
+            row.innerHTML=`<div class="v2-library-icon"><i class="fas fa-note-sticky"></i></div><div class="v2-library-row-main"><b>${escapeHtml(item.bookTitle||'كتاب')}</b><span>${escapeHtml(item.note.slice(0,150))}${item.note.length>150?'…':''} · صـ ${item.pageNum}</span></div><button class="mini-action-btn tactile-btn" title="حذف" onclick="deleteSavedNote('${item.id}')"><i class="fas fa-trash-can"></i></button>`;
+            row.onclick=(e)=>{if(e.target.closest('button'))return;closePersonalLibrary();jumpToTaggedSnippet(item.bookId,item.bookTitle,item.pageIndex||item.pageNum);};
+        } else if(currentPersonalLibraryTab==='tags'){
+            row.innerHTML=`<div class="v2-library-icon"><i class="fas fa-tag"></i></div><div class="v2-library-row-main"><b>${escapeHtml(item.tagName||'وسم')}</b><span>${escapeHtml(item.bookTitle||'كتاب')} · صـ ${item.pageNum}</span></div><i class="fas fa-chevron-left text-gold"></i>`;
+            row.onclick=()=>{closePersonalLibrary();jumpToTaggedSnippet(item.bookId,item.bookTitle,item.pageIndex||item.pageNum);};
+        } else {
+            const id=item.id; const book=item.book||getBookById(id); const title=book?.title||getGroupName(book||{},id); const group=getGroupName(book||{},id); const page=currentPersonalLibraryTab==='bookmarks'?(item.pageNum||item.pageIndex||1):(Number(localStorage.getItem(`last_page_${id}`))||item.page||1);
+            row.innerHTML=`<div class="v2-library-icon"><i class="fas ${currentPersonalLibraryTab==='favorites'?'fa-star':'fa-book'}"></i></div><div class="v2-library-row-main"><b>${escapeHtml(group)}</b><span>${escapeHtml(title)} · صـ ${page}</span></div><i class="fas fa-chevron-left text-gold"></i>`;
+            row.onclick=()=>{closePersonalLibrary();if(book)loadAndOpenBook(id,title,book.toc,book.total_pages,currentPersonalLibraryTab==='bookmarks'?(item.pageNum||item.pageIndex):null);};
+        }
+        container.appendChild(row);
+    });
+}
+function exportPersonalLibrary(){
+    const data={version:2,exportedAt:new Date().toISOString(),favorites:getFavoriteBookIds(),history:readJsonStorage(READING_HISTORY_KEY,[]),quotes:getSavedQuotes(),notes:getSavedNotes(),tags:getStoredTaggedSnippets(),customTags:getStoredTags()};
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='jalis-alkulayni-library.json'; a.click(); URL.revokeObjectURL(a.href); showToast('تم تصدير مكتبك','fa-download');
+}
 // ==================== محرك البحث الشامل ====================
 function openSearch() { 
     showView('searchView');
@@ -2060,7 +2095,7 @@ function clearSearch() {
 
 function getScopedSearchIndex() {
     let items = searchIndex.length ? searchIndex : Object.keys(allBooksManifest).map(id => ({
-        id, title: allBooksManifest[id]?.title || '', group: getGroupName(allBooksManifest[id], id),
+        id, title: allBooksManifest[id]?.title || '', author: allBooksManifest[id]?.author || allBooksManifest[id]?.writer || allBooksManifest[id]?.authors || '', category: allBooksManifest[id]?.category || '', group: getGroupName(allBooksManifest[id], id),
         toc: Array.isArray(allBooksManifest[id]?.toc) ? allBooksManifest[id].toc : [], pdf: !!allBooksManifest[id]?.pdf_url
     }));
     if (currentSearchScope === 'all') return items;
@@ -2080,7 +2115,7 @@ function renderSearchBookResult(item, query, matcher) {
                 <h4>${highlightSearchText(item.title || item.group, query)}</h4>
                 <span class="search-page-badge">${item.pdf ? 'PDF' : 'كتاب'}</span>
             </div>
-            <div class="search-result-meta"><span>${highlightSearchText(item.group, query)}</span><span>${item.toc.length} باب</span></div>
+            <div class="search-result-meta"><span>${highlightSearchText(item.author || item.group, query)}</span><span>${highlightSearchText(item.group, query)} · ${item.toc.length} باب</span></div>
         </div>`;
     attachTactilePhysics(card);
     card.onclick = () => item.pdf ? window.open(book.pdf_url, '_blank', 'noopener,noreferrer') : loadAndOpenBook(item.id, book.title, book.toc, book.total_pages, null, query);
@@ -2114,7 +2149,7 @@ async function executeGlobalSearch(requestId = searchRequestId) {
         const fragment = document.createDocumentFragment();
         for (const item of items) {
             if (requestId !== searchRequestId) return;
-            if (matcher(`${item.title} ${item.group}`)) {
+            if (matcher(`${item.title} ${item.author || ''} ${item.category || ''} ${item.group}`)) {
                 const card = renderSearchBookResult(item, query, matcher);
                 if (card) { fragment.appendChild(card); foundCount++; }
                 if (foundCount >= resultLimit) break;
@@ -2278,3 +2313,12 @@ document.addEventListener('click', function(e) {
 document.querySelectorAll('.tactile-btn').forEach(btn => attachTactilePhysics(btn));
 loadLibraryManifest();
 initDailyHadithSystem();
+
+// ==================== اختصارات V2 ومركز التحكم ====================
+document.addEventListener('keydown',(event)=>{
+    const tag=(event.target?.tagName||'').toLowerCase();
+    const typing=tag==='input'||tag==='textarea'||event.target?.isContentEditable;
+    if(event.key==='Escape'){ ['personalLibraryModal','libraryCommandCenterModal','noteEditorModal'].forEach(id=>{const m=document.getElementById(id);if(m)m.style.display='none';}); }
+    if(event.ctrlKey&&event.key.toLowerCase()==='k'){event.preventDefault();openLibraryCommandCenter();return;}
+    if(event.key==='/'&&!typing){event.preventDefault();openSearch();}
+});
