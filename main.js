@@ -563,12 +563,15 @@ async function loadLibraryManifest() {
 
         const urlParams = new URLSearchParams(window.location.search);
         const targetBookId = urlParams.get('book');
+        const targetPage = urlParams.get('page');
+        const targetQuote = urlParams.get('quote');
         if (targetBookId && allBooksManifest[targetBookId]) {
             const b = allBooksManifest[targetBookId];
             if (b.pdf_url) {
-                window.open(b.pdf_url, '_blank');
+                // روابط PDF لا تملك قارئ الصفحات الداخلي؛ نفتح الملف الأصلي مباشرة.
+                window.open(b.pdf_url, '_blank', 'noopener,noreferrer');
             } else {
-                loadAndOpenBook(targetBookId, b.title, b.toc, b.total_pages);
+                loadAndOpenBook(targetBookId, b.title, b.toc, b.total_pages, targetPage ? Number(targetPage) : null, targetQuote || '');
             }
         }
 
@@ -1691,82 +1694,92 @@ function generateSearchSnippet(fullText, rawQuery) {
 }
 
 // ==================== محرك تصدير الكتاب كـ PDF ====================
-function downloadBookAsPDF() {
-    if (!currentBookPages || currentBookPages.length === 0) {
-        showToast("لا يوجد كتاب مفتوح لتحميله", "fa-triangle-exclamation");
+async function downloadBookAsPDF() {
+    const book = getBookById(currentBookId);
+    if (!book) {
+        showToast("لا يوجد كتاب مفتوح", "fa-triangle-exclamation");
         return;
     }
 
-    showToast("جاري تجهيز الكتاب وتنسيقه كـ PDF...", "fa-spinner");
+    // إذا كان للكتاب ملف PDF أصلي، نزّله مباشرة بدل فتح نافذة الطباعة.
+    if (book.pdf_url) {
+        const fileName = sanitizeFileName(book.title || currentBookTitle || 'book') + '.pdf';
+        showToast("جاري تنزيل ملف PDF الأصلي...", "fa-download");
+        try {
+            const response = await fetch(book.pdf_url, { mode: 'cors' });
+            if (!response.ok) throw new Error('PDF fetch failed');
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = fileName;
+            a.rel = 'noopener';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+            showToast("تم تنزيل الكتاب بصيغة PDF", "fa-circle-check");
+        } catch (error) {
+            // بعض خوادم PDF تمنع fetch بسبب CORS؛ في هذه الحالة نستخدم رابط التنزيل المباشر.
+            const a = document.createElement('a');
+            a.href = book.pdf_url;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            showToast("تم فتح ملف PDF الأصلي؛ يمكنك تنزيله من القارئ", "fa-file-pdf");
+        }
+        return;
+    }
 
-    // إنشاء نافذة طباعة مخفية
+    // الكتب النصية: لا يوجد PDF أصلي في البيانات، لذلك نوفر تصديرًا للطباعة/الحفظ كـ PDF.
+    if (!currentBookPages || currentBookPages.length === 0) {
+        showToast("لا توجد صفحات متاحة للتصدير", "fa-triangle-exclamation");
+        return;
+    }
+
+    showToast("جاري تجهيز الكتاب للحفظ كـ PDF...", "fa-file-pdf");
     const printIframe = document.createElement('iframe');
-    printIframe.style.position = 'absolute';
-    printIframe.style.width = '0';
-    printIframe.style.height = '0';
-    printIframe.style.border = 'none';
+    printIframe.style.cssText = 'position:fixed;left:-10000px;top:0;width:1px;height:1px;border:0;opacity:0;';
     document.body.appendChild(printIframe);
-
     const doc = printIframe.contentWindow.document;
-
-    // تجميع الصفحات مع تنسيقات الطباعة
+    const safeTitle = escapeHtml(currentBookTitle || 'كتاب');
     let fullContent = `
-        <html dir="rtl" lang="ar">
-        <head>
-            <title>${currentBookTitle}</title>
-            <style>
-                @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap');
-                body { 
-                    font-family: 'Amiri', serif; 
-                    line-height: 1.8; 
-                    padding: 20px; 
-                    color: #000;
-                    background: #fff;
-                }
-                .page-break { page-break-after: always; }
-                .book-cover { 
-                    text-align: center; 
-                    margin-top: 30%; 
-                    page-break-after: always;
-                }
-                h1 { font-size: 32px; margin-bottom: 20px; }
-                .pagen { display: none; } /* إخفاء أرقام الصفحات الأصلية إن وجدت لمنع التكرار */
-            </style>
-        </head>
-        <body>
-            <div class="book-cover">
-                <h1>${currentBookTitle}</h1>
-                <p>تم التصدير من مكتبة سيد الساجدين</p>
-            </div>
-    `;
+        <!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8">
+        <title>${safeTitle}</title>
+        <style>
+            @page { size: A4; margin: 16mm 14mm; }
+            @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap');
+            body { font-family:'Amiri', serif; line-height:1.9; color:#111; background:#fff; }
+            .cover { text-align:center; min-height:240mm; display:flex; flex-direction:column; justify-content:center; page-break-after:always; }
+            .cover h1 { font-size:30px; margin:0 0 16px; }
+            .cover p { font-family:Arial,sans-serif; font-size:12px; color:#666; }
+            .page { page-break-after:always; }
+            .page-num { text-align:center; font:12px Arial,sans-serif; color:#777; margin-top:14px; }
+            .watermark { text-align:center; margin-top:22px; padding-top:8px; border-top:1px solid #ddd; font:10px Arial,sans-serif; color:#777; }
+            img { max-width:100%; }
+        </style></head><body>
+        <section class="cover"><h1>${safeTitle}</h1><p>تم التصدير من خزانة علوم العترة — جليس الكليني</p></section>`;
 
-    // دمج محتوى جميع الصفحات
     currentBookPages.forEach((page, index) => {
-        fullContent += `
-            <div class="page-content">${page.content}</div>
-            <div style="text-align: center; font-size: 12px; margin-top: 20px;">- صـ ${page.page_number || (index + 1)} -</div>
-            <div class="page-break"></div>
-        `;
+        const content = page?.content || '';
+        const pageNumber = escapeHtml(String(page?.page_number || index + 1));
+        fullContent += `<section class="page"><div>${content}</div><div class="page-num">صـ ${pageNumber}</div><div class="watermark">جليس الكليني | Jali4s</div></section>`;
     });
+    fullContent += '</body></html>';
+    doc.open(); doc.write(fullContent); doc.close();
 
-    fullContent += `</body></html>`;
-
-    // كتابة المحتوى داخل نافذة الطباعة
-    doc.open();
-    doc.write(fullContent);
-    doc.close();
-
-    // الانتظار قليلاً حتى يتم تحميل الخطوط ثم استدعاء الطباعة
     setTimeout(() => {
         printIframe.contentWindow.focus();
         printIframe.contentWindow.print();
-        
-        // إزالة الإطار المخفي بعد انتهاء نافذة الطباعة
-        setTimeout(() => {
-            document.body.removeChild(printIframe);
-        }, 1000);
-        
-    }, 1500); // تأخير 1.5 ثانية لضمان تحميل خط Amiri
+        setTimeout(() => printIframe.remove(), 1500);
+    }, 1000);
+}
+
+function sanitizeFileName(name) {
+    return String(name || 'book').replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, ' ').trim().slice(0, 140) || 'book';
 }
 
 // ==================== مكتبة المستخدم V2 ====================
@@ -1885,14 +1898,31 @@ function saveSelectedQuote() {
     hideSelectionToolbar();
     showToast('تم حفظ الاقتباس في مكتبك', 'fa-bookmark');
 }
-function shareSelectedQuote() {
-    const selectedText = window.getSelection().toString().trim() || savedSelectionText;
-    if (!selectedText) return;
-    let pageData = currentBookPages[currentPageIndex - 1];
-    let pageNum = pageData ? (pageData.page_number || currentPageIndex) : currentPageIndex;
-    let quoteFormatted = `"${selectedText}"\n\n📖 المصدر: ${currentBookTitle} (صـ ${pageNum})\n✦ جليس الكليني | Jali4s`;
-    if (navigator.share) navigator.share({ title: currentBookTitle, text: quoteFormatted }).catch(() => {});
-    else navigator.clipboard?.writeText(quoteFormatted).then(()=>showToast('تم نسخ الاقتباس مع المصدر','fa-clipboard-check'));
+function buildDeepLink(pageIndex = currentPageIndex, quote = '') {
+    const url = new URL(window.location.href);
+    url.searchParams.set('book', currentBookId);
+    url.searchParams.set('page', pageIndex);
+    if (quote) url.searchParams.set('quote', quote.slice(0, 1200));
+    return url.toString();
+}
+
+async function shareSelectedQuote() {
+    const selectedText = (window.getSelection().toString().trim() || savedSelectionText).trim();
+    if (!selectedText || !currentBookId) return;
+    const pageData = currentBookPages[currentPageIndex - 1];
+    const pageNum = pageData ? (pageData.page_number || currentPageIndex) : currentPageIndex;
+    const deepLink = buildDeepLink(currentPageIndex, selectedText);
+    const quoteFormatted = `«${selectedText}»\n\n📖 ${currentBookTitle} — صـ ${pageNum}\n🔗 فتح الموضع مباشرة: ${deepLink}\n✦ جليس الكليني | Jali4s`;
+
+    try {
+        if (navigator.share) {
+            await navigator.share({ title: `اقتباس من ${currentBookTitle}`, text: quoteFormatted, url: deepLink });
+            showToast('تمت مشاركة الاقتباس مع رابط الموضع', 'fa-share-nodes');
+        } else if (navigator.clipboard) {
+            await navigator.clipboard.writeText(quoteFormatted);
+            showToast('تم نسخ الاقتباس مع رابط الصفحة', 'fa-link');
+        }
+    } catch (_) {}
     hideSelectionToolbar();
 }
 function hideSelectionToolbar() { document.getElementById('selectionToolbar').style.display='none'; window.getSelection()?.removeAllRanges(); }
@@ -1928,10 +1958,20 @@ function copyCurrentCitation() {
     const citation=`${text}\n\n📖 ${currentBookTitle} — صـ ${pageNum}\nجليس الكليني | Jali4s`;
     navigator.clipboard?.writeText(citation).then(()=>showToast('تم نسخ الصفحة مع المصدر','fa-copy')).catch(()=>showToast('تعذر النسخ التلقائي','fa-triangle-exclamation'));
 }
-function shareCurrentPage() {
-    const url = new URL(window.location.href); url.searchParams.set('book', currentBookId); url.searchParams.set('page', currentPageIndex);
-    const data={title:currentBookTitle,text:`${currentBookTitle} — صـ ${currentBookPages[currentPageIndex-1]?.page_number || currentPageIndex}`,url:url.toString()};
-    if(navigator.share) navigator.share(data).catch(()=>{}); else navigator.clipboard?.writeText(url.toString()).then(()=>showToast('تم نسخ رابط الموضع','fa-link'));
+async function shareCurrentPage() {
+    if (!currentBookId) return;
+    const pageData = currentBookPages[currentPageIndex - 1];
+    const pageNum = pageData?.page_number || currentPageIndex;
+    const url = buildDeepLink(currentPageIndex);
+    const data={title:currentBookTitle,text:`${currentBookTitle} — صـ ${pageNum}\nفتح هذه الصفحة مباشرة:`,url};
+    try {
+        if (navigator.share) {
+            await navigator.share(data);
+        } else if (navigator.clipboard) {
+            await navigator.clipboard.writeText(`${currentBookTitle} — صـ ${pageNum}\n${url}`);
+            showToast('تم نسخ رابط الموضع', 'fa-link');
+        }
+    } catch (_) {}
 }
 
 function renderPersonalLibraryDashboard(){
