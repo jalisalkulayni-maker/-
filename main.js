@@ -1549,6 +1549,18 @@ function setReadingTheme(themeName) {
     if (!appBody) return;
     appBody.classList.remove('theme-royal', 'theme-sepia', 'theme-dark', 'theme-light');
     appBody.classList.add(themeName);
+    // عند اختيار أحد الثيمات التقليدية نعيد أيضاً لوحة الألوان المقابلة،
+    // حتى لا تبقى ألوان التخصيص اليدوي عالقة فوق الثيم الجديد.
+    const themePresetMap = {
+        'theme-royal':'royal',
+        'theme-sepia':'paper',
+        'theme-dark':'slate',
+        'theme-light':'paper'
+    };
+    const preset = themePresetMap[themeName];
+    if (preset && typeof applyAppearance === 'function') {
+        applyAppearance({...APPEARANCE_PRESETS[preset], preset}, true);
+    }
     try {
         localStorage.setItem('reading_theme', themeName);
     } catch (e) {}
@@ -1557,8 +1569,94 @@ function setReadingTheme(themeName) {
 const savedTheme = localStorage.getItem('reading_theme');
 if (savedTheme) setReadingTheme(savedTheme);
 
-function openSettings() { const m = document.getElementById('settingsModal'); if (m) m.style.display = 'flex'; }
+function openSettings() { const m = document.getElementById('settingsModal'); if (m) { m.style.display = 'flex'; syncAppearanceControls(); } }
 function closeSettings() { const m = document.getElementById('settingsModal'); if (m) m.style.display = 'none'; }
+
+// ==================== نظام المظهر الاحترافي القابل للتخصيص ====================
+const APPEARANCE_KEY = 'library_appearance_v3';
+const APPEARANCE_PRESETS = {
+    emerald: { accent:'#2E8B57', bg:'#07110D', text:'#F3F7F2', brightness:100 },
+    royal:   { accent:'#D4AF37', bg:'#030705', text:'#F8F9FA', brightness:100 },
+    navy:    { accent:'#B9A35A', bg:'#07101C', text:'#F2F5F8', brightness:100 },
+    burgundy:{ accent:'#C49A6C', bg:'#1A080C', text:'#F8F1EC', brightness:100 },
+    paper:   { accent:'#8C6239', bg:'#F4ECD8', text:'#2B2118', brightness:100 },
+    slate:   { accent:'#AAB7C4', bg:'#0C1016', text:'#EEF2F6', brightness:100 }
+};
+
+function hexToRgb(hex) {
+    const h = String(hex || '').replace('#','').trim();
+    if (!/^[0-9a-f]{6}$/i.test(h)) return {r:212,g:175,b:55};
+    return {r:parseInt(h.slice(0,2),16),g:parseInt(h.slice(2,4),16),b:parseInt(h.slice(4,6),16)};
+}
+function rgbToHex(r,g,b) {
+    return '#' + [r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
+}
+function mixHex(a,b,t=0.5) {
+    const x=hexToRgb(a), y=hexToRgb(b);
+    return rgbToHex(x.r+(y.r-x.r)*t,x.g+(y.g-x.g)*t,x.b+(y.b-x.b)*t);
+}
+function luminance(hex) {
+    const c=hexToRgb(hex);
+    const f=v=>{v/=255; return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4)};
+    return .2126*f(c.r)+.7152*f(c.g)+.0722*f(c.b);
+}
+function contrastRatio(a,b) {
+    const l1=luminance(a), l2=luminance(b);
+    return (Math.max(l1,l2)+.05)/(Math.min(l1,l2)+.05);
+}
+function setCssVar(name,value) { document.documentElement.style.setProperty(name,value); }
+function applyAppearance(data, save=true) {
+    const d={...APPEARANCE_PRESETS.royal,...(data||{})};
+    const dark=luminance(d.bg)<0.45;
+    const surface=mixHex(d.bg, dark ? '#FFFFFF' : '#000000', dark ? .08 : .045);
+    const surface2=mixHex(d.bg, dark ? '#FFFFFF' : '#000000', dark ? .13 : .075);
+    const border=mixHex(d.bg,d.accent,.48);
+    const muted=mixHex(d.text,d.bg,.48);
+    const heading=contrastRatio(d.accent,d.bg)>=3 ? d.accent : mixHex(d.accent,d.text,.35);
+    setCssVar('--bg-dark',d.bg); setCssVar('--gold-main',d.accent); setCssVar('--gold-bright',mixHex(d.accent,d.text,.28));
+    setCssVar('--gold-dim',mixHex(d.bg,d.accent,.14)); setCssVar('--gold-border',border); setCssVar('--surface-glass',surface);
+    setCssVar('--surface-glass-strong',surface2); setCssVar('--surface-border',`rgba(${hexToRgb(d.text).r},${hexToRgb(d.text).g},${hexToRgb(d.text).b},.10)`);
+    setCssVar('--text-white',d.text); setCssVar('--text-muted',muted); setCssVar('--text-gold',mixHex(d.accent,d.text,.18)); setCssVar('--appearance-brightness',(Number(d.brightness)||100)/100);
+    document.body.dataset.appearance = 'custom';
+    document.body.style.filter = `brightness(${(Number(d.brightness)||100)/100})`;
+    const badge=document.getElementById('appearanceContrastBadge');
+    if(badge){const ratio=contrastRatio(d.text,d.bg); badge.textContent=ratio>=4.5?'متناسق ومريح':ratio>=3?'جيد':'يحتاج ضبط'; badge.classList.toggle('is-warning',ratio<4.5);}
+    const active=document.querySelectorAll('.palette-preset'); active.forEach(b=>b.classList.toggle('active', b.dataset.preset===d.preset));
+    if(save){try{localStorage.setItem(APPEARANCE_KEY,JSON.stringify(d));}catch(e){}}
+}
+function applyPalettePreset(name){
+    const p=APPEARANCE_PRESETS[name]||APPEARANCE_PRESETS.royal;
+    const a=document.getElementById('uiAccentColor'), bg=document.getElementById('uiBackgroundColor'), t=document.getElementById('uiTextColor'), br=document.getElementById('uiBrightness');
+    if(a)a.value=p.accent;if(bg)bg.value=p.bg;if(t)t.value=p.text;if(br)br.value=p.brightness;
+    applyAppearance({...p,preset:name});
+}
+function applyCustomAppearance(){
+    const a=document.getElementById('uiAccentColor'), bg=document.getElementById('uiBackgroundColor'), t=document.getElementById('uiTextColor'), br=document.getElementById('uiBrightness'), out=document.getElementById('uiBrightnessValue');
+    const d={accent:a?.value||'#D4AF37',bg:bg?.value||'#030705',text:t?.value||'#F8F9FA',brightness:Number(br?.value||100),preset:'custom'};
+    if(out)out.textContent=d.brightness+'%';
+    applyAppearance(d);
+}
+function autoBalanceAppearance(){
+    const bg=document.getElementById('uiBackgroundColor')?.value||'#030705';
+    let text=document.getElementById('uiTextColor')?.value||'#F8F9FA';
+    const accent=document.getElementById('uiAccentColor')?.value||'#D4AF37';
+    if(contrastRatio(text,bg)<4.5) text=luminance(bg)<.45?'#F8F9FA':'#111111';
+    if(contrastRatio(accent,bg)<3) document.getElementById('uiAccentColor').value=mixHex(accent,text,.42);
+    document.getElementById('uiTextColor').value=text;
+    applyCustomAppearance();
+}
+function syncAppearanceControls(){
+    let d=APPEARANCE_PRESETS.royal;
+    try{d={...d,...JSON.parse(localStorage.getItem(APPEARANCE_KEY)||'{}')}}catch(e){}
+    const a=document.getElementById('uiAccentColor'),bg=document.getElementById('uiBackgroundColor'),t=document.getElementById('uiTextColor'),br=document.getElementById('uiBrightness'),out=document.getElementById('uiBrightnessValue');
+    if(a)a.value=d.accent;if(bg)bg.value=d.bg;if(t)t.value=d.text;if(br)br.value=d.brightness||100;if(out)out.textContent=(d.brightness||100)+'%';
+    applyAppearance(d,false);
+}
+function resetCustomAppearance(){ applyPalettePreset('royal'); }
+(function initAppearance(){
+    let saved=null; try{saved=JSON.parse(localStorage.getItem(APPEARANCE_KEY)||'null')}catch(e){}
+    if(saved) setTimeout(()=>applyAppearance(saved,false),0);
+})();
 
 function adjustFontSize(delta) {
     let content = document.getElementById('pageContent');

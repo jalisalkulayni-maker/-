@@ -403,6 +403,34 @@
                 </div>
             </div>
 
+            <section class="appearance-pro-panel" aria-label="تخصيص ألوان الواجهة">
+                <div class="appearance-pro-head">
+                    <div>
+                        <span class="tag-gold">✦ تخصيص متقدم</span>
+                        <p class="appearance-pro-title">ألوان الواجهة</p>
+                    </div>
+                    <span id="appearanceContrastBadge" class="appearance-contrast-badge">متناسق</span>
+                </div>
+                <div class="palette-presets" id="palettePresets">
+                    <button class="palette-preset" data-preset="emerald" onclick="applyPalettePreset('emerald')"><i></i><span>زمردي</span></button>
+                    <button class="palette-preset" data-preset="royal" onclick="applyPalettePreset('royal')"><i></i><span>ملكي</span></button>
+                    <button class="palette-preset" data-preset="navy" onclick="applyPalettePreset('navy')"><i></i><span>كحلي</span></button>
+                    <button class="palette-preset" data-preset="burgundy" onclick="applyPalettePreset('burgundy')"><i></i><span>عنابي</span></button>
+                    <button class="palette-preset" data-preset="paper" onclick="applyPalettePreset('paper')"><i></i><span>مخطوط</span></button>
+                    <button class="palette-preset" data-preset="slate" onclick="applyPalettePreset('slate')"><i></i><span>ليلي</span></button>
+                </div>
+                <div class="color-custom-grid">
+                    <label class="color-control"><span>اللون الرئيسي</span><input id="uiAccentColor" type="color" value="#D4AF37" oninput="applyCustomAppearance()"></label>
+                    <label class="color-control"><span>لون الخلفية</span><input id="uiBackgroundColor" type="color" value="#030705" oninput="applyCustomAppearance()"></label>
+                    <label class="color-control"><span>لون النص</span><input id="uiTextColor" type="color" value="#F8F9FA" oninput="applyCustomAppearance()"></label>
+                </div>
+                <div class="appearance-range-row"><span>سطوع الواجهة</span><input id="uiBrightness" type="range" min="70" max="130" value="100" oninput="applyCustomAppearance()"><output id="uiBrightnessValue">100%</output></div>
+                <div class="appearance-actions">
+                    <button class="tactile-btn glass-btn" onclick="resetCustomAppearance()"><i class="fas fa-rotate-left"></i> استعادة الافتراضي</button>
+                    <button class="tactile-btn v2-primary-btn" onclick="autoBalanceAppearance()"><i class="fas fa-wand-magic-sparkles"></i> تنسيق تلقائي</button>
+                </div>
+            </section>
+
             <div style="margin-bottom: 14px;">
                 <p class="text-white" style="margin-bottom: 6px; font-size: 13px;">حجم الخط (<span id="fontSizeDisplay">15</span>)</p>
                 <div style="display: flex; gap: 10px;">
