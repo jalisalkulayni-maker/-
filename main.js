@@ -519,6 +519,17 @@ function getBookCategory(book) {
     return "المتون العامة";
 }
 
+// طلبات شبكة محمية بمهلة حتى لا يبقى التطبيق عالقًا في "جاري التحميل".
+async function fetchWithTimeout(url, options = {}, timeoutMs = 7000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        return await fetch(url, { ...options, signal: controller.signal, cache: options.cache || 'no-store' });
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 // ==================== تحميل ودمج الفهارس الذكي ====================
 async function loadLibraryManifest() {
     const container = document.getElementById('dynamicBooksContainer');
@@ -529,7 +540,7 @@ async function loadLibraryManifest() {
     try {
         const fetchPromises = MANIFEST_FILES.map(async (fileUrl) => {
             try {
-                let res = await fetch(fileUrl + '?v=' + Date.now());
+                let res = await fetchWithTimeout(fileUrl + '?v=' + Date.now(), {}, 7000);
                 if (res.ok) {
                     const data = await res.json();
                     return data.books || data;
@@ -561,6 +572,8 @@ async function loadLibraryManifest() {
         }
 
         processAndRenderBooks(allBooksManifest);
+        const loadStatus = document.getElementById('dynamicBooksContainer')?.querySelector('.library-load-status');
+        if (loadStatus) loadStatus.remove();
 
         const urlParams = new URLSearchParams(window.location.search);
         const targetBookId = urlParams.get('book');
@@ -578,7 +591,7 @@ async function loadLibraryManifest() {
 
     } catch (err) {
         console.error(err);
-        container.innerHTML = `<div style="color:#ff6b6b; grid-column: span 3; text-align: center; font-size: 13px; padding: 20px;">تعذر تحميل الفهارس: تأكد من رفع ملفات manifest.</div>`;
+        container.innerHTML = `<div class="library-load-status" style="color:#ff6b6b; grid-column: span 3; text-align: center; font-size: 13px; padding: 20px;">تعذر تحميل الفهارس. تأكد من وجود ملفات manifest وبيانات الكتب في المستودع.</div>`;
     }
 }
 
@@ -934,8 +947,8 @@ async function fetchBookData(bookId) {
     
     for (let folder of SEARCH_FOLDERS) {
         try {
-            let res = await fetch(`${folder}${cleanId}.json`);
-            if (!res.ok) res = await fetch(`${folder}${encodedId}.json`);
+            let res = await fetchWithTimeout(`${folder}${cleanId}.json`, {}, 6000);
+            if (!res.ok) res = await fetchWithTimeout(`${folder}${encodedId}.json`, {}, 6000);
             if (res.ok) return await res.json();
         } catch (e) {}
     }
@@ -944,15 +957,15 @@ async function fetchBookData(bookId) {
     if (fallbackId && fallbackId !== cleanId) {
         for (let folder of SEARCH_FOLDERS) {
             try {
-                let res = await fetch(`${folder}${fallbackId}.json`);
-                if (!res.ok) res = await fetch(`${folder}${encodeURIComponent(fallbackId)}.json`);
+                let res = await fetchWithTimeout(`${folder}${fallbackId}.json`, {}, 6000);
+                if (!res.ok) res = await fetchWithTimeout(`${folder}${encodeURIComponent(fallbackId)}.json`, {}, 6000);
                 if (res.ok) return await res.json();
             } catch (e) {}
         }
     }
 
     try {
-        let res = await fetch(`${CLOUD_FALLBACK_URL}${encodedId}.json`);
+        let res = await fetchWithTimeout(`${CLOUD_FALLBACK_URL}${encodedId}.json`, {}, 7000);
         if (res.ok) return await res.json();
     } catch (e) {}
 
