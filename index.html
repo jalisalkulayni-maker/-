@@ -137,7 +137,7 @@
                 <div class="reader-progress-line"><span id="readerProgressFill"></span></div>
             </div>
             <div class="reader-top-actions">
-                <button class="tactile-btn icon-btn-flat" onclick="downloadBookAsPDF()" title="تنزيل الكتاب كـ PDF"><i class="fas fa-file-pdf"></i></button>
+                <button id="downloadPdfBtn" class="tactile-btn icon-btn-flat pdf-download-btn" onclick="downloadBookAsPDF()" title="تنزيل الكتاب PDF" aria-label="تنزيل الكتاب PDF"><i class="fas fa-file-pdf"></i></button>
                 <button id="bookmarkBtn" class="tactile-btn icon-btn-flat" onclick="toggleBookmark()" title="حفظ إشارة مرجعية"><i class="far fa-bookmark"></i></button>
                 <button class="tactile-btn icon-btn-flat" onclick="copyCurrentCitation()" title="نسخ النص مع المصدر"><i class="fas fa-quote-right"></i></button>
                 <button class="tactile-btn icon-btn-flat" onclick="shareCurrentPage()" title="مشاركة الموضع"><i class="fas fa-share-nodes"></i></button>

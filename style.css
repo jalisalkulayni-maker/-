@@ -13,6 +13,47 @@
     --font-amiri: 'Amiri', serif;
 }
 
+
+/* ألوان التلوين تتبدل تلقائيًا مع وضع القراءة */
+.theme-royal .reader-paper-section, .reader-paper-section.theme-royal {
+    --reader-text:#FDF0B2; --reader-heading:#F5D77F; --reader-fn:#A9B2AC;
+    --highlight-yellow:rgba(255,235,59,.34); --highlight-green:rgba(76,175,80,.34); --highlight-pink:rgba(233,30,99,.34);
+    --selection-bg:rgba(212,175,55,.28);
+}
+.theme-sepia .reader-paper-section, .reader-paper-section.theme-sepia {
+    --reader-text:#2B2118; --reader-heading:#8C6239; --reader-fn:#6E5844;
+    --highlight-yellow:rgba(177,132,0,.22); --highlight-green:rgba(56,118,69,.22); --highlight-pink:rgba(174,45,87,.20);
+    --selection-bg:rgba(140,98,57,.20);
+}
+.theme-dark .reader-paper-section, .reader-paper-section.theme-dark {
+    --reader-text:#E0E0E0; --reader-heading:#D4AF37; --reader-fn:#A0A0A0;
+    --highlight-yellow:rgba(255,235,59,.28); --highlight-green:rgba(76,175,80,.28); --highlight-pink:rgba(233,30,99,.28);
+    --selection-bg:rgba(212,175,55,.24);
+}
+.theme-light .reader-paper-section, .reader-paper-section.theme-light {
+    --reader-text:#111111; --reader-heading:#8B6508; --reader-fn:#666666;
+    --highlight-yellow:rgba(255,214,0,.30); --highlight-green:rgba(67,160,71,.24); --highlight-pink:rgba(216,27,96,.20);
+    --selection-bg:rgba(139,101,8,.18);
+}
+
+.reader-paper-section #pageContent { color:var(--reader-text); }
+.reader-paper-section #pageContent .book-heading,
+.reader-paper-section #pageContent h1,
+.reader-paper-section #pageContent h2,
+.reader-paper-section #pageContent h3,
+.reader-paper-section #pageContent h4 { color:var(--reader-heading); }
+
+.reader-paper-section #pageContent .fnote,
+.reader-paper-section #pageContent .footnote,
+.reader-paper-section #pageContent .hawamish,
+.reader-paper-section #pageContent .margin,
+.reader-paper-section #pageContent .note,
+.reader-paper-section #pageContent .footnote-item { color:var(--reader-fn) !important; }
+
+.reader-paper-section #pageContent .hl-yellow { background-color:var(--highlight-yellow) !important; }
+.reader-paper-section #pageContent .hl-green  { background-color:var(--highlight-green) !important; }
+.reader-paper-section #pageContent .hl-pink   { background-color:var(--highlight-pink) !important; }
+.reader-paper-section #pageContent .search-highlight { background-color:var(--selection-bg) !important; }
 * {
     margin: 0;
     padding: 0;
@@ -578,9 +619,9 @@ body {
     gap: 4px;
     cursor: pointer;
 }
-.hl-yellow { background-color: rgba(255, 235, 59, 0.4); }
-.hl-green { background-color: rgba(76, 175, 80, 0.4); }
-.hl-pink { background-color: rgba(233, 30, 99, 0.4); }
+.hl-yellow { background-color:var(--highlight-yellow,rgba(255,235,59,.34)); }
+.hl-green { background-color:var(--highlight-green,rgba(76,175,80,.34)); }
+.hl-pink { background-color:var(--highlight-pink,rgba(233,30,99,.34)); }
 
 .glass-modal {
     position: fixed;
@@ -926,15 +967,16 @@ body {
 .text-muted { color: var(--text-muted); }
 .flex-1 { flex: 1; }
 
-/* إجبار المتصفح على تصغير الحواشي وجميع العناصر المتداخلة فيها */
-.fnote, .fnote *, 
-.footnote, .footnote *, 
-.hawamish, .hawamish *, 
-.margin, .margin *, 
-.note, .note *, 
+/* حواشي وهوامش صغيرة وموحدة */
+.fnote, .fnote *,
+.footnote, .footnote *,
+.hawamish, .hawamish *,
+.margin, .margin *,
+.note, .note *,
 .footnote-item, .footnote-item * {
-    font-size: 10px !important;
-    line-height: 1.6 !important;
+    font-size: 9px !important;
+    line-height: 1.45 !important;
+    font-weight: 400;
 }
 
 /* ==================== بانر السلايدر التلقائي ==================== */
@@ -1270,7 +1312,8 @@ body {
 @media (max-width: 560px) {
     .continue-reading-cover { flex-basis:64px; width:64px; height:84px; }
     .book-favorite-btn { width:24px; height:24px; top:5px; right:5px; font-size:10px; }
-    .reader-top-actions .icon-btn-flat:nth-child(1), .reader-top-actions .icon-btn-flat:nth-child(2) { display:none; }
+    .reader-top-actions { gap:2px; }
+    .reader-top-actions .icon-btn-flat { width:34px; height:34px; font-size:15px; }
 }
 
 
