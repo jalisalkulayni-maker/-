@@ -377,32 +377,32 @@ body {
 }
 
 /* ========================================================
-   ثيمات القراءة وألوان المتون الديناميكية
+   ثيمات القراءة وألوان المتون والآيات الديناميكية
    ======================================================== */
 
 /* 1. الثيم الملكي (الافتراضي) */
 .theme-royal .reader-paper-section, .reader-paper-section.theme-royal { background: #030705; color: #FDF0B2; }
 .theme-royal .book-heading, .reader-paper-section.theme-royal .book-heading { color: var(--gold-bright); }
-.theme-royal .matn, .theme-royal .matn-text, .theme-royal .hadith-text, .theme-royal .reader-paper-box p, .reader-paper-section.theme-royal .matn { color: #00e676 !important; }
+.theme-royal .matn, .theme-royal .matn-text, .theme-royal .hadith-text, .theme-royal .aya, .theme-royal .quran-text { color: #00e676 !important; }
 
 /* 2. ثيم السبيا (ورق قديم) */
 .theme-sepia .reader-paper-section, .reader-paper-section.theme-sepia { background: #F4ECD8; color: #2B2118; }
 .theme-sepia .book-heading, .reader-paper-section.theme-sepia .book-heading { color: #8C6239; text-shadow: none; }
 .theme-sepia .footnote-first, .reader-paper-section.theme-sepia .footnote-first, .theme-sepia .page-footer, .reader-paper-section.theme-sepia .page-footer { border-color: rgba(43, 33, 24, 0.15); color: #6E5844; }
 .theme-sepia .page-footer-link, .theme-sepia .page-footer a, .reader-paper-section.theme-sepia .page-footer-link, .reader-paper-section.theme-sepia .page-footer a { color: #8C6239 !important; }
-.theme-sepia .matn, .theme-sepia .matn-text, .theme-sepia .hadith-text, .theme-sepia .reader-paper-box p, .reader-paper-section.theme-sepia .matn { color: #005a2b !important; }
+.theme-sepia .matn, .theme-sepia .matn-text, .theme-sepia .hadith-text, .theme-sepia .aya, .theme-sepia .quran-text { color: #005a2b !important; }
 
 /* 3. ثيم داكن خالص */
 .theme-dark .reader-paper-section, .reader-paper-section.theme-dark { background: #000000; color: #E0E0E0; }
 .theme-dark .book-heading, .reader-paper-section.theme-dark .book-heading { color: var(--gold-main); }
-.theme-dark .matn, .theme-dark .matn-text, .theme-dark .hadith-text, .theme-dark .reader-paper-box p, .reader-paper-section.theme-dark .matn { color: #64ffda !important; }
+.theme-dark .matn, .theme-dark .matn-text, .theme-dark .hadith-text, .theme-dark .aya, .theme-dark .quran-text { color: #64ffda !important; }
 
 /* 4. ثيم فاتح */
 .theme-light .reader-paper-section, .reader-paper-section.theme-light { background: #FAF9F6; color: #111111; }
 .theme-light .book-heading, .reader-paper-section.theme-light .book-heading { color: #8B6508; text-shadow: none; }
 .theme-light .footnote-first, .reader-paper-section.theme-light .footnote-first, .theme-light .page-footer, .reader-paper-section.theme-light .page-footer { border-color: rgba(0, 0, 0, 0.12); color: #666; }
 .theme-light .page-footer-link, .theme-light .page-footer a, .reader-paper-section.theme-light .page-footer-link, .reader-paper-section.theme-light .page-footer a { color: #8B6508 !important; }
-.theme-light .matn, .theme-light .matn-text, .theme-light .hadith-text, .theme-light .reader-paper-box p, .reader-paper-section.theme-light .matn { color: #006400 !important; }
+.theme-light .matn, .theme-light .matn-text, .theme-light .hadith-text, .theme-light .aya, .theme-light .quran-text { color: #006400 !important; }
 
 
 /* شريط القارئ السفلي والأدوات */
@@ -1022,4 +1022,66 @@ body {
 .footnote-toast strong {
     color: var(--gold-bright);
     margin-left: 4px;
+}
+
+/* ========================================================
+   تصميم شخصية خويدم أنيس (العلامة العائمة)
+   ======================================================== */
+.floating-guide-container {
+    position: fixed;
+    bottom: 85px;
+    left: 20px;
+    z-index: 900;
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    pointer-events: none; 
+}
+.guide-speech-bubble {
+    background: rgba(12, 22, 18, 0.95);
+    border: 1px solid var(--gold-border);
+    border-radius: 16px 16px 16px 4px;
+    padding: 10px 14px;
+    max-width: 220px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: auto;
+}
+.guide-speech-bubble.show {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+.guide-speech-text {
+    font-size: 11.5px;
+    color: #fff;
+    line-height: 1.6;
+    margin: 0;
+    text-align: right;
+}
+.guide-avatar {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: var(--gold-dim);
+    border: 2px solid var(--gold-main);
+    display: grid;
+    place-items: center;
+    box-shadow: 0 0 15px rgba(212,175,55,0.4);
+    cursor: pointer;
+    pointer-events: auto;
+    position: relative;
+}
+.guide-badge-name {
+    position: absolute;
+    bottom: -16px;
+    font-size: 9px;
+    color: var(--bg-dark);
+    background: var(--gold-bright);
+    white-space: nowrap;
+    font-weight: 900;
+    padding: 2px 6px;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
