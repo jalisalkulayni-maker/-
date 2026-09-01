@@ -45,7 +45,7 @@ let isDeepSearching = false;
 let savedScrollPosition = 0;
 let currentActiveSearchHighlight = "";
 
-// ==================== نظام خويدم أنيس (الشخصية التفاعلية) ====================
+// ==================== نظام خويدم أنيس (الشخصية التفاعلية كعلامة عائمة) ====================
 const guideTips = [
     "مرحباً بك! هل تعلم أنه يمكنك تظليل أي نص وحفظه تحت 'مستودع الوسوم' بضغطة زر؟",
     "استخدم زر الفهرس (قائمة المحتويات) في أعلى القارئ للتنقل السريع بين فصول الكتاب.",
@@ -55,33 +55,48 @@ const guideTips = [
 ];
 
 let currentTipIndex = 0;
+let bubbleTimeout;
 
 function updateGuideSpeech(customMsg = null) {
+    const bubble = document.getElementById('guideSpeechBubble');
     const speechEl = document.getElementById('guideSpeechText');
-    if (!speechEl) return;
+    if (!bubble || !speechEl) return;
     
-    if (customMsg) {
-        speechEl.innerText = customMsg;
-        return;
-    }
+    speechEl.innerText = customMsg || guideTips[currentTipIndex];
+    if (!customMsg) currentTipIndex = (currentTipIndex + 1) % guideTips.length;
 
-    speechEl.style.opacity = '0';
-    setTimeout(() => {
-        speechEl.innerText = guideTips[currentTipIndex];
-        speechEl.style.opacity = '1';
-        currentTipIndex = (currentTipIndex + 1) % guideTips.length;
-    }, 200);
+    bubble.classList.add('show');
+    
+    clearTimeout(bubbleTimeout);
+    bubbleTimeout = setTimeout(() => {
+        bubble.classList.remove('show');
+    }, 6000);
+}
+
+function toggleGuideBubble() {
+    const bubble = document.getElementById('guideSpeechBubble');
+    if (bubble.classList.contains('show')) {
+        bubble.classList.remove('show');
+    } else {
+        updateGuideSpeech();
+    }
+}
+
+function hideGuideBubble() {
+    const bubble = document.getElementById('guideSpeechBubble');
+    if (bubble) bubble.classList.remove('show');
 }
 
 setInterval(() => {
-    updateGuideSpeech();
-}, 12000);
+    const bubble = document.getElementById('guideSpeechBubble');
+    if (bubble && !bubble.classList.contains('show')) {
+        updateGuideSpeech();
+    }
+}, 40000);
 
-function dismissGuide() {
-    const banner = document.getElementById('interactiveGuideBanner');
-    if (banner) banner.style.display = 'none';
-}
-
+setTimeout(() => {
+    updateGuideSpeech("أهلاً بك! أنا 'خويدم أنيس'. اضغط على أيقونتي في أي وقت لأرشدك في التطبيق!");
+}, 2000);
 
 // ==================== نظام التنبيهات والإشعارات ====================
 let toastTimeout = null;
@@ -1646,7 +1661,6 @@ function executeInBookSearch(val) {
         container.innerHTML = `<p style="text-align:center; color:var(--text-muted); padding:20px;">لا توجد نتائج مطابقة لـ "${query}" في هذا الكتاب.</p>`;
     }
 }
-
 
 // ==================== محرك تصدير الكتاب كـ PDF ====================
 function downloadBookAsPDF() {
