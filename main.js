@@ -52,7 +52,7 @@ let currentActiveSearchHighlight = "";
 const guideTips = [
     "هل تعلم أنه يمكنك تظليل أي نص وحفظه تحت 'مستودع الوسوم' بضغطة زر؟",
     "استخدم زر الفهرس في أعلى القارئ للتنقل السريع بين فصول الكتاب.",
-    "في شاشة البحث، يمكنك التبديل بين البحث في 'الأبواب' أو 'نصوص الكتب'.",
+    "في شاشة البحث، يمكنك كتابة (اسم الكتاب + كلمة البحث) للبحث داخله مباشرة!",
     "تستطيع تغيير ثيم القراءة وحجم الخط في أي وقت عبر أيقونة لوحة الألوان بالأعلى.",
     "هل ترغب بمشاركة حديث شريف؟ حدد النص واضغط على زر الاقتباس لتوثيقه."
 ];
@@ -194,7 +194,7 @@ function switchTab(tabKey) {
     } else if (tabKey === 'search') {
         document.getElementById('navSearchBtn')?.classList.add('active');
         openSearch();
-        updateGuideSpeech("استخدم محرك البحث المتقدم أدناه للعثور على مبتغاك بدقة.");
+        updateGuideSpeech("اكتب اسم الكتاب متبوعاً بالكلمة، وسأبحث لك داخله فوراً!");
     }
 }
 
@@ -241,6 +241,7 @@ function setSearchMatchType(type) {
     executeGlobalSearch();
 }
 
+// دالة تنظيف النص العربي لتسريع البحث
 function cleanArabicForSearch(str) {
     if (!str) return "";
     return str.replace(/[\u064B-\u065F\u0670ـ]/g, '')
@@ -300,10 +301,8 @@ function highlightArabicText(text, query) {
 }
 
 function generateSearchSnippet(fullHtml, query) {
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = fullHtml || '';
-    const rawText = tempDiv.textContent || tempDiv.innerText || '';
-    
+    // طريقة أسرع بآلاف المرات من الـ DOM لمعالجة النصوص المقتطعة
+    const rawText = fullHtml ? fullHtml.replace(/<[^>]+>/g, ' ') : '';
     if (!rawText || !query) return rawText.substring(0, 100) + '...';
 
     let cleanText = cleanArabicForSearch(rawText);
@@ -325,12 +324,250 @@ function generateSearchSnippet(fullHtml, query) {
         let end = Math.min(rawText.length, firstMatchIndex + 60);
         snippet = rawText.substring(start, end);
         if (start > 0) snippet = '...' + snippet;
-        if (end < rawText.length) snippet = '...';
+        if (end < rawText.length) snippet = snippet + '...';
     } else {
         snippet = rawText.substring(0, 100) + '...';
     }
 
     return highlightArabicText(snippet, query);
+}
+
+// ==================== محرك البحث الشامل والمسرع ====================
+async function executeGlobalSearch() {
+    const rawQueryInput = document.getElementById('searchInput').value.trim();
+    const container = document.getElementById('searchResultsContainer');
+    const statusInfo = document.getElementById('searchStatusInfo');
+    const countBadge = document.getElementById('searchResultCount');
+    const filterBadge = document.getElementById('searchFilterName');
+
+    if (!container) return;
+
+    if (!rawQueryInput) {
+        if (statusInfo) statusInfo.style.display = 'none';
+        container.innerHTML = `<div class="search-empty-state"><div class="empty-icon-box"><i class="fas fa-book-bookmark text-gold"></i></div><h4>ابحث في أسماء المتون، الأبواب، أو نصوص الصفحات</h4><p style="margin-top:10px; color:var(--gold-main);">💡 يمكنك كتابة اسم الكتاب مع كلمة البحث (مثال: الكافي الصلاة).</p></div>`;
+        return;
+    }
+
+    container.innerHTML = "";
+    let foundCount = 0;
+    let targetBookIds = Object.keys(allBooksManifest);
+    let filterLabel = "في كل المكتبة";
+
+    // 🌟 الذكاء الاصطناعي: استخراج اسم الكتاب من جملة البحث للفلترة التلقائية 🌟
+    let actualQuery = rawQueryInput;
+    let autoFilteredGroupName = null;
+    let cleanQ = cleanArabicForSearch(rawQueryInput);
+    
+    if (currentSearchScope === 'all') {
+        let allGroupsArray = Array.from(new Set(Object.keys(allBooksManifest).map(id => getGroupName(allBooksManifest[id], id))));
+        allGroupsArray.sort((a, b) => b.length - a.length); // ترتيب الأطول أولاً
+
+        for (let g of allGroupsArray) {
+            let cleanG = cleanArabicForSearch(g);
+            if (cleanG.length >= 3 && cleanQ.includes(cleanG) && cleanQ !== cleanG) {
+                autoFilteredGroupName = g;
+                // إزالة اسم الكتاب من جملة البحث للبحث عن الباقي
+                let wordsQ = rawQueryInput.split(/\s+/);
+                actualQuery = wordsQ.filter(w => !cleanG.includes(cleanArabicForSearch(w))).join(' ').trim();
+                if (!actualQuery) actualQuery = rawQueryInput; // احتياط
+                break;
+            }
+        }
+    }
+
+    // تطبيق فلتر النطاق
+    if (autoFilteredGroupName) {
+        targetBookIds = targetBookIds.filter(bId => getGroupName(allBooksManifest[bId], bId) === autoFilteredGroupName);
+        filterLabel = `في ${autoFilteredGroupName} (تلقائي)`;
+    } else if (currentSearchScope !== 'all' && currentSearchScope.startsWith('group:')) {
+        const gTarget = currentSearchScope.replace('group:', '');
+        targetBookIds = targetBookIds.filter(bId => getGroupName(allBooksManifest[bId], bId) === gTarget);
+        filterLabel = `في ${gTarget}`;
+    }
+
+    if (currentSearchTarget === 'toc') {
+        let htmlChunk = "";
+        targetBookIds.forEach(bookId => {
+            let book = allBooksManifest[bookId];
+            let groupName = getGroupName(book, bookId);
+            let rawTitle = book.title || "";
+
+            if (checkSearchMatch(rawTitle, actualQuery, currentSearchMatchType) || checkSearchMatch(groupName, actualQuery, currentSearchMatchType)) {
+                foundCount++;
+                const highlightedHeader = highlightArabicText(rawTitle || groupName, actualQuery);
+                let clickAction = book.pdf_url ? `window.open('${book.pdf_url}', '_blank')` : `loadAndOpenBook('${book.id}', '${book.title.replace(/'/g, "\\'")}', null, ${book.total_pages}, null, '${actualQuery.replace(/'/g, "\\'")}')`;
+                htmlChunk += `<div class="search-result-card tactile-btn" style="border-right: 3px solid #D4AF37;" onclick="${clickAction}">
+                    <div class="search-card-header">
+                        <h4><i class="fas fa-book-open text-gold"></i> ${highlightedHeader}</h4>
+                        <span class="search-page-badge">${book.pdf_url ? 'مخطوط PDF' : 'كتاب كامل'}</span>
+                    </div>
+                    <p class="search-snippet" style="color: var(--text-gold);">اضغط لفتح هذا المجلد مباشرة.</p>
+                </div>`;
+            }
+
+            if (book.toc && Array.isArray(book.toc)) {
+                book.toc.forEach(tocItem => {
+                    let tocTitle = tocItem.title || "";
+                    if (checkSearchMatch(tocTitle, actualQuery, currentSearchMatchType)) {
+                        foundCount++;
+                        const highlightedToc = highlightArabicText(tocItem.title, actualQuery);
+                        htmlChunk += `<div class="search-result-card tactile-btn" onclick="loadAndOpenBook('${book.id}', '${book.title.replace(/'/g, "\\'")}', null, ${book.total_pages}, ${tocItem.page_number}, '${actualQuery.replace(/'/g, "\\'")}')">
+                            <div class="search-card-header">
+                                <h4 style="font-size: 13px;"><i class="fas fa-bookmark text-gold"></i> ${highlightedToc}</h4>
+                                <span class="search-page-badge">صـ ${tocItem.page_number}</span>
+                            </div>
+                            <p class="search-snippet">${rawTitle || groupName}</p>
+                        </div>`;
+                    }
+                });
+            }
+        });
+        
+        container.innerHTML = htmlChunk;
+
+        if (statusInfo && countBadge && filterBadge) {
+            statusInfo.style.display = 'flex';
+            countBadge.innerText = `${foundCount} نتائج`;
+            filterBadge.innerText = `${filterLabel} (أبواب)`;
+        }
+        if (foundCount === 0) container.innerHTML = `<div class="search-empty-state"><div class="empty-icon-box"><i class="fas fa-search-minus" style="color: var(--text-muted);"></i></div><h4>لم نجد أبواباً مطابقة.</h4></div>`;
+    } 
+    else if (currentSearchTarget === 'fulltext') {
+        const progressIndicator = document.createElement('div');
+        progressIndicator.className = "glass-box";
+        progressIndicator.style.padding = "10px 14px";
+        progressIndicator.style.marginBottom = "10px";
+        progressIndicator.style.textAlign = "center";
+        progressIndicator.style.fontSize = "12px";
+        progressIndicator.style.color = "var(--gold-bright)";
+        progressIndicator.innerHTML = `<i class="fas fa-spinner fa-spin"></i> جاري البحث المتقدم بسرعة فائقة... (<span id="deepSearchProgress">0%</span>)`;
+        container.appendChild(progressIndicator);
+
+        isDeepSearching = true;
+        let total = targetBookIds.length;
+        let processed = 0;
+
+        // 🌟 تسريع البحث المتقدم: معالجة متزامنة مجمعة وتحديث DOM دفعة واحدة 🌟
+        const BATCH_SIZE = 5; // معالجة 5 كتب في نفس الوقت لعدم تجميد الشاشة
+        for (let i = 0; i < targetBookIds.length; i += BATCH_SIZE) {
+            if (!isDeepSearching) break;
+            const batch = targetBookIds.slice(i, i + BATCH_SIZE);
+            
+            await Promise.all(batch.map(async (bookId) => {
+                try {
+                    const bookMeta = allBooksManifest[bookId];
+                    if (bookMeta.pdf_url) return;
+
+                    let bookData = null;
+                    const cached = localStorage.getItem(`book_pages_${bookId}`);
+                    if (cached) bookData = { pages: JSON.parse(cached) };
+                    else bookData = await fetchBookData(bookId);
+
+                    if (bookData && bookData.pages) {
+                        let htmlChunk = "";
+                        bookData.pages.forEach(page => {
+                            // التجريد السريع من HTML
+                            const rawText = page.content ? page.content.replace(/<[^>]+>/g, ' ') : '';
+                            
+                            if (checkSearchMatch(rawText, actualQuery, currentSearchMatchType)) {
+                                foundCount++;
+                                const snippet = generateSearchSnippet(page.content, actualQuery);
+                                let escTitle = bookMeta.title.replace(/'/g, "\\'");
+                                let escQuery = actualQuery.replace(/'/g, "\\'");
+                                htmlChunk += `<div class="search-result-card tactile-btn" style="border-left: 3px solid #4caf50;" onclick="loadAndOpenBook('${bookId}', '${escTitle}', null, ${bookMeta.total_pages}, ${page.page_number}, '${escQuery}')">
+                                    <div class="search-card-header">
+                                        <h4 style="font-size: 13px;"><i class="fas fa-quote-right" style="color:#4caf50;"></i> ${bookMeta.title}</h4>
+                                        <span class="search-page-badge">صـ ${page.page_number}</span>
+                                    </div>
+                                    <p class="search-snippet" style="color: #fff;">${snippet}</p>
+                                </div>`;
+                            }
+                        });
+                        if (htmlChunk) container.insertAdjacentHTML('beforeend', htmlChunk);
+                    }
+                } catch (e) {}
+                processed++;
+            }));
+
+            const progEl = document.getElementById('deepSearchProgress');
+            if (progEl) progEl.innerText = `${Math.round((processed / total) * 100)}%`;
+        }
+
+        progressIndicator.remove();
+        isDeepSearching = false;
+
+        if (statusInfo && countBadge && filterBadge) {
+            statusInfo.style.display = 'flex';
+            countBadge.innerText = `${foundCount} نتائج`;
+            filterBadge.innerText = `${filterLabel} (نصوص)`;
+        }
+
+        if (foundCount === 0) container.innerHTML = `<div class="search-empty-state"><div class="empty-icon-box"><i class="fas fa-search-minus" style="color: var(--text-muted);"></i></div><h4>لم نجد نصوصاً مطابقة.</h4></div>`;
+    }
+}
+
+
+function openSearch() { 
+    showView('searchView'); 
+    setTimeout(() => { 
+        const input = document.getElementById('searchInput'); 
+        if (input) input.focus(); 
+    }, 150); 
+}
+
+function closeSearch() { 
+    isDeepSearching = false; 
+    if (history.state && history.state.view === 'searchView') {
+        history.back(); 
+    } else {
+        showView('homeView', false); 
+    }
+}
+
+function setSearchTargetMode(mode) { 
+    currentSearchTarget = mode; 
+    document.getElementById('searchTargetTocBtn')?.classList.toggle('active', mode === 'toc'); 
+    document.getElementById('searchTargetTextBtn')?.classList.toggle('active', mode === 'fulltext'); 
+    executeGlobalSearch(); 
+}
+
+function renderSearchFilterPills(groups) { 
+    const container = document.getElementById('searchFilterPills'); 
+    if (!container) return; 
+    
+    container.innerHTML = `<button class="filter-pill ${currentSearchScope === 'all' ? 'active' : ''} tactile-btn" onclick="setSearchScope('all', this)"><i class="fas fa-globe"></i> كل المكتبة</button>`; 
+    
+    Object.keys(groups).forEach(gName => { 
+        const btn = document.createElement('button'); 
+        btn.className = `filter-pill ${currentSearchScope === 'group:' + gName ? 'active' : ''} tactile-btn`; 
+        btn.innerHTML = `<i class="fas fa-book"></i> ${gName}`; 
+        btn.onclick = () => setSearchScope('group:' + gName, btn); 
+        container.appendChild(btn); 
+    }); 
+}
+
+function setSearchScope(scopeKey, element) { 
+    currentSearchScope = scopeKey; 
+    document.querySelectorAll('#searchFilterPills .filter-pill').forEach(el => el.classList.remove('active')); 
+    if (element) element.classList.add('active'); 
+    executeGlobalSearch(); 
+}
+
+function handleSearchInput(val) { 
+    const clearBtn = document.getElementById('searchClearBtn'); 
+    if (clearBtn) clearBtn.style.display = val.trim().length > 0 ? 'block' : 'none'; 
+    isDeepSearching = false; 
+    clearTimeout(searchDebounceTimer); 
+    searchDebounceTimer = setTimeout(() => { executeGlobalSearch(); }, 250); 
+}
+
+function clearSearch() { 
+    const input = document.getElementById('searchInput'); 
+    if (input) { 
+        input.value = ''; 
+        input.focus(); 
+    } 
+    handleSearchInput(''); 
 }
 
 
@@ -571,522 +808,6 @@ function closeReader() {
     }
 }
 
-// ==================== شريط الأدوات والوسوم والاقتباسات ====================
-document.addEventListener('selectionchange', () => {
-    const selection = window.getSelection();
-    const toolbar = document.getElementById('selectionToolbar');
-    if (!toolbar) return;
-
-    if (selection && selection.toString().trim().length > 0) {
-        savedSelectionRange = selection.getRangeAt(0).cloneRange();
-        savedSelectionText = selection.toString().trim();
-        toolbar.style.display = 'flex';
-    } else {
-        setTimeout(() => {
-            if (!window.getSelection().toString().trim()) {
-                toolbar.style.display = 'none';
-            }
-        }, 300);
-    }
-});
-
-function applyHighlight(className) {
-    if (!savedSelectionRange) return;
-    const span = document.createElement('span');
-    span.className = className;
-    try {
-        savedSelectionRange.surroundContents(span);
-    } catch (e) {
-        document.execCommand('backColor', false, className === 'hl-yellow' ? '#ffeb3b' : (className === 'hl-green' ? '#4caf50' : '#e91e63'));
-    }
-    document.getElementById('selectionToolbar').style.display = 'none';
-    window.getSelection().removeAllRanges();
-    showToast("تم تظليل النص بنجاح", "fa-highlighter");
-}
-
-function removeHighlight() {
-    if (!savedSelectionRange) return;
-    document.execCommand('removeFormat', false, null);
-    document.getElementById('selectionToolbar').style.display = 'none';
-    window.getSelection().removeAllRanges();
-    showToast("تمت إزالة التظليل", "fa-eraser");
-}
-
-function shareSelectedQuote() {
-    const selectedText = window.getSelection().toString().trim() || savedSelectionText;
-    if (!selectedText) return;
-
-    let pageData = currentBookPages[currentPageIndex - 1];
-    let pageNum = pageData ? (pageData.page_number || currentPageIndex) : currentPageIndex;
-    let quoteFormatted = `"${selectedText}"\n\n📖 المصدر: ${currentBookTitle} (صـ ${pageNum})\n✦ مكتبة سيد الساجدين: https://t.me/Jali4s`;
-
-    if (navigator.share) {
-        navigator.share({ title: currentBookTitle, text: quoteFormatted }).catch(() => {});
-    } else {
-        navigator.clipboard.writeText(quoteFormatted);
-        showToast("تم نسخ الاقتباس مع التوثيق والمصدر", "fa-clipboard-check");
-    }
-
-    document.getElementById('selectionToolbar').style.display = 'none';
-    window.getSelection().removeAllRanges();
-}
-
-function getStoredTags() {
-    const data = localStorage.getItem('custom_tags_list');
-    return data ? JSON.parse(data) : defaultTags;
-}
-
-function saveStoredTags(tags) {
-    localStorage.setItem('custom_tags_list', JSON.stringify(tags));
-}
-
-function getStoredTaggedSnippets() {
-    const data = localStorage.getItem('custom_tagged_snippets');
-    return data ? JSON.parse(data) : [];
-}
-
-function saveStoredTaggedSnippets(items) {
-    localStorage.setItem('custom_tagged_snippets', JSON.stringify(items));
-}
-
-function openAddTagModal() {
-    const text = window.getSelection().toString().trim() || savedSelectionText;
-    if (!text) {
-        showToast("يرجى تحديد نص لتصنيفه أولاً", "fa-triangle-exclamation");
-        return;
-    }
-    savedSelectionText = text;
-    if (window.getSelection) window.getSelection().removeAllRanges();
-
-    renderAvailableTagsSelection();
-    const modal = document.getElementById('addTagModal');
-    if (modal) modal.style.display = 'flex';
-    document.getElementById('selectionToolbar').style.display = 'none';
-}
-
-function closeAddTagModal() {
-    const modal = document.getElementById('addTagModal');
-    if (modal) modal.style.display = 'none';
-    if (window.getSelection) window.getSelection().removeAllRanges();
-}
-
-function renderAvailableTagsSelection() {
-    const container = document.getElementById('availableTagsList');
-    if (!container) return;
-
-    const tags = getStoredTags();
-    container.innerHTML = '';
-
-    tags.forEach(t => {
-        const btn = document.createElement('div');
-        btn.className = 'tag-badge-select tactile-btn';
-        btn.style.backgroundColor = t.color;
-        btn.innerHTML = `<i class="fas fa-tag"></i> ${t.name}`;
-        attachTactilePhysics(btn);
-        btn.onclick = () => assignTagToSelection(t.name, t.color);
-        container.appendChild(btn);
-    });
-}
-
-function createNewCustomTag() {
-    const nameInput = document.getElementById('newTagNameInput');
-    const colorInput = document.getElementById('newTagColorInput');
-    const name = nameInput.value.trim();
-    const color = colorInput.value;
-
-    if (!name) {
-        showToast("يرجى كتابة اسم للوسم أولاً", "fa-triangle-exclamation");
-        return;
-    }
-
-    const tags = getStoredTags();
-    if (!tags.some(t => t.name === name)) {
-        tags.push({ name, color });
-        saveStoredTags(tags);
-    }
-
-    nameInput.value = '';
-    assignTagToSelection(name, color);
-}
-
-function assignTagToSelection(tagName, tagColor) {
-    if (!savedSelectionText) return;
-
-    let pageData = currentBookPages[currentPageIndex - 1];
-    let pageNum = pageData ? (pageData.page_number || currentPageIndex) : currentPageIndex;
-
-    const taggedItems = getStoredTaggedSnippets();
-    taggedItems.unshift({
-        id: 'tag_' + Date.now(),
-        tagName: tagName,
-        tagColor: tagColor,
-        text: savedSelectionText,
-        bookId: currentBookId,
-        bookTitle: currentBookTitle,
-        pageNum: pageNum,
-        pageIndex: currentPageIndex,
-        date: new Date().toLocaleDateString('ar-IQ')
-    });
-
-    saveStoredTaggedSnippets(taggedItems);
-    closeAddTagModal();
-    showToast(`تم تصنيف النص تحت وسم [${tagName}]`, "fa-tag");
-}
-
-function renderTagsView(filterTag = 'all') {
-    currentTagFilter = filterTag;
-    const pillsContainer = document.getElementById('tagsFilterPillsContainer');
-    const listContainer = document.getElementById('taggedItemsListContainer');
-    if (!pillsContainer || !listContainer) return;
-
-    const tags = getStoredTags();
-    const items = getStoredTaggedSnippets();
-
-    pillsContainer.innerHTML = `
-        <button class="filter-pill ${currentTagFilter === 'all' ? 'active' : ''} tactile-btn" onclick="renderTagsView('all')">
-            <i class="fas fa-layer-group"></i> كل الوسوم (${items.length})
-        </button>
-    `;
-
-    tags.forEach(t => {
-        const count = items.filter(i => i.tagName === t.name).length;
-        const btn = document.createElement('button');
-        btn.className = `filter-pill ${currentTagFilter === t.name ? 'active' : ''} tactile-btn`;
-        btn.style.borderColor = t.color;
-        btn.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${t.color}; margin-left:4px;"></span> ${t.name} (${count})`;
-        btn.onclick = () => renderTagsView(t.name);
-        pillsContainer.appendChild(btn);
-    });
-
-    const filteredItems = (currentTagFilter === 'all') 
-        ? items 
-        : items.filter(i => i.tagName === currentTagFilter);
-
-    listContainer.innerHTML = '';
-
-    if (filteredItems.length === 0) {
-        listContainer.innerHTML = `
-            <div class="search-empty-state">
-                <div class="empty-icon-box"><i class="fas fa-tags text-gold"></i></div>
-                <h4>لا توجد نصوص موسومة في هذا التصنيف</h4>
-                <p>حدد أي نص أثناء قراءة الكتب واضغط على «وسم» لإضافته هنا.</p>
-            </div>
-        `;
-        return;
-    }
-
-    filteredItems.forEach((item) => {
-        const card = document.createElement('div');
-        card.className = 'tagged-item-card';
-        card.innerHTML = `
-            <div class="tagged-card-header">
-                <span class="tag-pill-badge" style="background-color: ${item.tagColor || '#D4AF37'};">
-                    <i class="fas fa-tag"></i> ${item.tagName}
-                </span>
-                <span style="font-size: 10px; color: var(--text-muted);">${item.date || ''}</span>
-            </div>
-            <p class="tagged-quote-text">«${item.text}»</p>
-            <div class="tagged-card-footer">
-                <div>
-                    <i class="fas fa-book-bookmark text-gold"></i> ${item.bookTitle} (صـ ${item.pageNum})
-                </div>
-                <div class="tagged-actions">
-                    <button class="tactile-btn mini-action-btn" title="انتقال للموضع في الكتاب" onclick="jumpToTaggedSnippet('${item.bookId}', '${item.bookTitle}', ${item.pageIndex || item.pageNum})">
-                        <i class="fas fa-arrow-up-right-from-square"></i>
-                    </button>
-                    <button class="tactile-btn mini-action-btn" title="مشاركة" onclick="shareTaggedSnippet('${item.id}')">
-                        <i class="fas fa-share-nodes"></i>
-                    </button>
-                    <button class="tactile-btn mini-action-btn" title="حذف" style="color:#ff5252;" onclick="deleteTaggedSnippet('${item.id}')">
-                        <i class="fas fa-trash-can"></i>
-                    </button>
-                </div>
-            </div>
-        `;
-        attachTactilePhysics(card);
-        listContainer.appendChild(card);
-    });
-}
-
-async function jumpToTaggedSnippet(bookId, bookTitle, pageIndexOrNum) {
-    const book = allBooksManifest[bookId] || {};
-    if (book.pdf_url) {
-        window.open(book.pdf_url, '_blank');
-        return;
-    }
-    await loadAndOpenBook(bookId, bookTitle || book.title, book.toc, book.total_pages);
-    currentPageIndex = parseInt(pageIndexOrNum) || 1;
-    renderCurrentPage();
-}
-
-function shareTaggedSnippet(itemId) {
-    const items = getStoredTaggedSnippets();
-    const target = items.find(i => i.id === itemId);
-    if (!target) return;
-
-    const shareContent = `✦ [${target.tagName}] من علوم آل محمد:\n\n«${target.text}»\n\n📖 المصدر: ${target.bookTitle} (صـ ${target.pageNum})\n✦ مكتبة سيد الساجدين: https://t.me/Jali4s`;
-
-    if (navigator.share) {
-        navigator.share({ title: target.bookTitle, text: shareContent }).catch(() => {});
-    } else {
-        navigator.clipboard.writeText(shareContent);
-        showToast("تم نسخ النص الموسوم مع المصدر", "fa-clipboard-check");
-    }
-}
-
-function deleteTaggedSnippet(itemId) {
-    showConfirm("هل أنت متأكد من رغبتك في إزالة هذا الحديث من الوسوم؟", () => {
-        let items = getStoredTaggedSnippets();
-        items = items.filter(i => i.id !== itemId);
-        saveStoredTaggedSnippets(items);
-        renderTagsView(currentTagFilter);
-        showToast("تمت إزالة الحديث من الوسوم", "fa-trash-can");
-    });
-}
-
-// ==================== المفضلة والإشارات المرجعية ====================
-function getStoredBookmarks() {
-    const data = localStorage.getItem(`bookmarks_${currentBookId}`);
-    return data ? JSON.parse(data) : [];
-}
-
-function toggleBookmark() {
-    if (!currentBookId) return;
-
-    let bookmarks = getStoredBookmarks();
-    let curPageData = currentBookPages[currentPageIndex - 1];
-    let curPageNum = curPageData ? (curPageData.page_number || currentPageIndex) : currentPageIndex;
-
-    const existingIndex = bookmarks.findIndex(b => b.pageIndex === currentPageIndex);
-
-    if (existingIndex !== -1) {
-        bookmarks.splice(existingIndex, 1);
-        showToast("تمت إزالة الإشارة المرجعية", "fa-bookmark");
-    } else {
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = curPageData ? curPageData.content : '';
-        const preview = (tempDiv.textContent || '').trim().substring(0, 50) + '...';
-
-        bookmarks.push({
-            pageIndex: currentPageIndex,
-            pageNum: curPageNum,
-            preview: preview,
-            date: new Date().toLocaleDateString('ar-IQ')
-        });
-        showToast(`تم حفظ الإشارة المرجعية (صـ ${curPageNum})`, "fa-bookmark");
-    }
-
-    try {
-        localStorage.setItem(`bookmarks_${currentBookId}`, JSON.stringify(bookmarks));
-    } catch (e) {}
-    updateBookmarkIconState();
-    renderBookmarksList();
-}
-
-function updateBookmarkIconState() {
-    const btn = document.getElementById('bookmarkBtn');
-    if (!btn || !currentBookId) return;
-    let bookmarks = getStoredBookmarks();
-    const isBookmarked = bookmarks.some(b => b.pageIndex === currentPageIndex);
-    btn.innerHTML = isBookmarked ? '<i class="fas fa-bookmark" style="color:#D4AF37;"></i>' : '<i class="far fa-bookmark"></i>';
-}
-
-function renderBookmarksList() {
-    const container = document.getElementById('bookmarksListContainer');
-    if (!container || !currentBookId) return;
-
-    const bookmarks = getStoredBookmarks();
-    container.innerHTML = '';
-
-    if (bookmarks.length === 0) {
-        container.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding: 25px; font-size:12px;">لا توجد إشارات مرجعية محفوظة في هذا الكتاب.</div>';
-        return;
-    }
-
-    bookmarks.forEach((b, bIdx) => {
-        const div = document.createElement('div');
-        div.className = 'toc-item tactile-btn';
-        div.innerHTML = `
-            <div style="flex:1; overflow:hidden;">
-                <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
-                    <span class="toc-item-page">صفحة ${b.pageNum}</span>
-                    <span style="font-size:10px; color:#888;">${b.date || ''}</span>
-                </div>
-                <p style="font-size:11px; color:#aaa; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${b.preview}</p>
-            </div>
-            <button style="background:none; border:none; color:#ff5252; margin-right:8px; cursor:pointer;" onclick="deleteBookmark(${bIdx}, event)"><i class="fas fa-trash-can"></i></button>
-        `;
-        attachTactilePhysics(div);
-        div.onclick = () => {
-            currentPageIndex = b.pageIndex;
-            renderCurrentPage();
-            closeTocModal();
-        };
-        container.appendChild(div);
-    });
-}
-
-function deleteBookmark(idx, event) {
-    event.stopPropagation();
-    let bookmarks = getStoredBookmarks();
-    bookmarks.splice(idx, 1);
-    try {
-        localStorage.setItem(`bookmarks_${currentBookId}`, JSON.stringify(bookmarks));
-    } catch (e) {}
-    updateBookmarkIconState();
-    renderBookmarksList();
-    showToast("تم حذف الإشارة المرجعية", "fa-trash-can");
-}
-
-function switchModalTab(tab) {
-    const tocTab = document.getElementById('tabTocBtn');
-    const bmarksTab = document.getElementById('tabBookmarksBtn');
-    const tocList = document.getElementById('tocListContainer');
-    const bmarksList = document.getElementById('bookmarksListContainer');
-
-    if (tab === 'toc') {
-        tocTab.classList.add('active');
-        bmarksTab.classList.remove('active');
-        tocList.style.display = 'block';
-        bmarksList.style.display = 'none';
-    } else {
-        bmarksTab.classList.add('active');
-        tocTab.classList.remove('active');
-        tocList.style.display = 'none';
-        bmarksList.style.display = 'block';
-    }
-}
-
-// ==================== تخصيص المظهر والقراءة ====================
-function setReadingTheme(themeName) {
-    const appBody = document.getElementById('appBody');
-    if (!appBody) return;
-    appBody.classList.remove('theme-royal', 'theme-sepia', 'theme-dark', 'theme-light');
-    appBody.classList.add(themeName);
-    try {
-        localStorage.setItem('reading_theme', themeName);
-    } catch (e) {}
-}
-
-const savedTheme = localStorage.getItem('reading_theme');
-if (savedTheme) setReadingTheme(savedTheme);
-
-function openSettings() { const m = document.getElementById('settingsModal'); if (m) m.style.display = 'flex'; }
-function closeSettings() { const m = document.getElementById('settingsModal'); if (m) m.style.display = 'none'; }
-
-function adjustFontSize(delta) {
-    let content = document.getElementById('pageContent');
-    if (content) {
-        let currentSize = parseInt(window.getComputedStyle(content).fontSize);
-        let newSize = Math.min(Math.max(currentSize + delta, 10), 36);
-        content.style.fontSize = newSize + 'px';
-        const display = document.getElementById('fontSizeDisplay');
-        if (display) display.innerText = newSize;
-    }
-}
-
-function changeFontFamily(font) {
-    const content = document.getElementById('pageContent');
-    if (content) content.style.fontFamily = font === 'Amiri' ? "'Amiri', serif" : "'Cairo', sans-serif";
-}
-
-function renderTocList() {
-    const tocContainer = document.getElementById('tocListContainer');
-    if (!tocContainer) return;
-    tocContainer.innerHTML = '';
-    
-    if (currentBookToc.length === 0) {
-        tocContainer.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding: 20px;">لا يوجد فهرس تفصيلي مسجل.</div>';
-        return;
-    }
-
-    currentBookToc.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'toc-item tactile-btn';
-        div.innerHTML = `
-            <span class="toc-item-title">${item.title}</span>
-            <span class="toc-item-page">ص ${item.page_number}</span>
-        `;
-        attachTactilePhysics(div);
-        div.onclick = () => {
-            const targetIdx = currentBookPages.findIndex(p => Number(p.page_number) === Number(item.page_number));
-            currentPageIndex = targetIdx !== -1 ? (targetIdx + 1) : 1;
-            currentActiveSearchHighlight = "";
-            renderCurrentPage();
-            closeTocModal();
-        };
-        tocContainer.appendChild(div);
-    });
-}
-
-function openTocModal() { const m = document.getElementById('tocModal'); if (m) m.style.display = 'flex'; }
-function closeTocModal() { const m = document.getElementById('tocModal'); if (m) m.style.display = 'none'; }
-
-// ==================== البحث الداخلي في الكتاب ====================
-function openInBookSearch() {
-    const modal = document.getElementById('inBookSearchModal');
-    if (modal) {
-        modal.style.display = 'flex';
-        setTimeout(() => {
-            const input = document.getElementById('inBookSearchInput');
-            if (input) input.focus();
-        }, 150);
-    }
-}
-
-function closeInBookSearch() {
-    const modal = document.getElementById('inBookSearchModal');
-    if (modal) modal.style.display = 'none';
-}
-
-function executeInBookSearch(val) {
-    const query = val.trim();
-    const container = document.getElementById('inBookSearchResults');
-    if (!container) return;
-
-    if (!query) {
-        container.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:20px;">اكتب كلمة للبحث داخل هذا الكتاب...</p>';
-        return;
-    }
-
-    container.innerHTML = '';
-    let found = 0;
-    const searchRegex = createArabicSearchRegex(query);
-    if (!searchRegex) return;
-
-    currentBookPages.forEach((page, idx) => {
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = page.content || '';
-        const rawText = tempDiv.textContent || '';
-
-        if (searchRegex.test(rawText)) {
-            found++;
-            const snippet = generateSearchSnippet(page.content, query);
-            const item = document.createElement('div');
-            item.className = 'toc-item tactile-btn';
-            item.innerHTML = `
-                <div style="flex:1;">
-                    <span style="color:#D4AF37; font-size:12px; font-weight:bold;">صفحة ${page.page_number}</span>
-                    <p style="font-size:12px; color:#ddd; margin:4px 0; line-height:1.6;">${snippet}</p>
-                </div>
-            `;
-            attachTactilePhysics(item);
-            item.onclick = () => {
-                currentActiveSearchHighlight = query;
-                currentPageIndex = idx + 1;
-                renderCurrentPage();
-                closeInBookSearch();
-            };
-            container.appendChild(item);
-        }
-    });
-
-    if (found === 0) {
-        container.innerHTML = `<p style="text-align:center; color:var(--text-muted); padding:20px;">لا توجد نتائج مطابقة لـ "${query}" في هذا الكتاب.</p>`;
-    }
-}
-
-
 // ==================== محرك الإشراقات اليومية ====================
 function initDailyHadithSystem() {
     dailyHadithCollection = fallbackHadithCollection;
@@ -1148,7 +869,6 @@ function createProceduralCover(title, isPdf = false) {
     `;
 }
 
-// ==================== دمج وتحميل بيانات الكتب ====================
 async function loadLibraryManifest() {
     const container = document.getElementById('dynamicBooksContainer');
     if (!container) return;
@@ -1203,7 +923,6 @@ async function loadLibraryManifest() {
         }
 
     } catch (err) {
-        console.error(err);
         container.innerHTML = `<div style="color:#ff6b6b; grid-column: span 3; text-align: center; font-size: 13px; padding: 20px;">تعذر تحميل الفهارس. تأكد من توفر الملفات.</div>`;
     }
 }
@@ -1573,7 +1292,264 @@ function toggleAccordionBody(accId) {
     }
 }
 
-// ==================== قائمة اختيار الأجزاء ====================
+// ==================== دوال الحفظ والوسوم والمشاركة ====================
+document.addEventListener('selectionchange', () => {
+    const selection = window.getSelection();
+    const toolbar = document.getElementById('selectionToolbar');
+    if (!toolbar) return;
+
+    if (selection && selection.toString().trim().length > 0) {
+        savedSelectionRange = selection.getRangeAt(0).cloneRange();
+        savedSelectionText = selection.toString().trim();
+        toolbar.style.display = 'flex';
+    } else {
+        setTimeout(() => {
+            if (!window.getSelection().toString().trim()) {
+                toolbar.style.display = 'none';
+            }
+        }, 300);
+    }
+});
+
+function applyHighlight(className) {
+    if (!savedSelectionRange) return;
+    const span = document.createElement('span');
+    span.className = className;
+    try {
+        savedSelectionRange.surroundContents(span);
+    } catch (e) {
+        document.execCommand('backColor', false, className === 'hl-yellow' ? '#ffeb3b' : (className === 'hl-green' ? '#4caf50' : '#e91e63'));
+    }
+    document.getElementById('selectionToolbar').style.display = 'none';
+    window.getSelection().removeAllRanges();
+    showToast("تم تظليل النص بنجاح", "fa-highlighter");
+}
+
+function removeHighlight() {
+    if (!savedSelectionRange) return;
+    document.execCommand('removeFormat', false, null);
+    document.getElementById('selectionToolbar').style.display = 'none';
+    window.getSelection().removeAllRanges();
+    showToast("تمت إزالة التظليل", "fa-eraser");
+}
+
+function shareSelectedQuote() {
+    const selectedText = window.getSelection().toString().trim() || savedSelectionText;
+    if (!selectedText) return;
+
+    let pageData = currentBookPages[currentPageIndex - 1];
+    let pageNum = pageData ? (pageData.page_number || currentPageIndex) : currentPageIndex;
+    let quoteFormatted = `"${selectedText}"\n\n📖 المصدر: ${currentBookTitle} (صـ ${pageNum})\n✦ مكتبة سيد الساجدين: https://t.me/Jali4s`;
+
+    if (navigator.share) {
+        navigator.share({ title: currentBookTitle, text: quoteFormatted }).catch(() => {});
+    } else {
+        navigator.clipboard.writeText(quoteFormatted);
+        showToast("تم نسخ الاقتباس مع التوثيق والمصدر", "fa-clipboard-check");
+    }
+
+    document.getElementById('selectionToolbar').style.display = 'none';
+    window.getSelection().removeAllRanges();
+}
+
+function getStoredTags() {
+    const data = localStorage.getItem('custom_tags_list');
+    return data ? JSON.parse(data) : defaultTags;
+}
+function saveStoredTags(tags) {
+    localStorage.setItem('custom_tags_list', JSON.stringify(tags));
+}
+function getStoredTaggedSnippets() {
+    const data = localStorage.getItem('custom_tagged_snippets');
+    return data ? JSON.parse(data) : [];
+}
+function saveStoredTaggedSnippets(items) {
+    localStorage.setItem('custom_tagged_snippets', JSON.stringify(items));
+}
+
+function openAddTagModal() {
+    const text = window.getSelection().toString().trim() || savedSelectionText;
+    if (!text) {
+        showToast("يرجى تحديد نص لتصنيفه أولاً", "fa-triangle-exclamation");
+        return;
+    }
+    savedSelectionText = text;
+    if (window.getSelection) window.getSelection().removeAllRanges();
+
+    renderAvailableTagsSelection();
+    const modal = document.getElementById('addTagModal');
+    if (modal) modal.style.display = 'flex';
+    document.getElementById('selectionToolbar').style.display = 'none';
+}
+
+function closeAddTagModal() {
+    const modal = document.getElementById('addTagModal');
+    if (modal) modal.style.display = 'none';
+    if (window.getSelection) window.getSelection().removeAllRanges();
+}
+
+function renderAvailableTagsSelection() {
+    const container = document.getElementById('availableTagsList');
+    if (!container) return;
+
+    const tags = getStoredTags();
+    container.innerHTML = '';
+
+    tags.forEach(t => {
+        const btn = document.createElement('div');
+        btn.className = 'tag-badge-select tactile-btn';
+        btn.style.backgroundColor = t.color;
+        btn.innerHTML = `<i class="fas fa-tag"></i> ${t.name}`;
+        attachTactilePhysics(btn);
+        btn.onclick = () => assignTagToSelection(t.name, t.color);
+        container.appendChild(btn);
+    });
+}
+
+function createNewCustomTag() {
+    const nameInput = document.getElementById('newTagNameInput');
+    const colorInput = document.getElementById('newTagColorInput');
+    const name = nameInput.value.trim();
+    const color = colorInput.value;
+
+    if (!name) {
+        showToast("يرجى كتابة اسم للوسم أولاً", "fa-triangle-exclamation");
+        return;
+    }
+
+    const tags = getStoredTags();
+    if (!tags.some(t => t.name === name)) {
+        tags.push({ name, color });
+        saveStoredTags(tags);
+    }
+
+    nameInput.value = '';
+    assignTagToSelection(name, color);
+}
+
+function assignTagToSelection(tagName, tagColor) {
+    if (!savedSelectionText) return;
+
+    let pageData = currentBookPages[currentPageIndex - 1];
+    let pageNum = pageData ? (pageData.page_number || currentPageIndex) : currentPageIndex;
+
+    const taggedItems = getStoredTaggedSnippets();
+    taggedItems.unshift({
+        id: 'tag_' + Date.now(),
+        tagName: tagName,
+        tagColor: tagColor,
+        text: savedSelectionText,
+        bookId: currentBookId,
+        bookTitle: currentBookTitle,
+        pageNum: pageNum,
+        pageIndex: currentPageIndex,
+        date: new Date().toLocaleDateString('ar-IQ')
+    });
+
+    saveStoredTaggedSnippets(taggedItems);
+    closeAddTagModal();
+    showToast(`تم تصنيف النص تحت وسم [${tagName}]`, "fa-tag");
+}
+
+function renderTagsView(filterTag = 'all') {
+    currentTagFilter = filterTag;
+    const pillsContainer = document.getElementById('tagsFilterPillsContainer');
+    const listContainer = document.getElementById('taggedItemsListContainer');
+    if (!pillsContainer || !listContainer) return;
+
+    const tags = getStoredTags();
+    const items = getStoredTaggedSnippets();
+
+    pillsContainer.innerHTML = `
+        <button class="filter-pill ${currentTagFilter === 'all' ? 'active' : ''} tactile-btn" onclick="renderTagsView('all')">
+            <i class="fas fa-layer-group"></i> كل الوسوم (${items.length})
+        </button>
+    `;
+
+    tags.forEach(t => {
+        const count = items.filter(i => i.tagName === t.name).length;
+        const btn = document.createElement('button');
+        btn.className = `filter-pill ${currentTagFilter === t.name ? 'active' : ''} tactile-btn`;
+        btn.style.borderColor = t.color;
+        btn.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${t.color}; margin-left:4px;"></span> ${t.name} (${count})`;
+        btn.onclick = () => renderTagsView(t.name);
+        pillsContainer.appendChild(btn);
+    });
+
+    const filteredItems = (currentTagFilter === 'all') ? items : items.filter(i => i.tagName === currentTagFilter);
+    listContainer.innerHTML = '';
+
+    if (filteredItems.length === 0) {
+        listContainer.innerHTML = `
+            <div class="search-empty-state">
+                <div class="empty-icon-box"><i class="fas fa-tags text-gold"></i></div>
+                <h4>لا توجد نصوص موسومة في هذا التصنيف</h4>
+            </div>
+        `;
+        return;
+    }
+
+    filteredItems.forEach((item) => {
+        const card = document.createElement('div');
+        card.className = 'tagged-item-card';
+        card.innerHTML = `
+            <div class="tagged-card-header">
+                <span class="tag-pill-badge" style="background-color: ${item.tagColor || '#D4AF37'};">
+                    <i class="fas fa-tag"></i> ${item.tagName}
+                </span>
+                <span style="font-size: 10px; color: var(--text-muted);">${item.date || ''}</span>
+            </div>
+            <p class="tagged-quote-text">«${item.text}»</p>
+            <div class="tagged-card-footer">
+                <div>
+                    <i class="fas fa-book-bookmark text-gold"></i> ${item.bookTitle} (صـ ${item.pageNum})
+                </div>
+                <div class="tagged-actions">
+                    <button class="tactile-btn mini-action-btn" onclick="jumpToTaggedSnippet('${item.bookId}', '${item.bookTitle}', ${item.pageIndex || item.pageNum})"><i class="fas fa-arrow-up-right-from-square"></i></button>
+                    <button class="tactile-btn mini-action-btn" onclick="shareTaggedSnippet('${item.id}')"><i class="fas fa-share-nodes"></i></button>
+                    <button class="tactile-btn mini-action-btn" style="color:#ff5252;" onclick="deleteTaggedSnippet('${item.id}')"><i class="fas fa-trash-can"></i></button>
+                </div>
+            </div>
+        `;
+        attachTactilePhysics(card);
+        listContainer.appendChild(card);
+    });
+}
+
+async function jumpToTaggedSnippet(bookId, bookTitle, pageIndexOrNum) {
+    const book = allBooksManifest[bookId] || {};
+    if (book.pdf_url) {
+        window.open(book.pdf_url, '_blank');
+        return;
+    }
+    await loadAndOpenBook(bookId, bookTitle || book.title, book.toc, book.total_pages);
+    currentPageIndex = parseInt(pageIndexOrNum) || 1;
+    renderCurrentPage();
+}
+
+function shareTaggedSnippet(itemId) {
+    const items = getStoredTaggedSnippets();
+    const target = items.find(i => i.id === itemId);
+    if (!target) return;
+    const shareContent = `✦ [${target.tagName}] من علوم آل محمد:\n\n«${target.text}»\n\n📖 المصدر: ${target.bookTitle} (صـ ${target.pageNum})\n✦ مكتبة سيد الساجدين: https://t.me/Jali4s`;
+    if (navigator.share) {
+        navigator.share({ title: target.bookTitle, text: shareContent }).catch(() => {});
+    } else {
+        navigator.clipboard.writeText(shareContent);
+        showToast("تم نسخ النص", "fa-clipboard-check");
+    }
+}
+
+function deleteTaggedSnippet(itemId) {
+    showConfirm("هل أنت متأكد من رغبتك في إزالة هذا الحديث من الوسوم؟", () => {
+        let items = getStoredTaggedSnippets();
+        items = items.filter(i => i.id !== itemId);
+        saveStoredTaggedSnippets(items);
+        renderTagsView(currentTagFilter);
+        showToast("تمت إزالة الحديث", "fa-trash-can");
+    });
+}
+
 function openVolumesModal(seriesTitle, volumesList) {
     const modalTitle = document.getElementById('volumesModalTitle');
     const container = document.getElementById('volumesListContainer');
@@ -1617,7 +1593,212 @@ function closeVolumesModal() {
     if (modal) modal.style.display = 'none';
 }
 
-// ==================== محرك تصدير الكتاب كـ PDF ====================
+
+function getStoredBookmarks() {
+    const data = localStorage.getItem(`bookmarks_${currentBookId}`);
+    return data ? JSON.parse(data) : [];
+}
+
+function toggleBookmark() {
+    if (!currentBookId) return;
+    let bookmarks = getStoredBookmarks();
+    let curPageData = currentBookPages[currentPageIndex - 1];
+    let curPageNum = curPageData ? (curPageData.page_number || currentPageIndex) : currentPageIndex;
+    const existingIndex = bookmarks.findIndex(b => b.pageIndex === currentPageIndex);
+
+    if (existingIndex !== -1) {
+        bookmarks.splice(existingIndex, 1);
+        showToast("تمت إزالة الإشارة المرجعية", "fa-bookmark");
+    } else {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = curPageData ? curPageData.content : '';
+        const preview = (tempDiv.textContent || '').trim().substring(0, 50) + '...';
+        bookmarks.push({
+            pageIndex: currentPageIndex,
+            pageNum: curPageNum,
+            preview: preview,
+            date: new Date().toLocaleDateString('ar-IQ')
+        });
+        showToast(`تم حفظ الإشارة المرجعية (صـ ${curPageNum})`, "fa-bookmark");
+    }
+    try {
+        localStorage.setItem(`bookmarks_${currentBookId}`, JSON.stringify(bookmarks));
+    } catch (e) {}
+    updateBookmarkIconState();
+    renderBookmarksList();
+}
+
+function updateBookmarkIconState() {
+    const btn = document.getElementById('bookmarkBtn');
+    if (!btn || !currentBookId) return;
+    let bookmarks = getStoredBookmarks();
+    const isBookmarked = bookmarks.some(b => b.pageIndex === currentPageIndex);
+    btn.innerHTML = isBookmarked ? '<i class="fas fa-bookmark" style="color:#D4AF37;"></i>' : '<i class="far fa-bookmark"></i>';
+}
+
+function renderBookmarksList() {
+    const container = document.getElementById('bookmarksListContainer');
+    if (!container || !currentBookId) return;
+    const bookmarks = getStoredBookmarks();
+    container.innerHTML = '';
+    if (bookmarks.length === 0) {
+        container.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding: 25px; font-size:12px;">لا توجد إشارات مرجعية.</div>';
+        return;
+    }
+    bookmarks.forEach((b, bIdx) => {
+        const div = document.createElement('div');
+        div.className = 'toc-item tactile-btn';
+        div.innerHTML = `
+            <div style="flex:1; overflow:hidden;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+                    <span class="toc-item-page">صفحة ${b.pageNum}</span>
+                    <span style="font-size:10px; color:#888;">${b.date || ''}</span>
+                </div>
+                <p style="font-size:11px; color:#aaa; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${b.preview}</p>
+            </div>
+            <button style="background:none; border:none; color:#ff5252; margin-right:8px; cursor:pointer;" onclick="deleteBookmark(${bIdx}, event)"><i class="fas fa-trash-can"></i></button>
+        `;
+        attachTactilePhysics(div);
+        div.onclick = () => {
+            currentPageIndex = b.pageIndex;
+            renderCurrentPage();
+            closeTocModal();
+        };
+        container.appendChild(div);
+    });
+}
+
+function deleteBookmark(idx, event) {
+    event.stopPropagation();
+    let bookmarks = getStoredBookmarks();
+    bookmarks.splice(idx, 1);
+    try {
+        localStorage.setItem(`bookmarks_${currentBookId}`, JSON.stringify(bookmarks));
+    } catch (e) {}
+    updateBookmarkIconState();
+    renderBookmarksList();
+    showToast("تم حذف الإشارة", "fa-trash-can");
+}
+
+function switchModalTab(tab) {
+    const tocTab = document.getElementById('tabTocBtn');
+    const bmarksTab = document.getElementById('tabBookmarksBtn');
+    const tocList = document.getElementById('tocListContainer');
+    const bmarksList = document.getElementById('bookmarksListContainer');
+    if (tab === 'toc') {
+        tocTab.classList.add('active');
+        bmarksTab.classList.remove('active');
+        tocList.style.display = 'block';
+        bmarksList.style.display = 'none';
+    } else {
+        bmarksTab.classList.add('active');
+        tocTab.classList.remove('active');
+        tocList.style.display = 'none';
+        bmarksList.style.display = 'block';
+    }
+}
+
+
+// ==================== إعدادات المظهر والفهرس ====================
+function setReadingTheme(themeName) {
+    const appBody = document.getElementById('appBody');
+    if (!appBody) return;
+    appBody.classList.remove('theme-royal', 'theme-sepia', 'theme-dark', 'theme-light');
+    appBody.classList.add(themeName);
+    try { localStorage.setItem('reading_theme', themeName); } catch (e) {}
+}
+
+const savedTheme = localStorage.getItem('reading_theme');
+if (savedTheme) setReadingTheme(savedTheme);
+
+function openSettings() { const m = document.getElementById('settingsModal'); if (m) m.style.display = 'flex'; }
+function closeSettings() { const m = document.getElementById('settingsModal'); if (m) m.style.display = 'none'; }
+
+function adjustFontSize(delta) {
+    let content = document.getElementById('pageContent');
+    if (content) {
+        let currentSize = parseInt(window.getComputedStyle(content).fontSize);
+        let newSize = Math.min(Math.max(currentSize + delta, 10), 36);
+        content.style.fontSize = newSize + 'px';
+        const display = document.getElementById('fontSizeDisplay');
+        if (display) display.innerText = newSize;
+    }
+}
+
+function changeFontFamily(font) {
+    const content = document.getElementById('pageContent');
+    if (content) content.style.fontFamily = font === 'Amiri' ? "'Amiri', serif" : "'Cairo', sans-serif";
+}
+
+function renderTocList() {
+    const tocContainer = document.getElementById('tocListContainer');
+    if (!tocContainer) return;
+    tocContainer.innerHTML = '';
+    if (currentBookToc.length === 0) return;
+    currentBookToc.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'toc-item tactile-btn';
+        div.innerHTML = `<span class="toc-item-title">${item.title}</span><span class="toc-item-page">ص ${item.page_number}</span>`;
+        attachTactilePhysics(div);
+        div.onclick = () => {
+            const targetIdx = currentBookPages.findIndex(p => Number(p.page_number) === Number(item.page_number));
+            currentPageIndex = targetIdx !== -1 ? (targetIdx + 1) : 1;
+            currentActiveSearchHighlight = "";
+            renderCurrentPage();
+            closeTocModal();
+        };
+        tocContainer.appendChild(div);
+    });
+}
+
+function openTocModal() { const m = document.getElementById('tocModal'); if (m) m.style.display = 'flex'; }
+function closeTocModal() { const m = document.getElementById('tocModal'); if (m) m.style.display = 'none'; }
+
+function openInBookSearch() {
+    const modal = document.getElementById('inBookSearchModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        setTimeout(() => {
+            const input = document.getElementById('inBookSearchInput');
+            if (input) input.focus();
+        }, 150);
+    }
+}
+function closeInBookSearch() { const modal = document.getElementById('inBookSearchModal'); if (modal) modal.style.display = 'none'; }
+
+function executeInBookSearch(val) {
+    const query = val.trim();
+    const container = document.getElementById('inBookSearchResults');
+    if (!container) return;
+    if (!query) { container.innerHTML = ''; return; }
+    
+    container.innerHTML = '';
+    let found = 0;
+    currentBookPages.forEach((page, idx) => {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = page.content || '';
+        const rawText = tempDiv.textContent || '';
+        
+        if (checkSearchMatch(rawText, query, currentSearchMatchType)) {
+            found++;
+            const snippet = generateSearchSnippet(page.content, query);
+            const item = document.createElement('div');
+            item.className = 'toc-item tactile-btn';
+            item.innerHTML = `<div style="flex:1;"><span style="color:#D4AF37; font-size:12px; font-weight:bold;">صفحة ${page.page_number}</span><p style="font-size:12px; color:#ddd; margin:4px 0; line-height:1.6;">${snippet}</p></div>`;
+            attachTactilePhysics(item);
+            item.onclick = () => {
+                currentActiveSearchHighlight = query;
+                currentPageIndex = idx + 1;
+                renderCurrentPage();
+                closeInBookSearch();
+            };
+            container.appendChild(item);
+        }
+    });
+
+    if (found === 0) container.innerHTML = `<p style="text-align:center; color:var(--text-muted); padding:20px;">لا توجد نتائج مطابقة.</p>`;
+}
+
 function downloadBookAsPDF() {
     if (!currentBookPages || currentBookPages.length === 0) {
         showToast("لا يوجد كتاب", "fa-triangle-exclamation");
@@ -1717,9 +1898,7 @@ async function executeGlobalSearch() {
             filterBadge.innerText = `${filterLabel} (أبواب)`;
         }
 
-        if (foundCount === 0) {
-            container.innerHTML = `<div class="search-empty-state"><div class="empty-icon-box"><i class="fas fa-search-minus" style="color: var(--text-muted);"></i></div><h4>لم نجد أبواباً مطابقة.</h4></div>`;
-        }
+        if (foundCount === 0) container.innerHTML = `<div class="search-empty-state"><div class="empty-icon-box"><i class="fas fa-search-minus" style="color: var(--text-muted);"></i></div><h4>لم نجد أبواباً مطابقة.</h4></div>`;
     } 
     else if (currentSearchTarget === 'fulltext') {
         const progressIndicator = document.createElement('div');
@@ -1744,11 +1923,8 @@ async function executeGlobalSearch() {
 
                 let bookData = null;
                 const cached = localStorage.getItem(`book_pages_${bookId}`);
-                if (cached) {
-                    bookData = { pages: JSON.parse(cached) };
-                } else {
-                    bookData = await fetchBookData(bookId);
-                }
+                if (cached) bookData = { pages: JSON.parse(cached) };
+                else bookData = await fetchBookData(bookId);
 
                 if (bookData && bookData.pages) {
                     bookData.pages.forEach(page => {
@@ -1773,9 +1949,7 @@ async function executeGlobalSearch() {
 
             processed++;
             const progEl = document.getElementById('deepSearchProgress');
-            if (progEl) {
-                progEl.innerText = `${Math.round((processed / total) * 100)}%`;
-            }
+            if (progEl) progEl.innerText = `${Math.round((processed / total) * 100)}%`;
         }
 
         progressIndicator.remove();
@@ -1787,74 +1961,17 @@ async function executeGlobalSearch() {
             filterBadge.innerText = `${filterLabel} (نصوص)`;
         }
 
-        if (foundCount === 0) {
-            container.innerHTML = `<div class="search-empty-state"><div class="empty-icon-box"><i class="fas fa-search-minus" style="color: var(--text-muted);"></i></div><h4>لم نجد نصوصاً مطابقة.</h4></div>`;
-        }
+        if (foundCount === 0) container.innerHTML = `<div class="search-empty-state"><div class="empty-icon-box"><i class="fas fa-search-minus" style="color: var(--text-muted);"></i></div><h4>لم نجد نصوصاً مطابقة.</h4></div>`;
     }
 }
 
-function openSearch() { 
-    showView('searchView'); 
-    setTimeout(() => { 
-        const input = document.getElementById('searchInput'); 
-        if (input) input.focus(); 
-    }, 150); 
-}
-
-function closeSearch() { 
-    isDeepSearching = false; 
-    if (history.state && history.state.view === 'searchView') {
-        history.back(); 
-    } else {
-        showView('homeView', false); 
-    }
-}
-
-function setSearchTargetMode(mode) { 
-    currentSearchTarget = mode; 
-    document.getElementById('searchTargetTocBtn')?.classList.toggle('active', mode === 'toc'); 
-    document.getElementById('searchTargetTextBtn')?.classList.toggle('active', mode === 'fulltext'); 
-    executeGlobalSearch(); 
-}
-
-function renderSearchFilterPills(groups) { 
-    const container = document.getElementById('searchFilterPills'); 
-    if (!container) return; 
-    
-    container.innerHTML = `<button class="filter-pill ${currentSearchScope === 'all' ? 'active' : ''} tactile-btn" onclick="setSearchScope('all', this)"><i class="fas fa-globe"></i> كل المكتبة</button>`; 
-    
-    Object.keys(groups).forEach(gName => { 
-        const btn = document.createElement('button'); 
-        btn.className = `filter-pill ${currentSearchScope === 'group:' + gName ? 'active' : ''} tactile-btn`; 
-        btn.innerHTML = `<i class="fas fa-book"></i> ${gName}`; 
-        btn.onclick = () => setSearchScope('group:' + gName, btn); 
-        container.appendChild(btn); 
-    }); 
-}
-
-function setSearchScope(scopeKey, element) { 
-    currentSearchScope = scopeKey; 
-    document.querySelectorAll('#searchFilterPills .filter-pill').forEach(el => el.classList.remove('active')); 
-    if (element) element.classList.add('active'); 
-    executeGlobalSearch(); 
-}
-
-function handleSearchInput(val) { 
-    const clearBtn = document.getElementById('searchClearBtn'); 
-    if (clearBtn) clearBtn.style.display = val.trim().length > 0 ? 'block' : 'none'; 
-    isDeepSearching = false; 
-    clearTimeout(searchDebounceTimer); 
-    searchDebounceTimer = setTimeout(() => { executeGlobalSearch(); }, 250); 
-}
-
-function clearSearch() { 
-    const input = document.getElementById('searchInput'); 
-    if (input) { 
-        input.value = ''; 
-        input.focus(); 
-    } 
-    handleSearchInput(''); 
-}
+function openSearch() { showView('searchView'); setTimeout(() => { const input = document.getElementById('searchInput'); if (input) input.focus(); }, 150); }
+function closeSearch() { isDeepSearching = false; if (history.state && history.state.view === 'searchView') history.back(); else showView('homeView', false); }
+function setSearchTargetMode(mode) { currentSearchTarget = mode; document.getElementById('searchTargetTocBtn')?.classList.toggle('active', mode === 'toc'); document.getElementById('searchTargetTextBtn')?.classList.toggle('active', mode === 'fulltext'); executeGlobalSearch(); }
+function renderSearchFilterPills(groups) { const container = document.getElementById('searchFilterPills'); if (!container) return; container.innerHTML = `<button class="filter-pill ${currentSearchScope === 'all' ? 'active' : ''} tactile-btn" onclick="setSearchScope('all', this)"><i class="fas fa-globe"></i> كل المكتبة</button>`; Object.keys(groups).forEach(gName => { const btn = document.createElement('button'); btn.className = `filter-pill ${currentSearchScope === 'group:' + gName ? 'active' : ''} tactile-btn`; btn.innerHTML = `<i class="fas fa-book"></i> ${gName}`; btn.onclick = () => setSearchScope('group:' + gName, btn); container.appendChild(btn); }); }
+function setSearchScope(scopeKey, element) { currentSearchScope = scopeKey; document.querySelectorAll('#searchFilterPills .filter-pill').forEach(el => el.classList.remove('active')); if (element) element.classList.add('active'); executeGlobalSearch(); }
+function handleSearchInput(val) { const clearBtn = document.getElementById('searchClearBtn'); if (clearBtn) clearBtn.style.display = val.trim().length > 0 ? 'block' : 'none'; isDeepSearching = false; clearTimeout(searchDebounceTimer); searchDebounceTimer = setTimeout(() => { executeGlobalSearch(); }, 250); }
+function clearSearch() { const input = document.getElementById('searchInput'); if (input) { input.value = ''; input.focus(); } handleSearchInput(''); }
 
 // ==================== تفعيل نظام الحواشي المنبثقة الذكي عند الضغط ====================
 document.addEventListener('click', function(e) {
