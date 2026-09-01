@@ -28,9 +28,14 @@
                 <div class="tag-gold">✦ جليس الكليني</div>
                 <h1 class="main-title">خزانة علوم العترة</h1>
             </div>
-            <button class="tactile-btn icon-btn" onclick="openSearch()">
-                <i class="fas fa-search text-gold"></i>
-            </button>
+            <div class="header-actions-v2">
+                <button class="tactile-btn icon-btn" onclick="openPersonalLibrary()" title="مكتبتي">
+                    <i class="fas fa-star text-gold"></i>
+                </button>
+                <button class="tactile-btn icon-btn" onclick="openSearch()" title="بحث">
+                    <i class="fas fa-search text-gold"></i>
+                </button>
+            </div>
         </header>
 
         <!-- كلامكم نور -->
@@ -61,6 +66,15 @@
                     </a>
                 </div>
             </div>
+        </section>
+
+        <!-- متابعة القراءة + مكتبة شخصية (V2) -->
+        <section id="continueReadingSection" class="v2-continue-section" style="display:none;">
+            <div class="v2-section-head">
+                <div><span class="tag-gold">✦ مكتبتك</span><h3>تابع من حيث توقفت</h3></div>
+                <button class="tactile-btn v2-link-btn" onclick="openPersonalLibrary()">مكتبتي <i class="fas fa-arrow-left"></i></button>
+            </div>
+            <div id="continueReadingCard" class="continue-reading-card"></div>
         </section>
 
         <!-- شبكة رفوف الكتب -->
@@ -129,12 +143,15 @@
             </button>
             <div class="reader-title-container">
                 <h1 id="readerTitle" class="reader-header-title">جاري التحميل...</h1>
+                <div class="reader-progress-line"><span id="readerProgressFill"></span></div>
             </div>
             <div class="reader-top-actions">
                 <button class="tactile-btn icon-btn-flat" onclick="downloadBookAsPDF()" title="تنزيل الكتاب كـ PDF"><i class="fas fa-file-pdf"></i></button>
                 <button id="bookmarkBtn" class="tactile-btn icon-btn-flat" onclick="toggleBookmark()" title="حفظ إشارة مرجعية"><i class="far fa-bookmark"></i></button>
+                <button class="tactile-btn icon-btn-flat" onclick="copyCurrentCitation()" title="نسخ النص مع المصدر"><i class="fas fa-quote-right"></i></button>
+                <button class="tactile-btn icon-btn-flat" onclick="shareCurrentPage()" title="مشاركة الموضع"><i class="fas fa-share-nodes"></i></button>
                 <button class="tactile-btn icon-btn-flat" onclick="openInBookSearch()" title="بحث داخل الكتاب"><i class="fas fa-magnifying-glass text-gold"></i></button>
-                <button class="tactile-btn icon-btn-flat" onclick="openTocModal()" title="الفهرس والمفضلة"><i class="fas fa-list-ul"></i></button>
+                <button class="tactile-btn icon-btn-flat" onclick="openTocModal()" title="الفهرس والإشارات"><i class="fas fa-list-ul"></i></button>
                 <button class="tactile-btn icon-btn-flat" onclick="openSettings()" title="المظهر والخط"><i class="fas fa-palette"></i></button>
             </div>
         </header>
@@ -278,6 +295,7 @@
                     <i class="fas fa-times-circle"></i>
                 </button>
             </div>
+            <div id="searchSmartPanel" class="search-smart-panel" style="display:none;"></div>
 
             <!-- خيارات نوع البحث المتقدم -->
             <div class="search-mode-selector" style="margin-bottom: 6px;">
@@ -316,6 +334,22 @@
         </section>
         <div style="height: 100px;"></div>
     </main>
+
+    <!-- مكتبة المستخدم V2 -->
+    <div id="personalLibraryModal" class="glass-modal">
+        <div class="modal-content glass-box v2-library-modal">
+            <div class="v2-modal-head">
+                <div><span class="tag-gold">✦ مساحتك</span><h3 class="text-gold">مكتبتي</h3></div>
+                <button class="tactile-btn icon-btn-flat" onclick="closePersonalLibrary()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="v2-library-tabs">
+                <button class="v2-library-tab active" onclick="switchPersonalLibraryTab('recent',this)"><i class="fas fa-clock"></i> قراءتي</button>
+                <button class="v2-library-tab" onclick="switchPersonalLibraryTab('favorites',this)"><i class="fas fa-star"></i> المفضلة</button>
+                <button class="v2-library-tab" onclick="switchPersonalLibraryTab('bookmarks',this)"><i class="fas fa-bookmark"></i> العلامات</button>
+            </div>
+            <div id="personalLibraryList" class="v2-library-list"></div>
+        </div>
+    </div>
 
     <!-- نافذة إعدادات المظهر والخط -->
     <div id="settingsModal" class="glass-modal">

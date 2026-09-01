@@ -1219,3 +1219,56 @@ body {
     .books-grid-container { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; max-width: 1100px; margin: 0 auto; }
     .search-results-grid { max-width: 1050px; margin-inline: auto; }
 }
+
+/* ==================== V2: طبقة المكتبة الشخصية والذكاء الهادئ ==================== */
+.header-actions-v2 { display:flex; align-items:center; gap:4px; }
+.v2-continue-section { padding: 0 20px 16px; }
+.v2-section-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
+.v2-section-head h3 { margin:2px 0 0; color:#fff; font-size:15px; }
+.v2-link-btn { color:var(--gold-bright); background:transparent; border:0; font-size:10px; font-weight:800; padding:7px 4px; }
+.continue-reading-card { display:flex; gap:12px; align-items:stretch; padding:11px; border:1px solid var(--gold-border); border-radius:15px; background:linear-gradient(135deg,rgba(212,175,55,.07),rgba(255,255,255,.025)); box-shadow:0 8px 28px rgba(0,0,0,.18); }
+.continue-reading-cover { flex:0 0 72px; width:72px; height:94px; overflow:hidden; border-radius:8px; }
+.continue-reading-cover .book-cover-wrapper { height:100%; min-height:0; max-height:none; margin:0; }
+.continue-reading-main { min-width:0; flex:1; display:flex; flex-direction:column; justify-content:center; }
+.continue-reading-kicker { color:var(--gold-bright); font-size:9px; font-weight:800; margin-bottom:3px; }
+.continue-reading-main h4 { color:#fff; font-size:13px; margin:0 0 3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.continue-reading-main p { color:var(--text-muted); font-size:10px; margin:0 0 7px; }
+.continue-reading-main .progress-bar { margin-bottom:7px; }
+.v2-primary-btn { align-self:flex-start; border:1px solid var(--gold-border); background:var(--gold-dim); color:var(--gold-bright); border-radius:9px; padding:6px 9px; font-size:10px; font-weight:800; }
+.book-favorite-btn { position:absolute; top:7px; right:7px; z-index:4; width:27px; height:27px; border:1px solid rgba(212,175,55,.3); background:rgba(3,7,5,.72); color:#8f8c7e; border-radius:50%; display:grid; place-items:center; backdrop-filter:blur(5px); }
+.book-favorite-btn.active { color:var(--gold-bright); border-color:var(--gold-border); background:rgba(212,175,55,.10); }
+.reader-progress-line { height:2px; background:rgba(255,255,255,.08); margin-top:5px; border-radius:999px; overflow:hidden; }
+.reader-progress-line span { display:block; height:100%; width:0; background:linear-gradient(90deg,var(--gold-main),var(--gold-bright)); transition:width .2s ease; }
+.search-smart-panel { margin:-2px 0 8px; padding:8px 10px; border:1px solid var(--surface-border); border-radius:11px; background:rgba(255,255,255,.025); }
+.smart-panel-head { display:flex; justify-content:space-between; align-items:center; color:var(--text-muted); font-size:9px; margin-bottom:7px; }
+.smart-panel-head button { border:0; background:transparent; color:var(--gold-bright); font-size:9px; padding:2px 4px; }
+.smart-chip-row { display:flex; gap:6px; overflow-x:auto; padding-bottom:1px; scrollbar-width:none; }
+.smart-chip-row::-webkit-scrollbar { display:none; }
+.smart-search-chip { flex:0 0 auto; max-width:230px; display:flex; align-items:center; gap:5px; padding:6px 8px; border:1px solid var(--surface-border); border-radius:8px; background:rgba(255,255,255,.02); color:#d8d4c8; font-size:9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.smart-search-chip i { color:var(--gold-bright); font-size:8px; }
+.v2-library-modal { width:92%; max-width:560px; max-height:78vh; display:flex; flex-direction:column; }
+.v2-modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; }
+.v2-modal-head h3 { margin:2px 0 0; font-size:17px; }
+.v2-library-tabs { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; padding:4px; border:1px solid var(--surface-border); border-radius:11px; margin-bottom:9px; background:rgba(255,255,255,.02); }
+.v2-library-tab { border:0; border-radius:8px; padding:7px 5px; background:transparent; color:var(--text-muted); font-size:9px; font-weight:800; }
+.v2-library-tab.active { background:var(--gold-dim); color:var(--gold-bright); }
+.v2-library-list { overflow:auto; display:flex; flex-direction:column; gap:6px; padding-right:1px; }
+.v2-library-row { display:flex; align-items:center; gap:9px; padding:9px; border:1px solid var(--surface-border); border-radius:11px; background:rgba(255,255,255,.018); min-width:0; }
+.v2-library-icon { flex:0 0 31px; width:31px; height:31px; border-radius:8px; display:grid; place-items:center; background:var(--gold-dim); color:var(--gold-bright); }
+.v2-library-row-main { min-width:0; flex:1; display:flex; flex-direction:column; gap:2px; }
+.v2-library-row-main b { color:#fff; font-size:10px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.v2-library-row-main span { color:var(--text-muted); font-size:8.5px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.v2-empty { text-align:center; padding:35px 20px; color:var(--text-muted); }
+.v2-empty i { font-size:24px; color:var(--gold-main); margin-bottom:8px; opacity:.8; }
+.v2-empty h4 { color:#fff; margin:0 0 4px; font-size:12px; }
+.v2-empty p { margin:0; font-size:10px; }
+
+@media (min-width: 900px) {
+    .v2-continue-section { max-width:1100px; margin:0 auto; }
+    .continue-reading-card { max-width:620px; }
+}
+@media (max-width: 560px) {
+    .continue-reading-cover { flex-basis:64px; width:64px; height:84px; }
+    .book-favorite-btn { width:24px; height:24px; top:5px; right:5px; font-size:10px; }
+    .reader-top-actions .icon-btn-flat:nth-child(1), .reader-top-actions .icon-btn-flat:nth-child(2) { display:none; }
+}

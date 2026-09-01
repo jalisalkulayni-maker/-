@@ -47,6 +47,11 @@ let isDeepSearching = false;
 
 let savedScrollPosition = 0;
 let currentActiveSearchHighlight = "";
+let currentPersonalLibraryTab = 'recent';
+let readingHistory = [];
+const RECENT_SEARCH_KEY = 'recent_searches_v2';
+const FAVORITE_BOOKS_KEY = 'favorite_books_v2';
+const READING_HISTORY_KEY = 'reading_history_v2';
 
 // ==================== نظام التنبيهات والإشعارات ====================
 let toastTimeout = null;
@@ -222,7 +227,8 @@ window.addEventListener('popstate', (event) => {
         document.getElementById('settingsModal'),
         document.getElementById('inBookSearchModal'),
         document.getElementById('addTagModal'),
-        document.getElementById('customConfirmModal')
+        document.getElementById('customConfirmModal'),
+        document.getElementById('personalLibraryModal')
     ];
 
     let modalClosed = false;
@@ -667,11 +673,12 @@ function processAndRenderBooks(data) {
         const card = document.createElement("div");
         card.className = "book-card tactile-btn";
         card.innerHTML = `
+            <button class="book-favorite-btn tactile-btn ${isFavoriteBook(mainBook.id) ? 'active' : ''}" title="${isFavoriteBook(mainBook.id) ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}" onclick="toggleFavoriteBook('${escapeHtml(mainBook.id)}', event)"><i class="${isFavoriteBook(mainBook.id) ? 'fas' : 'far'} fa-star"></i></button>
             ${coverHtml}
             <div class="book-info">
                 <h4 class="text-white">${groupTitle}</h4>
                 <p class="text-muted">${subtitle}</p>
-                <div class="progress-bar" style="width: 100%;"><div class="progress-fill" style="width: 100%;"></div></div>
+                <div class="progress-bar v2-book-progress" style="width: 100%;"><div class="progress-fill" style="width: ${getBookProgressPercent(mainBook.id)}%;"></div></div>
             </div>
         `;
 
@@ -687,6 +694,7 @@ function processAndRenderBooks(data) {
     });
 
     renderSearchFilterPills(groups);
+    renderContinueReading();
     if (heroCount > 0) setupHeroSlider(heroCount);
 }
 
@@ -832,11 +840,12 @@ function renderCatalogAccordion() {
             const card = document.createElement("div");
             card.className = "book-card tactile-btn";
             card.innerHTML = `
+                <button class="book-favorite-btn tactile-btn ${isFavoriteBook(mainBook.id) ? 'active' : ''}" title="${isFavoriteBook(mainBook.id) ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}" onclick="toggleFavoriteBook('${escapeHtml(mainBook.id)}', event)"><i class="${isFavoriteBook(mainBook.id) ? 'fas' : 'far'} fa-star"></i></button>
                 ${coverHtml}
                 <div class="book-info">
                     <h4 class="text-white">${groupTitle}</h4>
                     <p class="text-muted">${subtitle}</p>
-                    <div class="progress-bar" style="width: 100%;"><div class="progress-fill" style="width: 100%;"></div></div>
+                    <div class="progress-bar v2-book-progress" style="width: 100%;"><div class="progress-fill" style="width: ${getBookProgressPercent(mainBook.id)}%;"></div></div>
                 </div>
             `;
 
@@ -950,6 +959,7 @@ async function loadAndOpenBook(bookId, bookTitle, bookToc, totalPages, targetPag
     currentBookTitle = bookTitle;
     currentActiveSearchHighlight = highlightQuery || "";
     document.getElementById('readerTitle').innerText = bookTitle;
+    rememberRecentBook(bookId, bookTitle, bookTotal(bookId));
 
     const contentDiv = document.getElementById('pageContent');
     contentDiv.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:50px;"><i class="fas fa-spinner fa-spin fa-2x text-gold"></i><p style="margin-top:10px;">جاري فتح المتن المبارك...</p></div>';
@@ -1083,6 +1093,10 @@ function renderCurrentPage() {
         } catch (e) {}
     }
 
+    const pct = Math.min(100, Math.max(0, Math.round((currentPageIndex / Math.max(currentBookPages.length, 1)) * 100)));
+    const progressFill = document.getElementById('readerProgressFill');
+    if (progressFill) progressFill.style.width = `${pct}%`;
+    rememberRecentBook(currentBookId, currentBookTitle, currentBookTotalPages);
     updateBookmarkIconState();
 }
 
@@ -1771,6 +1785,170 @@ function downloadBookAsPDF() {
     }, 1500); // تأخير 1.5 ثانية لضمان تحميل خط Amiri
 }
 
+// ==================== مكتبة المستخدم V2 ====================
+function readJsonStorage(key, fallback) {
+    try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+    } catch (_) { return fallback; }
+}
+function writeJsonStorage(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
+}
+function getFavoriteBookIds() { return readJsonStorage(FAVORITE_BOOKS_KEY, []); }
+function isFavoriteBook(id) { return getFavoriteBookIds().includes(id); }
+function toggleFavoriteBook(id, event) {
+    if (event) event.stopPropagation();
+    const list = getFavoriteBookIds();
+    const idx = list.indexOf(id);
+    if (idx >= 0) { list.splice(idx, 1); showToast('أزيل الكتاب من المفضلة', 'fa-star'); }
+    else { list.unshift(id); showToast('أضيف الكتاب إلى المفضلة', 'fa-star'); }
+    writeJsonStorage(FAVORITE_BOOKS_KEY, list.slice(0, 100));
+    if (typeof processAndRenderBooks === 'function' && Object.keys(allBooksManifest).length) {
+        processAndRenderBooks(allBooksManifest);
+        renderCatalogAccordion();
+    }
+    renderPersonalLibrary();
+}
+function rememberRecentBook(id, title, totalPages) {
+    if (!id || !title) return;
+    const history = readJsonStorage(READING_HISTORY_KEY, []).filter(x => x.id !== id);
+    const page = Number(localStorage.getItem(`last_page_${id}`)) || 1;
+    const item = { id, title, totalPages: totalPages || 1, page, updatedAt: Date.now() };
+    history.unshift(item);
+    readingHistory = history.slice(0, 12);
+    writeJsonStorage(READING_HISTORY_KEY, readingHistory);
+    renderContinueReading();
+}
+function getBookProgressPercent(id) {
+    const total = Number(allBooksManifest[id]?.total_pages) || Number(readJsonStorage(READING_HISTORY_KEY, []).find(x => x.id === id)?.totalPages) || 1;
+    const page = Number(localStorage.getItem(`last_page_${id}`)) || 0;
+    return Math.min(100, Math.max(0, Math.round((page / total) * 100)));
+}
+function getBookById(id) {
+    return allBooksManifest[id] || null;
+}
+function renderContinueReading() {
+    const section = document.getElementById('continueReadingSection');
+    const card = document.getElementById('continueReadingCard');
+    if (!section || !card) return;
+    const history = readJsonStorage(READING_HISTORY_KEY, []).filter(x => getBookById(x.id));
+    readingHistory = history;
+    if (!history.length) { section.style.display = 'none'; return; }
+    const item = history[0];
+    const book = getBookById(item.id);
+    const group = getGroupName(book, item.id);
+    const total = Number(book.total_pages) || item.totalPages || 1;
+    const page = Number(localStorage.getItem(`last_page_${item.id}`)) || item.page || 1;
+    const pct = Math.min(100, Math.max(0, Math.round((page / total) * 100)));
+    section.style.display = 'block';
+    card.innerHTML = `
+        <div class="continue-reading-cover">${createCoverHtml((book.cover || '').trim(), group, !!book.pdf_url)}</div>
+        <div class="continue-reading-main">
+            <div class="continue-reading-kicker"><i class="fas fa-book-open"></i> آخر قراءة</div>
+            <h4>${escapeHtml(group)}</h4>
+            <p>صفحة <b>${page}</b> من ${total} · ${pct}%</p>
+            <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+            <button class="v2-primary-btn tactile-btn" onclick="resumeRecentBook('${escapeHtml(item.id)}', event)">متابعة القراءة <i class="fas fa-arrow-left"></i></button>
+        </div>`;
+    attachTactilePhysics(card.querySelector('.v2-primary-btn'));
+}
+function resumeRecentBook(id, event) {
+    if (event) event.stopPropagation();
+    const book = getBookById(id); if (!book) return;
+    loadAndOpenBook(id, book.title || getGroupName(book,id), book.toc, book.total_pages);
+}
+function openPersonalLibrary() {
+    const modal = document.getElementById('personalLibraryModal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    renderPersonalLibrary();
+}
+function closePersonalLibrary() { const m=document.getElementById('personalLibraryModal'); if(m)m.style.display='none'; }
+function switchPersonalLibraryTab(tab, btn) {
+    currentPersonalLibraryTab = tab;
+    document.querySelectorAll('.v2-library-tab').forEach(x => x.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderPersonalLibrary();
+}
+function renderPersonalLibrary() {
+    const container = document.getElementById('personalLibraryList'); if (!container) return;
+    let items = [];
+    if (currentPersonalLibraryTab === 'favorites') {
+        items = getFavoriteBookIds().map(id => ({...getBookById(id), id})).filter(Boolean);
+    } else if (currentPersonalLibraryTab === 'bookmarks') {
+        const rows = [];
+        Object.keys(localStorage).filter(k => k.startsWith('bookmarks_')).forEach(k => {
+            const id = k.replace(/^bookmarks_/, '');
+            const book = getBookById(id);
+            if (!book) return;
+            const bookmarks = readJsonStorage(k, []);
+            bookmarks.forEach(b => rows.push({ ...b, id, book }));
+        });
+        rows.sort((a,b) => String(b.date || '').localeCompare(String(a.date || ''), 'ar'));
+        items = rows;
+    } else {
+        items = readJsonStorage(READING_HISTORY_KEY, []).filter(x => getBookById(x.id));
+    }
+    if (!items.length) {
+        container.innerHTML = `<div class="v2-empty"><i class="fas ${currentPersonalLibraryTab==='favorites' ? 'fa-star' : 'fa-book-open'}"></i><h4>${currentPersonalLibraryTab==='favorites' ? 'لا توجد كتب مفضلة بعد' : 'ابدأ القراءة لتظهر كتبك هنا'}</h4><p>ستبقى بياناتك محفوظة على هذا الجهاز.</p></div>`;
+        return;
+    }
+    container.innerHTML = '';
+    items.slice(0, 30).forEach(item => {
+        const id = item.id;
+        const book = item.book || getBookById(id);
+        const title = book?.title || getGroupName(book || {}, id);
+        const group = getGroupName(book || {}, id);
+        const page = currentPersonalLibraryTab === 'bookmarks' ? (item.pageNum || item.pageIndex || 1) : (Number(localStorage.getItem(`last_page_${id}`)) || item.page || 1);
+        const row = document.createElement('div'); row.className='v2-library-row tactile-btn';
+        row.innerHTML = `<div class="v2-library-icon"><i class="fas fa-book"></i></div><div class="v2-library-row-main"><b>${escapeHtml(group)}</b><span>${escapeHtml(title)} · صـ ${page}</span></div><i class="fas fa-chevron-left text-gold"></i>`;
+        row.onclick = () => { closePersonalLibrary(); if(book) loadAndOpenBook(id, title, book.toc, book.total_pages, currentPersonalLibraryTab==='bookmarks' ? (item.pageNum || item.pageIndex) : null); };
+        container.appendChild(row);
+    });
+}
+function getRecentSearches() { return readJsonStorage(RECENT_SEARCH_KEY, []); }
+function rememberSearchQuery(query) {
+    const q = query.trim(); if (!q) return;
+    const next = [q, ...getRecentSearches().filter(x => x !== q)].slice(0, 8);
+    writeJsonStorage(RECENT_SEARCH_KEY, next);
+}
+function renderSmartSearchPanel(query='') {
+    const panel = document.getElementById('searchSmartPanel'); if(!panel) return;
+    const q = query.trim();
+    if (!q) {
+        const recent = getRecentSearches();
+        if (!recent.length) { panel.style.display='none'; panel.innerHTML=''; return; }
+        panel.innerHTML = `<div class="smart-panel-head"><span>عمليات البحث الأخيرة</span><button class="tactile-btn" onclick="clearRecentSearches()">مسح</button></div><div class="smart-chip-row">${recent.map(x=>`<button class="smart-search-chip tactile-btn" onclick="useSmartSearch(this.dataset.q)" data-q="${escapeHtml(x)}"><i class="fas fa-clock"></i>${escapeHtml(x)}</button>`).join('')}</div>`;
+        panel.style.display='block'; return;
+    }
+    const matcher = createSearchMatcher(q);
+    const suggestions=[];
+    getScopedSearchIndex().forEach(item=>{
+        if(suggestions.length>=6) return;
+        if(matcher(item.title) || matcher(item.group)) suggestions.push({label:item.title||item.group, icon:'fa-book'});
+        if(suggestions.length>=6) return;
+        for(const t of item.toc || []) { if(matcher(t.title||'')){ suggestions.push({label:t.title,icon:'fa-bookmark'}); if(suggestions.length>=6) break; } }
+    });
+    panel.innerHTML = suggestions.length ? `<div class="smart-panel-head"><span>اقتراحات سريعة</span></div><div class="smart-chip-row">${suggestions.map(x=>`<button class="smart-search-chip tactile-btn" onclick="useSmartSearch(this.dataset.q)" data-q="${escapeHtml(x.label)}"><i class="fas ${x.icon}"></i>${escapeHtml(x.label)}</button>`).join('')}</div>` : '';
+    panel.style.display = suggestions.length ? 'block' : 'none';
+}
+function useSmartSearch(query) { const input=document.getElementById('searchInput'); if(!input)return; input.value=query; rememberSearchQuery(query); handleSearchInput(query); setTimeout(()=>{ document.getElementById('searchSmartPanel')?.style.setProperty('display','none'); }, 50); }
+function clearRecentSearches() { writeJsonStorage(RECENT_SEARCH_KEY, []); renderSmartSearchPanel(''); }
+function copyCurrentCitation() {
+    const pageData=currentBookPages[currentPageIndex-1]; if(!pageData) return;
+    const tmp=document.createElement('div'); tmp.innerHTML=pageData.content||'';
+    const text=(tmp.textContent||'').trim(); if(!text) return;
+    const pageNum=pageData.page_number||currentPageIndex;
+    const citation=`${text}\n\n📖 ${currentBookTitle} — صـ ${pageNum}\nجليس الكليني | Jali4s`;
+    navigator.clipboard?.writeText(citation).then(()=>showToast('تم نسخ النص مع المصدر','fa-copy')).catch(()=>showToast('تعذر النسخ التلقائي','fa-triangle-exclamation'));
+}
+function shareCurrentPage() {
+    const url = new URL(window.location.href); url.searchParams.set('book', currentBookId); url.searchParams.set('page', currentPageIndex);
+    const data={title:currentBookTitle,text:`${currentBookTitle} — صـ ${currentBookPages[currentPageIndex-1]?.page_number || currentPageIndex}`,url:url.toString()};
+    if(navigator.share) navigator.share(data).catch(()=>{}); else navigator.clipboard?.writeText(url.toString()).then(()=>showToast('تم نسخ رابط الموضع','fa-link'));
+}
+
 // ==================== محرك البحث الشامل ====================
 function openSearch() { 
     showView('searchView');
@@ -1862,6 +2040,7 @@ function highlightSearchText(text, query) {
 }
 
 function handleSearchInput(val) {
+    renderSmartSearchPanel(val);
     const clearBtn = document.getElementById('searchClearBtn');
     if (clearBtn) clearBtn.style.display = val.trim() ? 'block' : 'none';
     clearTimeout(searchDebounceTimer);
@@ -1869,7 +2048,7 @@ function handleSearchInput(val) {
     searchRequestId++;
     const request = searchRequestId;
     searchDebounceTimer = setTimeout(() => {
-        if (request === searchRequestId) executeGlobalSearch(request);
+        if (request === searchRequestId) { if (val.trim()) rememberSearchQuery(val); executeGlobalSearch(request); }
     }, 90);
 }
 
