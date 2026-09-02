@@ -684,10 +684,16 @@ async function loadLibraryManifest() {
         const targetBookId = urlParams.get('book');
         const targetPage = urlParams.get('page');
         const targetQuote = urlParams.get('quote');
+        const initialQuery = urlParams.get('q');
         if (targetBookId && allBooksManifest[targetBookId]) {
             const b = allBooksManifest[targetBookId];
             if (b.pdf_url) window.open(b.pdf_url, '_blank', 'noopener,noreferrer');
             else loadAndOpenBook(targetBookId, b.title, b.toc, b.total_pages, targetPage ? Number(targetPage) : null, targetQuote || '');
+        } else if (initialQuery) {
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) searchInput.value = initialQuery;
+            openSearch();
+            setTimeout(() => handleSearchInput(initialQuery), 60);
         }
     } catch (err) {
         console.error(err);

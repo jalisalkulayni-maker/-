@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://jalisalkulayni-maker.github.io/jal5is/sitemap.xml
