@@ -1465,3 +1465,144 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
  .floating-guide-container{width:44px;height:44px;right:6px;bottom:calc(68px + env(safe-area-inset-bottom));}
  .guide-avatar{width:44px!important;height:44px!important;}
 }
+
+/* ============================================================================
+   JALIS AL-KULAYNI — V10 PERFORMANCE / UX LAYER
+   ========================================================================== */
+:root {
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-top: env(safe-area-inset-top, 0px);
+}
+
+html {
+    min-height: 100%;
+    background: var(--bg-dark);
+    text-rendering: optimizeLegibility;
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    min-height: 100dvh;
+    overscroll-behavior-x: none;
+}
+
+/* لا نعيد رسم كل الرفوف أثناء التمرير. */
+.books-grid-container > *,
+.catalog-group-card,
+.search-result-card,
+.v2-library-row,
+.tag-card,
+.hero-slide {
+    content-visibility: auto;
+    contain-intrinsic-size: 170px;
+}
+
+.books-grid-container,
+.search-results-grid,
+#catalogAccordionContainer,
+#tagsContainer,
+.v2-library-list {
+    contain: layout style;
+}
+
+.book-cover-img,
+.hero-slide img {
+    image-rendering: auto;
+}
+
+.v10-library-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-inline-start: 12px;
+    padding: 6px 10px;
+    border: 1px solid var(--gold-border);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--surface-glass-strong, rgba(8,14,11,.92)) 84%, var(--gold-main) 16%);
+    color: var(--text-muted);
+    font-size: 9px;
+    line-height: 1;
+    white-space: nowrap;
+    box-shadow: 0 6px 18px rgba(0,0,0,.14);
+}
+.v10-library-status i { color: var(--gold-main); }
+.v10-library-status b { color: var(--gold-bright); font-size: 10px; }
+
+.library-load-status {
+    width: 100%;
+    min-height: 48px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 9px;
+    grid-column: 1 / -1;
+    margin: 0 0 12px;
+    padding: 12px 14px;
+    color: var(--text-muted);
+    border: 1px solid var(--surface-border);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--surface-glass, rgba(12,22,18,.7)) 90%, transparent);
+    font-size: 11px;
+}
+.library-load-status i { color: var(--gold-main); }
+.library-load-status[data-kind="error"] { color: #ffb8b8; border-color: rgba(220,80,80,.35); }
+.library-load-status[data-kind="error"] i { color: #ff6b6b; }
+
+.v10-error-state {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    padding: 50px 20px;
+    color: var(--text-muted);
+    text-align: center;
+}
+.v10-error-state i { color: #ffb15f; font-size: 30px; }
+.v10-error-state b { color: var(--text-white); font-size: 14px; }
+.v10-error-state span { font-size: 11px; }
+
+/* تقليل الحمل الرسومي على الأجهزة الضعيفة مع إبقاء الهوية المرئية. */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: .001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .001ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+@media (max-width: 560px) {
+    .royal-header {
+        padding-top: calc(18px + var(--safe-top));
+    }
+    .v10-library-status {
+        margin-inline-start: 6px;
+        padding: 5px 8px;
+        font-size: 8px;
+    }
+    .v10-library-status b { font-size: 9px; }
+}
+
+/* لوحة القارئ تستغل كامل المساحة المتاحة مع مراعاة شريط النظام. */
+#readerView {
+    min-height: 100dvh;
+    padding-bottom: calc(70px + var(--safe-bottom));
+}
+#readerTapArea {
+    min-height: calc(100dvh - 150px);
+    -webkit-overflow-scrolling: touch;
+}
+
+/* حالات التركيز للكيبورد دون الإخلال بتصميم الهاتف. */
+:focus-visible {
+    outline: 2px solid var(--gold-main);
+    outline-offset: 3px;
+}
+
+/* تجنّب تأثير hover الثقيل على الأجهزة اللمسية. */
+@media (hover: none) {
+    .tactile-btn:hover,
+    .palette-preset:hover {
+        transform: none !important;
+        box-shadow: none;
+    }
+}

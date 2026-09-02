@@ -122,7 +122,7 @@ function createCoverHtml(coverSrc, title, isPdf = false) {
     }
     const safeSrc = escapeHtml(String(coverSrc).trim());
     const safeTitle = escapeHtml(title);
-    return `<div class="book-cover-wrapper"><img src="${safeSrc}" class="book-cover-img" alt="${safeTitle}" data-cover-title="${safeTitle}" data-pdf="${isPdf}" onerror="handleCoverError(this)"></div>`;
+    return `<div class="book-cover-wrapper"><img src="${safeSrc}" class="book-cover-img" alt="${safeTitle}" loading="lazy" decoding="async" fetchpriority="low" data-cover-title="${safeTitle}" data-pdf="${isPdf}" onerror="handleCoverError(this)"></div>`;
 }
 
 function createProceduralCover(title, isPdf = false) {
@@ -604,7 +604,7 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 7000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-        return await fetch(url, { ...options, signal: controller.signal, cache: options.cache || 'no-store' });
+        return await fetch(url, { ...options, signal: controller.signal, cache: options.cache || 'default' });
     } finally {
         clearTimeout(timer);
     }
@@ -2636,7 +2636,6 @@ document.addEventListener('click', function(e) {
 
 // ==================== التهيئة عند بدء التشغيل ====================
 document.querySelectorAll('.tactile-btn').forEach(btn => attachTactilePhysics(btn));
-loadLibraryManifest();
 initDailyHadithSystem();
 
 // ==================== اختصارات V2 ومركز التحكم ====================
@@ -2650,3 +2649,247 @@ document.addEventListener('keydown',(event)=>{
 
 
 document.addEventListener('DOMContentLoaded', initGuideWhenReady, {once:true});
+
+
+/* ============================================================================
+   JALIS AL-KULAYNI — PERFORMANCE / STABILITY CORE V10
+   لا يغيّر ملفات الكتب أو الـManifest. يعمل كطبقة تحسين فوق المحرك الحالي.
+   ========================================================================== */
+(() => {
+    'use strict';
+
+    const PERF = {
+        dbName: 'jalis_alkulaini_cache_v1',
+        dbVersion: 1,
+        store: 'books',
+        memory: new Map(),
+        pending: new Map(),
+        manifestReady: false,
+        startedAt: performance.now(),
+        lastUrlSync: 0
+    };
+
+    const safeJson = (value, fallback) => {
+        try { return JSON.parse(value); } catch (_) { return fallback; }
+    };
+
+    function openCacheDB() {
+        if (!('indexedDB' in window)) return Promise.resolve(null);
+        if (PERF.dbPromise) return PERF.dbPromise;
+        PERF.dbPromise = new Promise(resolve => {
+            try {
+                const req = indexedDB.open(PERF.dbName, PERF.dbVersion);
+                req.onupgradeneeded = () => {
+                    const db = req.result;
+                    if (!db.objectStoreNames.contains(PERF.store)) {
+                        db.createObjectStore(PERF.store, { keyPath: 'id' });
+                    }
+                };
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => resolve(null);
+            } catch (_) { resolve(null); }
+        });
+        return PERF.dbPromise;
+    }
+
+    async function idbGet(id) {
+        const db = await openCacheDB();
+        if (!db) return null;
+        return new Promise(resolve => {
+            try {
+                const tx = db.transaction(PERF.store, 'readonly');
+                const req = tx.objectStore(PERF.store).get(String(id));
+                req.onsuccess = () => resolve(req.result?.data || null);
+                req.onerror = () => resolve(null);
+            } catch (_) { resolve(null); }
+        });
+    }
+
+    async function idbPut(id, data) {
+        const db = await openCacheDB();
+        if (!db || !data) return false;
+        return new Promise(resolve => {
+            try {
+                const tx = db.transaction(PERF.store, 'readwrite');
+                tx.objectStore(PERF.store).put({ id: String(id), data, savedAt: Date.now() });
+                tx.oncomplete = () => resolve(true);
+                tx.onerror = () => resolve(false);
+                tx.onabort = () => resolve(false);
+            } catch (_) { resolve(false); }
+        });
+    }
+
+    function setLoadingStatus(message, kind = 'info') {
+        const host = document.getElementById('dynamicBooksContainer');
+        if (!host) return;
+        let el = host.querySelector('.library-load-status');
+        if (!el) {
+            el = document.createElement('div');
+            el.className = 'library-load-status';
+            host.prepend(el);
+        }
+        el.dataset.kind = kind;
+        el.innerHTML = `<i class="fas ${kind === 'error' ? 'fa-triangle-exclamation' : 'fa-bolt'}"></i><span>${escapeHtml(message)}</span>`;
+    }
+
+    function setLibraryStats() {
+        const count = Object.keys(allBooksManifest || {}).length;
+        document.querySelectorAll('[data-library-book-count]').forEach(el => {
+            el.textContent = count.toLocaleString('ar-IQ');
+        });
+    }
+
+    function enhanceHomeStats() {
+        const header = document.querySelector('#homeView .royal-header');
+        if (!header || header.querySelector('.v10-library-status')) return;
+        const badge = document.createElement('div');
+        badge.className = 'v10-library-status';
+        badge.innerHTML = `<i class="fas fa-database"></i><span><b data-library-book-count>—</b> متن</span>`;
+        header.appendChild(badge);
+    }
+
+    // ذاكرة + IndexedDB + localStorage قبل الشبكة.
+    const originalFetchBookData = fetchBookData;
+    fetchBookData = async function(bookId) {
+        const id = String(bookId || '').trim();
+        if (!id) throw new Error('معرّف الكتاب فارغ');
+        if (PERF.memory.has(id)) return PERF.memory.get(id);
+        if (PERF.pending.has(id)) return PERF.pending.get(id);
+
+        const task = (async () => {
+            // قاعدة المتصفح طويلة الأمد.
+            const dbData = await idbGet(id);
+            if (dbData?.pages) {
+                PERF.memory.set(id, dbData);
+                return dbData;
+            }
+
+            // التوافق مع النسخة القديمة من التطبيق.
+            try {
+                const old = localStorage.getItem(`book_pages_${id}`);
+                const parsed = safeJson(old, null);
+                if (parsed?.length) {
+                    const data = { pages: parsed };
+                    PERF.memory.set(id, data);
+                    void idbPut(id, data);
+                    return data;
+                }
+            } catch (_) {}
+
+            // إن كان الـManifest يملك مساراً مباشراً استخدمه أولاً.
+            const manifestBook = allBooksManifest[id] || {};
+            const directCandidates = [
+                manifestBook.json_url, manifestBook.url, manifestBook.json,
+                manifestBook.file, manifestBook.file_path, manifestBook.path, manifestBook.src
+            ].filter(v => typeof v === 'string' && /\.json(?:$|\?)/i.test(v));
+
+            for (const candidate of [...new Set(directCandidates)]) {
+                try {
+                    const res = await fetchWithTimeout(candidate, { cache: 'default' }, 6500);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data) {
+                            PERF.memory.set(id, data);
+                            void idbPut(id, data);
+                            return data;
+                        }
+                    }
+                } catch (_) {}
+            }
+
+            const data = await originalFetchBookData(id);
+            PERF.memory.set(id, data);
+            void idbPut(id, data);
+            return data;
+        })();
+
+        PERF.pending.set(id, task);
+        try { return await task; }
+        finally { PERF.pending.delete(id); }
+    };
+
+    // منع تكرار الضغط السريع على التالي/السابق، مع حفظ سلس للتقدم.
+    let pageFrame = 0;
+    const originalRenderCurrentPage = renderCurrentPage;
+    renderCurrentPage = function() {
+        cancelAnimationFrame(pageFrame);
+        pageFrame = requestAnimationFrame(() => {
+            try { originalRenderCurrentPage(); }
+            catch (error) {
+                console.error('[Reader] renderCurrentPage failed', error);
+                const content = document.getElementById('pageContent');
+                if (content) content.innerHTML = '<div class="v10-error-state"><i class="fas fa-triangle-exclamation"></i><b>تعذر عرض الصفحة</b><span>جرّب الانتقال للصفحة التالية ثم العودة.</span></div>';
+            }
+        });
+    };
+
+    // تحميل الفهارس بدون cache-busting وبإجراءات مرحلية أسرع.
+    const originalLoadLibraryManifest = loadLibraryManifest;
+    loadLibraryManifest = async function() {
+        setLoadingStatus('يتم تجهيز فهارس المكتبة…');
+        const started = performance.now();
+        try {
+            // تنفيذ المحرك الأصلي بعد تغيير سياسة الشبكة؛ نتجنب إعادة تصميم خريطة البيانات.
+            await originalLoadLibraryManifest();
+            PERF.manifestReady = true;
+            setLibraryStats();
+            enhanceHomeStats();
+            const elapsed = Math.round(performance.now() - started);
+            document.body.dataset.libraryReady = 'true';
+            window.dispatchEvent(new CustomEvent('jalis:library-ready', {
+                detail: { books: Object.keys(allBooksManifest || {}).length, ms: elapsed }
+            }));
+        } catch (error) {
+            document.body.dataset.libraryReady = 'error';
+            setLoadingStatus('تعذر تجهيز الفهرس. حاول تحديث الصفحة.', 'error');
+            throw error;
+        }
+    };
+
+    // اختصارات عملية للقارئ على الكمبيوتر والهواتف ذات لوحة المفاتيح.
+    document.addEventListener('keydown', event => {
+        const tag = String(event.target?.tagName || '').toLowerCase();
+        const typing = tag === 'input' || tag === 'textarea' || event.target?.isContentEditable;
+        if (typing) return;
+        if (document.getElementById('readerView')?.classList.contains('active')) {
+            if (event.key === 'ArrowRight') { event.preventDefault(); prevPage(); }
+            else if (event.key === 'ArrowLeft') { event.preventDefault(); nextPage(); }
+        }
+    }, { passive: false });
+
+    // حفظ رابط الكتاب والصفحة مرة واحدة لكل frame بدلاً من تحديث متكرر.
+    const originalSyncReaderUrl = syncReaderUrl;
+    syncReaderUrl = function(pageIndex = currentPageIndex, replace = true) {
+        const now = performance.now();
+        if (now - PERF.lastUrlSync < 80) return;
+        PERF.lastUrlSync = now;
+        return originalSyncReaderUrl(pageIndex, replace);
+    };
+
+    // تحسينات الوصول والأمان البصري.
+    document.documentElement.style.setProperty('scroll-behavior', 'smooth');
+    document.addEventListener('error', event => {
+        const target = event.target;
+        if (target?.tagName === 'IMG' && target.dataset?.coverTitle) handleCoverError(target);
+    }, true);
+
+    // أعطِ المستخدم حالة جاهزية من دون إدخال تبعيات أو ملفات جديدة.
+    window.addEventListener('jalis:library-ready', event => {
+        const count = event.detail?.books || 0;
+        setLibraryStats();
+        const badge = document.querySelector('.v10-library-status');
+        if (badge) badge.title = `تم تجهيز ${count.toLocaleString('ar-IQ')} متن خلال ${event.detail?.ms || 0}ms`;
+    }, { passive: true });
+
+    // التهيئة بعد تحميل DOM لأن هذا الملف موجود في نهاية الصفحة، مع حماية من التكرار.
+    const start = () => {
+        try { enhanceHomeStats(); } catch (_) {}
+        void loadLibraryManifest();
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
+    else start();
+
+    // تشخيص غير مزعج: الأخطاء لا توقف بقية التطبيق.
+    window.addEventListener('error', e => console.warn('[Jalis] runtime warning:', e.error || e.message), { passive: true });
+    window.addEventListener('unhandledrejection', e => console.warn('[Jalis] async warning:', e.reason), { passive: true });
+})();
