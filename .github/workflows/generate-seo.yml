@@ -7,7 +7,7 @@ on:
       - master
     paths:
       - '**/*.json'
-      - 'tools/generate-seo.mjs'
+      - 'generate-seo.mjs'
       - '.github/workflows/generate-seo.yml'
   workflow_dispatch:
 
@@ -16,26 +16,34 @@ permissions:
 
 jobs:
   generate:
+    name: Generate SEO pages
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Generate SEO pages
-        run: node tools/generate-seo.mjs
+        run: node generate-seo.mjs
 
       - name: Commit generated SEO files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add books pages authors topics seo-index.html seo-sitemaps sitemap.xml
+          git add \
+            books \
+            pages \
+            authors \
+            topics \
+            seo-index.html \
+            seo-sitemaps \
+            sitemap.xml
 
           if git diff --cached --quiet; then
             echo "No SEO changes to commit."
